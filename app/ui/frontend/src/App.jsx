@@ -377,6 +377,7 @@ function App() {
           onClose={() => setShowNewFileDialog(false)}
           onConfirm={handleNewFileConfirm}
           rootDirs={rootDirs}
+          theme={editorTheme}
         />
       )}
 

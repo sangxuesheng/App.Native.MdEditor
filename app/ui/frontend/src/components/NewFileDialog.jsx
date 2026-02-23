@@ -180,7 +180,7 @@ categories: [分类]
   }
 ];
 
-const NewFileDialog = ({ onClose, onConfirm, rootDirs }) => {
+const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
   const [step, setStep] = useState(1); // 1: 选择模板, 2: 选择位置和文件名
   const [selectedTemplate, setSelectedTemplate] = useState('blank');
   const [fileName, setFileName] = useState('');
@@ -267,7 +267,7 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs }) => {
   const selectedTemplateData = TEMPLATES.find(t => t.id === selectedTemplate);
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
+    <div className={`dialog-overlay ${theme === 'light' ? 'theme-light' : 'theme-dark'}`} onClick={onClose}>
       <div className="dialog-content new-file-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>新建文件</h2>
