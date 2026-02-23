@@ -353,3 +353,112 @@
   }
 }
 
+
+/* ==================== 浅色主题 ==================== */
+.app.theme-light {
+  background: #ffffff;
+  color: #24292f;
+}
+
+.app.theme-light .toolbar {
+  background: linear-gradient(135deg, #f6f8fa 0%, #ffffff 100%);
+  border-bottom-color: #d0d7de;
+}
+
+.app.theme-light .title {
+  color: #0969da;
+}
+
+.app.theme-light .file-path {
+  color: #57606a;
+}
+
+.app.theme-light .btn-icon {
+  border-color: #d0d7de;
+  color: #57606a;
+}
+
+.app.theme-light .btn-icon:hover {
+  background: #f6f8fa;
+  border-color: #0969da;
+  color: #0969da;
+}
+
+.app.theme-light .btn-icon.active {
+  background: #0969da;
+  border-color: #0969da;
+  color: #fff;
+}
+
+.app.theme-light .editor-pane,
+.app.theme-light .preview-pane {
+  background: #ffffff;
+  border-color: #d0d7de;
+}
+
+.app.theme-light .preview-pane {
+  background: #ffffff;
+}
+
+.app.theme-light .markdown-body {
+  color: #24292f !important;
+}
+
+.app.theme-light .markdown-body h1,
+.app.theme-light .markdown-body h2 {
+  border-bottom-color: #d0d7de !important;
+}
+
+.app.theme-light .markdown-body code {
+  background: #f6f8fa !important;
+  color: #0969da !important;
+}
+
+.app.theme-light .markdown-body pre {
+  background: #f6f8fa !important;
+  border-color: #d0d7de;
+}
+
+.app.theme-light .markdown-body table th,
+.app.theme-light .markdown-body table td {
+  border-color: #d0d7de !important;
+}
+
+.app.theme-light .markdown-body table th {
+  background: #f6f8fa !important;
+}
+
+.app.theme-light .markdown-body table tr:nth-child(even) {
+  background: #ffffff !important;
+}
+
+.app.theme-light .markdown-body blockquote {
+  border-left-color: #0969da !important;
+  color: #57606a !important;
+}
+
+.app.theme-light .markdown-body a {
+  color: #0969da !important;
+}
+
+.app.theme-light .mermaid {
+  background: #f6f8fa;
+}
+
+.app.theme-light .statusbar {
+  background: #f6f8fa;
+  border-top-color: #d0d7de;
+  color: #57606a;
+}
+
+.app.theme-light ::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+
+.app.theme-light ::-webkit-scrollbar-thumb {
+  background: #d0d7de;
+}
+
+.app.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: #afb8c1;
+}
