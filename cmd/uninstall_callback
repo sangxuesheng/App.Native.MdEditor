@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# 卸载回调脚本（uninstall_callback）
+# - 根据后续 wizard/uninstall 结果决定是否清理数据
+
+echo "App.Native.MdEditor uninstall_callback running..."
+exit 0
+
+

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# 安装回调脚本（install_callback）
+# - 安装完成后的初始化逻辑（如创建配置文件、日志目录等）
+# - 需保证幂等，多次执行不会出错
+
+mkdir -p "${TRIM_PKGVAR}"
+touch "${TRIM_PKGVAR}/md-editor.log"
+
+exit 0
+
+

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# 更新回调脚本（upgrade_callback）
+# - 通常用于配置迁移、数据结构升级等
+
+echo "App.Native.MdEditor upgrade_callback running..."
+exit 0
+
+

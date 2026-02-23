@@ -1,0 +1,30 @@
+# Node modules
+node_modules/
+node_modules.bak/
+
+# Build output
+dist/
+*.fpk
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Package lock (optional, 可以根据需要调整)
+# package-lock.json
+

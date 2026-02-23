@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# 安装初始化脚本（install_init）
+# - 安装前的环境检查与准备逻辑（保持幂等）
+
+echo "App.Native.MdEditor install_init running..."
+exit 0
+
+

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# 更新初始化脚本（upgrade_init）
+
+echo "App.Native.MdEditor upgrade_init running..."
+exit 0
+
+

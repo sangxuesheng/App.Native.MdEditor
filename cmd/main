@@ -1,0 +1,142 @@
+#!/bin/bash
+
+# App.Native.MdEditor 主控制脚本
+# - start/stop/status 需符合飞牛 fnOS 规范
+# - 运行 Node.js 后端服务，日志与 PID 存放在 ${TRIM_PKGVAR}
+
+LOG_FILE="${TRIM_PKGVAR}/md-editor.log"
+PID_FILE="${TRIM_PKGVAR}/md-editor.pid"
+
+# Node.js 运行环境（需与 manifest.install_dep_apps 对应）
+export PATH=/var/apps/nodejs_v22/target/bin:$PATH
+
+PORT="${TRIM_SERVICE_PORT:-18080}"
+
+log_msg() {
+  local msg="$1"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ${msg}" >> "${LOG_FILE}"
+}
+
+check_process() {
+  local pid="$1"
+  if kill -0 "${pid}" 2>/dev/null; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+status_app() {
+  if [ -f "${PID_FILE}" ]; then
+    local pid
+    pid="$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')"
+    if [ -n "${pid}" ] && check_process "${pid}"; then
+      return 0
+    else
+      rm -f "${PID_FILE}"
+    fi
+  fi
+  return 1
+}
+
+start_app() {
+  if status_app; then
+    log_msg "backend already running"
+    return 0
+  fi
+
+  mkdir -p "${TRIM_PKGVAR}"
+  log_msg "starting backend on port ${PORT} ..."
+
+  # 后端入口：安装到系统后，server.js 位于 ${TRIM_APPDEST}/server/server.js
+  if [ ! -f "${TRIM_APPDEST}/server/server.js" ]; then
+    echo "后端入口文件不存在：${TRIM_APPDEST}/server/server.js" > "${TRIM_TEMP_LOGFILE}"
+    log_msg "backend entry not found at ${TRIM_APPDEST}/server/server.js"
+    exit 1
+  fi
+
+  # 检查 node 是否可用
+  if ! command -v node >/dev/null 2>&1; then
+    echo "未找到 node 命令，请确认依赖应用 nodejs_v22 已正确安装并可用。" > "${TRIM_TEMP_LOGFILE}"
+    log_msg "node command not found in PATH=${PATH}"
+    exit 1
+  fi
+
+  PORT="${PORT}" node "${TRIM_APPDEST}/server/server.js" >> "${LOG_FILE}" 2>&1 &
+  local pid="$!"
+
+  if [ -z "${pid}" ]; then
+    echo "启动后端进程失败" > "${TRIM_TEMP_LOGFILE}"
+    log_msg "failed to start backend: empty pid"
+    exit 1
+  fi
+
+  echo "${pid}" > "${PID_FILE}"
+  log_msg "backend started, pid=${pid}"
+}
+
+stop_app() {
+  log_msg "stopping backend ..."
+
+  if [ ! -f "${PID_FILE}" ]; then
+    log_msg "pid file not found, treat as stopped"
+    return 0
+  fi
+
+  local pid
+  pid="$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')"
+
+  if [ -z "${pid}" ] || ! check_process "${pid}"; then
+    log_msg "process not running, cleanup pid file"
+    rm -f "${PID_FILE}"
+    return 0
+  fi
+
+  kill -TERM "${pid}" >> "${LOG_FILE}" 2>&1 || true
+
+  local count=0
+  while check_process "${pid}" && [ "${count}" -lt 10 ]; do
+    sleep 1
+    count=$((count + 1))
+    log_msg "waiting backend exit... (${count}s/10s)"
+  done
+
+  if check_process "${pid}"; then
+    log_msg "backend not exit, send KILL"
+    kill -KILL "${pid}" >> "${LOG_FILE}" 2>&1 || true
+    sleep 1
+  fi
+
+  rm -f "${PID_FILE}"
+  log_msg "backend stopped"
+}
+
+case "$1" in
+  start)
+    if start_app; then
+      exit 0
+    else
+      # start_app 内部如果失败，会写 TRIM_TEMP_LOGFILE 并 exit 1
+      exit 1
+    fi
+    ;;
+  stop)
+    if stop_app; then
+      exit 0
+    else
+      exit 1
+    fi
+    ;;
+  status)
+    if status_app; then
+      exit 0
+    else
+      exit 3
+    fi
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+
+

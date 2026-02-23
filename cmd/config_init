@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# 配置初始化脚本（config_init）
+
+echo "App.Native.MdEditor config_init running..."
+exit 0
+
+

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# 卸载初始化脚本（uninstall_init）
+
+echo "App.Native.MdEditor uninstall_init running..."
+exit 0
+
+
