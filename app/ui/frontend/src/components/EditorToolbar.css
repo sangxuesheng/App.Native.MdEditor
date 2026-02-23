@@ -85,3 +85,40 @@
   }
 }
 
+
+/* ==================== 浅色主题 ==================== */
+.theme-light .editor-toolbar {
+  background: #f6f8fa;
+  border-bottom-color: #d0d7de;
+}
+
+.theme-light .toolbar-btn {
+  border-color: #d0d7de;
+  color: #57606a;
+}
+
+.theme-light .toolbar-btn:hover:not(:disabled) {
+  background: #eaeef2;
+  border-color: #0969da;
+  color: #0969da;
+}
+
+.theme-light .toolbar-btn:active:not(:disabled) {
+  background: #d0d7de;
+}
+
+.theme-light .toolbar-divider {
+  background: #d0d7de;
+}
+
+.theme-light .editor-toolbar::-webkit-scrollbar-track {
+  background: #f6f8fa;
+}
+
+.theme-light .editor-toolbar::-webkit-scrollbar-thumb {
+  background: #d0d7de;
+}
+
+.theme-light .editor-toolbar::-webkit-scrollbar-thumb:hover {
+  background: #afb8c1;
+}

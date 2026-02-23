@@ -128,3 +128,65 @@
   background: #484f58;
 }
 
+
+/* ==================== 浅色主题 ==================== */
+.theme-light .file-tree {
+  background: #f6f8fa;
+  border-right-color: #d0d7de;
+}
+
+.theme-light .file-tree-header {
+  border-bottom-color: #d0d7de;
+}
+
+.theme-light .file-tree-header h3 {
+  color: #24292f;
+}
+
+.theme-light .file-tree-search {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-light .file-tree-search:focus {
+  border-color: #0969da;
+}
+
+.theme-light .file-tree-search::placeholder {
+  color: #57606a;
+}
+
+.theme-light .file-tree-loading,
+.theme-light .file-tree-empty {
+  color: #57606a;
+}
+
+.theme-light .file-tree-error {
+  color: #cf222e;
+}
+
+.theme-light .tree-node-content {
+  color: #24292f;
+}
+
+.theme-light .tree-node-content:hover {
+  background: #eaeef2;
+}
+
+.theme-light .tree-node-content.active {
+  background: #0969da;
+  color: #ffffff;
+}
+
+.theme-light .file-tree-content::-webkit-scrollbar-track {
+  background: #f6f8fa;
+}
+
+.theme-light .file-tree-content::-webkit-scrollbar-thumb {
+  background: #d0d7de;
+}
+
+.theme-light .file-tree-content::-webkit-scrollbar-thumb:hover {
+  background: #afb8c1;
+}
