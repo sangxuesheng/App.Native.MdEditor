@@ -1,0 +1,160 @@
+/* 另存为对话框 */
+.save-as-dialog {
+  width: 600px;
+}
+
+/* 当前文件信息 */
+.current-file-info {
+  margin-bottom: 24px;
+  padding: 12px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+
+.theme-light .current-file-info {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+.current-file-info label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.theme-light .current-file-info label {
+  color: #57606a;
+}
+
+.current-file-path {
+  font-size: 13px;
+  color: #c9d1d9;
+  font-family: 'JetBrains Mono', monospace;
+  word-break: break-all;
+}
+
+.theme-light .current-file-path {
+  color: #24292f;
+}
+
+/* 目标路径预览 */
+.target-path-preview {
+  margin-top: 20px;
+  padding: 12px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+
+.theme-light .target-path-preview {
+  background: #ffffff;
+  border-color: #d0d7de;
+}
+
+.target-path-preview label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.theme-light .target-path-preview label {
+  color: #57606a;
+}
+
+.preview-path {
+  font-size: 13px;
+  color: #58a6ff;
+  font-family: 'JetBrains Mono', monospace;
+  word-break: break-all;
+}
+
+.theme-light .preview-path {
+  color: #0969da;
+}
+
+/* 覆盖确认 */
+.overwrite-confirm {
+  text-align: center;
+  padding: 20px;
+}
+
+.confirm-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.overwrite-confirm h3 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.theme-light .overwrite-confirm h3 {
+  color: #24292f;
+}
+
+.overwrite-confirm p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #8b949e;
+  line-height: 1.6;
+}
+
+.theme-light .overwrite-confirm p {
+  color: #57606a;
+}
+
+.confirm-path {
+  margin: 16px 0;
+  padding: 12px;
+  background: #161b22;
+  border: 1px solid #f85149;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #f85149;
+  font-family: 'JetBrains Mono', monospace;
+  word-break: break-all;
+}
+
+.theme-light .confirm-path {
+  background: #ffebe9;
+  border-color: #cf222e;
+  color: #cf222e;
+}
+
+/* 危险按钮 */
+.btn-danger {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: linear-gradient(135deg, #da3633 0%, #f85149 100%);
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #f85149 0%, #ff6b6b 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(248, 81, 73, 0.3);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .save-as-dialog {
+    width: 95vw;
+  }
+}
+
