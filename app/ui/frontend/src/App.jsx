@@ -496,6 +496,37 @@ function App() {
     }
   }
 
+  // 视图菜单处理函数
+  const handleToggleToolbar = () => {
+    setShowToolbar(!showToolbar)
+  }
+
+  const handleZoomIn = () => {
+    setEditorFontSize(prev => Math.min(prev + 2, 32))
+  }
+
+  const handleZoomOut = () => {
+    setEditorFontSize(prev => Math.max(prev - 2, 10))
+  }
+
+  const handleZoomReset = () => {
+    setEditorFontSize(14)
+  }
+
+  // 帮助菜单处理函数
+  const handleShowMarkdownHelp = () => {
+    setShowMarkdownHelp(true)
+  }
+
+  const handleShowShortcuts = () => {
+    setShowShortcuts(true)
+  }
+
+  const handleShowAbout = () => {
+    setShowAbout(true)
+  }
+
+
   return (
     <div className={`app ${editorTheme === 'light' ? 'theme-light' : 'theme-dark'}`}>
       {showDraftDialog && (
@@ -648,7 +679,7 @@ function App() {
               onChange={(value) => setContent(value || '')}
               onMount={handleEditorMount}
               options={{
-                fontSize: 14,
+                fontSize: editorFontSize,
                 lineHeight: 24,
                 minimap: { enabled: false },
                 wordWrap: 'on',
