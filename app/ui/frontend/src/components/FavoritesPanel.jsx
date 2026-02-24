@@ -1,0 +1,98 @@
+import React, { useState } from 'react'
+import './FavoritesPanel.css'
+
+/**
+ * 收藏夹面板组件
+ */
+function FavoritesPanel({ 
+  favorites, 
+  onOpenFavorite, 
+  onRemoveFavorite,
+  onClearFavorites,
+  currentPath 
+}) {
+  const [isExpanded, setIsExpanded] = useState(true)
+
+  const handleToggle = () => {
+    setIsExpanded(!isExpanded)
+  }
+
+  const handleItemClick = (path) => {
+    onOpenFavorite(path)
+  }
+
+  const handleRemoveClick = (e, path) => {
+    e.stopPropagation()
+    onRemoveFavorite(path)
+  }
+
+  const getFavoriteIcon = (type, path) => {
+    if (type === 'directory') return '📁'
+    if (path.endsWith('.md')) return '📝'
+    if (path.endsWith('.txt')) return '📄'
+    if (path.endsWith('.json')) return '📋'
+    return '📄'
+  }
+
+  return (
+    <div className="favorites-panel">
+      <div className="favorites-header" onClick={handleToggle}>
+        <span className="favorites-toggle">{isExpanded ? '▼' : '▶'}</span>
+        <span className="favorites-title">⭐ 收藏夹</span>
+        <span className="favorites-count">({favorites.length})</span>
+      </div>
+
+      {isExpanded && (
+        <div className="favorites-content">
+          {favorites.length === 0 ? (
+            <div className="favorites-empty">
+              <span className="empty-icon">⭐</span>
+              <span className="empty-text">暂无收藏</span>
+              <span className="empty-hint">右键文件可添加收藏</span>
+            </div>
+          ) : (
+            <>
+              <div className="favorites-list">
+                {favorites.map((item) => (
+                  <div
+                    key={item.path}
+                    className={`favorite-item ${currentPath === item.path ? 'active' : ''}`}
+                    onClick={() => handleItemClick(item.path)}
+                    title={item.path}
+                  >
+                    <span className="favorite-icon">
+                      {getFavoriteIcon(item.type, item.path)}
+                    </span>
+                    <span className="favorite-name">{item.name}</span>
+                    <button
+                      className="favorite-remove"
+                      onClick={(e) => handleRemoveClick(e, item.path)}
+                      title="取消收藏"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              {favorites.length > 0 && (
+                <div className="favorites-actions">
+                  <button
+                    className="favorites-clear-btn"
+                    onClick={onClearFavorites}
+                    title="清空收藏夹"
+                  >
+                    清空收藏夹
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default FavoritesPanel
+

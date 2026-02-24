@@ -22,6 +22,7 @@ import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
 import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
+import { getFavorites, toggleFavorite, clearFavorites } from './utils/favoritesManager'
 // 初始化 Markdown 渲染器
 const md = new MarkdownIt({
   html: true,
@@ -66,6 +67,7 @@ function App() {
   const [showToolbar, setShowToolbar] = useState(true)
   const [editorFontSize, setEditorFontSize] = useState(14)
   const [recentFiles, setRecentFiles] = useState([])
+  const [favorites, setFavorites] = useState([])
   const [pendingDraft, setPendingDraft] = useState(null)
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const [rootDirs, setRootDirs] = useState([])
@@ -130,9 +132,10 @@ function App() {
     }
   })
 
-  // 加载最近文件列表
+  // 加载最近文件列表和收藏夹
   useEffect(() => {
     setRecentFiles(getRecentFiles())
+    setFavorites(getFavorites())
   }, [])
 
   // 加载根目录列表
@@ -548,6 +551,30 @@ function App() {
     setRecentFiles([])
   }
 
+  // 收藏夹处理函数
+  const handleToggleFavorite = (path, type = 'file') => {
+    const newState = toggleFavorite(path, type)
+    setFavorites(getFavorites())
+    return newState
+  }
+
+  const handleRemoveFavorite = (path) => {
+    toggleFavorite(path)
+    setFavorites(getFavorites())
+  }
+
+  const handleClearFavorites = () => {
+    if (window.confirm('确定要清空收藏夹吗？')) {
+      clearFavorites()
+      setFavorites([])
+    }
+  }
+
+  const handleOpenFavorite = (path) => {
+    setCurrentPath(path)
+    loadFile(path)
+  }
+
 
   return (
     <div className={`app ${editorTheme === 'light' ? 'theme-light' : 'theme-dark'}`}>
@@ -686,7 +713,14 @@ function App() {
 
       <main className={`main-content layout-${layout} ${showFileTree ? 'with-filetree' : ''}`}>
         {showFileTree && (
-          <FileTree onFileSelect={handleFileSelect} currentPath={currentPath} />
+          <FileTree 
+            onFileSelect={handleFileSelect} 
+            currentPath={currentPath}
+            favorites={favorites}
+            onOpenFavorite={handleOpenFavorite}
+            onRemoveFavorite={handleRemoveFavorite}
+            onClearFavorites={handleClearFavorites}
+          />
         )}
         {(layout === 'horizontal' || layout === 'vertical' || layout === 'editor-only') && (
           <div className="editor-pane">

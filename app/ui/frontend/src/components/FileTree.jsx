@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import FavoritesPanel from './FavoritesPanel';
 import './FileTree.css';
 
-const FileTree = ({ onFileSelect, currentPath }) => {
+const FileTree = ({ 
+  onFileSelect, 
+  currentPath,
+  favorites,
+  onOpenFavorite,
+  onRemoveFavorite,
+  onClearFavorites
+}) => {
   const [tree, setTree] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
   const [loading, setLoading] = useState(false);
@@ -151,6 +159,14 @@ const FileTree = ({ onFileSelect, currentPath }) => {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
+      
+      <FavoritesPanel
+        favorites={favorites || []}
+        onOpenFavorite={onOpenFavorite}
+        onRemoveFavorite={onRemoveFavorite}
+        onClearFavorites={onClearFavorites}
+        currentPath={currentPath}
+      />
       
       <div className="file-tree-content">
         {loading && tree.length === 0 && (
