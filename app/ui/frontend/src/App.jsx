@@ -424,6 +424,70 @@ function App() {
     })
   }
 
+  // MenuBar 处理函数
+  const handleMenuUndo = () => {
+    if (editorRef.current) {
+      editorRef.current.trigger('keyboard', 'undo')
+    }
+  }
+
+  const handleMenuRedo = () => {
+    if (editorRef.current) {
+      editorRef.current.trigger('keyboard', 'redo')
+    }
+  }
+
+  const handleMenuCopy = () => {
+    if (editorRef.current) {
+      editorRef.current.trigger('keyboard', 'editor.action.clipboardCopyAction')
+    }
+  }
+
+  const handleMenuPaste = () => {
+    if (editorRef.current) {
+      editorRef.current.trigger('keyboard', 'editor.action.clipboardPasteAction')
+    }
+  }
+
+  const handleMenuFormatDocument = () => {
+    if (editorRef.current) {
+      editorRef.current.getAction('editor.action.formatDocument').run()
+    }
+  }
+
+  const handleMenuFind = () => {
+    if (editorRef.current) {
+      editorRef.current.trigger('keyboard', 'actions.find')
+    }
+  }
+
+  const handleMenuReplace = () => {
+    if (editorRef.current) {
+      editorRef.current.trigger('keyboard', 'editor.action.startFindReplaceAction')
+    }
+  }
+
+  const handleInsertCode = (type) => {
+    if (!editorRef.current) return
+    
+    const templates = {
+      'strikethrough': ['~~', '~~', 'wrap'],
+      'ul': ['- ', '', 'line'],
+      'ol': ['1. ', '', 'line'],
+      'task': ['- [ ] ', '', 'line'],
+      'quote': ['>  ', '', 'line'],
+      'codeblock': ['```\n', '\n```', 'wrap'],
+      'inline': ['`', '`', 'wrap'],
+      'hr': ['\n---\n', '', 'insert'],
+      'math': ['$$\n', '\n$$', 'wrap'],
+      'mermaid': ['```mermaid\n', '\n```', 'wrap']
+    }
+    
+    if (templates[type]) {
+      handleToolbarInsert(...templates[type])
+    }
+  }
+
   return (
     <div className={`app ${editorTheme === 'light' ? 'theme-light' : 'theme-dark'}`}>
       {showDraftDialog && (
