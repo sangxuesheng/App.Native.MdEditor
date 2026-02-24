@@ -37,3 +37,42 @@
   background: var(--text-color);
   opacity: 0.5;
 }
+
+/* 最近文件样式 */
+.recent-files-submenu {
+  min-width: 300px;
+  max-width: 400px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.recent-file-item .menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 250px;
+}
+
+.recent-time {
+  font-size: 10px;
+  opacity: 0.5;
+  margin-left: 12px;
+}
+
+.recent-files-submenu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.recent-files-submenu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recent-files-submenu::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.recent-files-submenu::-webkit-scrollbar-thumb:hover {
+  background: var(--text-color);
+  opacity: 0.5;
+}
