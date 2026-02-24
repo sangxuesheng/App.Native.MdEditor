@@ -474,45 +474,47 @@ function App() {
         />
       )}
 
-      <MenuBar
-        onNewFile={handleNewFile}
-        onSave={() => autoSave.manualSave()}
-        onSaveAs={handleSaveAs}
-        onExport={(format) => {
-          if (format === 'copy') {
-            handleMenuCopy()
-          } else {
-            setShowExportDialog(true)
-          }
-        }}
-        onUndo={handleMenuUndo}
-        onRedo={handleMenuRedo}
-        onCopy={handleMenuCopy}
-        onPaste={handleMenuPaste}
-        onFormatDocument={handleMenuFormatDocument}
-        onFind={handleMenuFind}
-        onReplace={handleMenuReplace}
-        onInsertHeading={(level) => handleToolbarInsert('#'.repeat(level) + ' ', '', 'heading')}
-        onInsertBold={() => handleToolbarInsert('**', '**', 'wrap')}
-        onInsertItalic={() => handleToolbarInsert('*', '*', 'wrap')}
-        onInsertLink={() => handleToolbarInsert('[', '](https://)', 'wrap')}
-        onInsertImage={() => handleToolbarInsert('![', '](https://)', 'wrap')}
-        onInsertCode={handleInsertCode}
-        onInsertTable={() => handleToolbarInsert("\n| 列1 | 列2 |\n|-----|-----|\n| 内容 | 内容 |\n", "", "insert")}
-        onToggleFileTree={() => setShowFileTree(!showFileTree)}
-        onToggleTheme={toggleEditorTheme}
-        onSettings={handleSettings}
-        disabled={!currentPath}
-        theme={editorTheme}
-      />
-
       <header className="toolbar">
         <div className="toolbar-left">
           <h1 className="title">Markdown 编辑器</h1>
           {currentPath && <span className="file-path">{currentPath}</span>}
         </div>
         
+        <div className="toolbar-center">
+          <button className="btn-icon" onClick={() => setLayout('horizontal')} title="水平布局">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="1" y="2" width="14" height="5" rx="1"/>
+              <rect x="1" y="9" width="14" height="5" rx="1"/>
+            </svg>
+          </button>
+          <button className="btn-icon" onClick={() => setLayout('vertical')} title="垂直布局">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="2" y="1" width="5" height="14" rx="1"/>
+              <rect x="9" y="1" width="5" height="14" rx="1"/>
+            </svg>
+          </button>
+          <button className="btn-icon" onClick={() => setLayout('editor-only')} title="仅编辑器">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="1" y="1" width="14" height="14" rx="1"/>
+            </svg>
+          </button>
+          <button className="btn-icon" onClick={() => setLayout('preview-only')} title="仅预览">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="8" cy="8" r="7"/>
+            </svg>
+          </button>
+        </div>
+
         <div className="toolbar-right">
+          <button className="btn-icon" onClick={handleNewFile} title="新建文件">
+            新建
+          </button>
+          <button className="btn-icon" onClick={handleSaveAs} title="另存为" disabled={!content}>
+            另存为
+          </button>
+          <button className="btn-icon" onClick={handleExport} title="导出" disabled={!content}>
+            导出
+          </button>
           <button 
             className={`btn-icon ${autoSaveEnabled ? 'active' : ''}`}
             onClick={() => setAutoSaveEnabled(!autoSaveEnabled)} 
@@ -521,6 +523,15 @@ function App() {
             {autoSaveEnabled ? '自动' : '手动'}
           </button>
           {autoSave.hasChanges && <span className="unsaved-indicator" title="有未保存的更改">●</span>}
+          <button className="btn-icon" onClick={() => setShowFileTree(!showFileTree)} title="切换文件树">
+            文件
+          </button>
+          <button className="btn-icon" onClick={handleSettings} title="设置">
+            ⚙️
+          </button>
+          <button className="btn-icon" onClick={toggleEditorTheme} title={editorTheme === 'vs-dark' ? '切换到浅色模式' : '切换到深色模式'}>
+            {editorTheme === 'vs-dark' ? '🌙' : '☀️'}
+          </button>
           <button className="btn-primary" onClick={() => autoSave.manualSave()} disabled={!currentPath}>
             保存
           </button>
