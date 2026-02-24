@@ -4,46 +4,8 @@
     "items": [
       {
         "type": "tips",
-        "helpText": "欢迎安装 <strong>Markdown 编辑器</strong>。本应用将遵循飞牛 fnOS 权限与目录规范，仅在授权目录内读写文件。"
-      },
-      {
-        "type": "switch",
-        "field": "wizard_agree_terms",
-        "label": "我已阅读并同意使用条款",
-        "rules": [
-          {
-            "required": true,
-            "message": "请先同意使用条款"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "stepTitle": "基础配置",
-    "items": [
-      {
-        "type": "select",
-        "field": "wizard_default_encoding",
-        "label": "默认文件编码",
-        "initValue": "utf-8",
-        "options": [
-          { "label": "UTF-8（推荐）", "value": "utf-8" },
-          { "label": "GBK", "value": "gbk" }
-        ]
-      },
-      {
-        "type": "text",
-        "field": "wizard_auto_save_interval",
-        "label": "自动保存间隔（秒）",
-        "initValue": "30",
-        "rules": [
-          { "required": true, "message": "请输入自动保存间隔" },
-          { "pattern": "^[0-9]+$", "message": "自动保存间隔必须为数字" }
-        ]
+        "helpText": "欢迎安装 <strong>Markdown 编辑器 v1.3.0</strong>。本应用支持实时预览、语法高亮、自动保存、另存为、导出等功能。"
       }
     ]
   }
 ]
-
-

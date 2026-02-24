@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import Editor from '@monaco-editor/react'
 import MarkdownIt from 'markdown-it'
 import taskLists from 'markdown-it-task-lists'
 import footnote from 'markdown-it-footnote'
 import katex from 'markdown-it-katex'
-import mermaid from 'mermaid'
 import 'github-markdown-css/github-markdown-dark.css'
 import 'github-markdown-css/github-markdown-light.css'
 import FileTree from './components/FileTree'
 import DraftRecoveryDialog from './components/DraftRecoveryDialog'
 import EditorToolbar from './components/EditorToolbar'
 import NewFileDialog from './components/NewFileDialog'
+import SaveAsDialog from './components/SaveAsDialog'
+import ExportDialog from './components/ExportDialog'
+import SettingsDialog from './components/SettingsDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
 import './App.css'
@@ -26,12 +28,20 @@ const md = new MarkdownIt({
   .use(footnote)
   .use(katex)
 
-// 初始化 Mermaid
-mermaid.initialize({ 
-  startOnLoad: false,
-  theme: 'dark',
-  securityLevel: 'loose'
-})
+// Mermaid 懒加载
+let mermaidModule = null
+const loadMermaid = async () => {
+  if (!mermaidModule) {
+    const mermaid = await import('mermaid')
+    mermaidModule = mermaid.default
+    mermaidModule.initialize({ 
+      startOnLoad: false,
+      theme: 'dark',
+      securityLevel: 'loose'
+    })
+  }
+  return mermaidModule
+}
 
 function App() {
   const [content, setContent] = useState('')
@@ -42,27 +52,35 @@ function App() {
   const [showFileTree, setShowFileTree] = useState(true)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
+  const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [pendingDraft, setPendingDraft] = useState(null)
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const [rootDirs, setRootDirs] = useState([])
+  const [mermaidLoaded, setMermaidLoaded] = useState(false)
   const previewRef = useRef(null)
   const editorRef = useRef(null)
 
-  const toggleEditorTheme = () => {
+  const toggleEditorTheme = async () => {
     const newTheme = editorTheme === 'vs-dark' ? 'light' : 'vs-dark'
     setEditorTheme(newTheme)
-    mermaid.initialize({ 
-      startOnLoad: false,
-      theme: newTheme === 'light' ? 'default' : 'dark',
-      securityLevel: 'loose'
-    })
-    setTimeout(() => renderMarkdown(), 100)
+    
+    // 如果 Mermaid 已加载，更新主题
+    if (mermaidLoaded && mermaidModule) {
+      mermaidModule.initialize({ 
+        startOnLoad: false,
+        theme: newTheme === 'light' ? 'default' : 'dark',
+        securityLevel: 'loose'
+      })
+      setTimeout(() => renderMarkdown(), 100)
+    }
   }
 
-  const saveFile = async () => {
-    if (!currentPath) {
+  const saveFile = async (path = currentPath) => {
+    if (!path) {
       setStatus('未指定文件路径，无法保存')
-      return
+      return false
     }
 
     try {
@@ -70,19 +88,22 @@ function App() {
       const response = await fetch('/api/file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: currentPath, content })
+        body: JSON.stringify({ path, content })
       })
       const data = await response.json()
       
       if (data.ok) {
-        setStatus(`已保存: ${currentPath}`)
+        setStatus(`已保存: ${path}`)
         setTimeout(() => setStatus('就绪'), 2000)
+        return true
       } else {
         setStatus(`保存失败: ${data.message || data.code}`)
+        return false
       }
     } catch (error) {
       setStatus('保存失败: 网络错误')
       console.error('Save file error:', error)
+      return false
     }
   }
 
@@ -133,6 +154,8 @@ function App() {
 - ✅ Mermaid 流程图
 - ✅ 多种布局模式
 - ✅ 新建文件（支持模板）
+- ✅ 另存为
+- ✅ 导出功能（HTML/PDF/TXT）
 
 ## 快捷键
 - \`Ctrl/Cmd + S\`: 保存文件
@@ -215,7 +238,27 @@ function App() {
     setTimeout(() => setStatus('就绪'), 2000)
   }
 
-  const renderMarkdown = useCallback(() => {
+  const handleSaveAs = () => {
+    setShowSaveAsDialog(true)
+  }
+
+  const handleSaveAsConfirm = async (newPath) => {
+    const success = await saveFile(newPath)
+    if (success) {
+      setCurrentPath(newPath)
+      autoSave.reset()
+    }
+  }
+
+  const handleExport = () => {
+    setShowExportDialog(true)
+  }
+
+  const handleSettings = () => {
+    setShowSettingsDialog(true)
+  }
+
+  const renderMarkdown = useCallback(async () => {
     if (!previewRef.current) return
 
     let html = md.render(content)
@@ -223,10 +266,12 @@ function App() {
     const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
     let match
     let mermaidIndex = 0
+    const mermaidBlocks = []
     
     while ((match = mermaidRegex.exec(content)) !== null) {
       const code = match[1]
       const id = `mermaid-${mermaidIndex++}`
+      mermaidBlocks.push({ id, code })
       html = html.replace(
         /<pre><code class="language-mermaid">[\s\S]*?<\/code><\/pre>/,
         `<div class="mermaid" id="${id}">${code}</div>`
@@ -235,12 +280,29 @@ function App() {
 
     previewRef.current.innerHTML = html
 
-    if (mermaidIndex > 0) {
-      mermaid.run({
-        nodes: previewRef.current.querySelectorAll('.mermaid')
-      }).catch(err => console.error('Mermaid render error:', err))
+    // 只有在有 Mermaid 图表时才加载 Mermaid
+    if (mermaidBlocks.length > 0) {
+      try {
+        if (!mermaidLoaded) {
+          setStatus('正在加载 Mermaid...')
+        }
+        const mermaid = await loadMermaid()
+        setMermaidLoaded(true)
+        
+        await mermaid.run({
+          nodes: previewRef.current.querySelectorAll('.mermaid')
+        })
+        
+        if (!mermaidLoaded) {
+          setStatus('就绪')
+        }
+      } catch (err) {
+        console.error('Mermaid render error:', err)
+        setStatus('Mermaid 渲染失败')
+        setTimeout(() => setStatus('就绪'), 2000)
+      }
     }
-  }, [content])
+  }, [content, mermaidLoaded])
 
   useEffect(() => {
     renderMarkdown()
@@ -381,6 +443,36 @@ function App() {
         />
       )}
 
+      {showSaveAsDialog && (
+        <SaveAsDialog
+          onClose={() => setShowSaveAsDialog(false)}
+          onConfirm={handleSaveAsConfirm}
+          rootDirs={rootDirs}
+          currentPath={currentPath}
+          theme={editorTheme}
+        />
+      )}
+
+      {showExportDialog && (
+        <ExportDialog
+          onClose={() => setShowExportDialog(false)}
+          content={content}
+          currentPath={currentPath}
+          theme={editorTheme}
+          previewHtml={previewRef.current?.innerHTML}
+        />
+      )}
+
+      {showSettingsDialog && (
+        <SettingsDialog
+          onClose={() => setShowSettingsDialog(false)}
+          theme={editorTheme}
+          autoSaveEnabled={autoSaveEnabled}
+          onAutoSaveChange={setAutoSaveEnabled}
+          onThemeChange={toggleEditorTheme}
+        />
+      )}
+
       <header className="toolbar">
         <div className="toolbar-left">
           <h1 className="title">Markdown 编辑器</h1>
@@ -416,6 +508,12 @@ function App() {
           <button className="btn-icon" onClick={handleNewFile} title="新建文件">
             新建
           </button>
+          <button className="btn-icon" onClick={handleSaveAs} title="另存为" disabled={!content}>
+            另存为
+          </button>
+          <button className="btn-icon" onClick={handleExport} title="导出" disabled={!content}>
+            导出
+          </button>
           <button 
             className={`btn-icon ${autoSaveEnabled ? 'active' : ''}`}
             onClick={() => setAutoSaveEnabled(!autoSaveEnabled)} 
@@ -427,8 +525,11 @@ function App() {
           <button className="btn-icon" onClick={() => setShowFileTree(!showFileTree)} title="切换文件树">
             文件
           </button>
-          <button className="btn-icon" onClick={toggleEditorTheme} title={editorTheme === 'vs-dark' ? '切换到白色模式' : '切换到黑色模式'}>
-            {editorTheme === 'vs-dark' ? '深色' : '浅色'}
+          <button className="btn-icon" onClick={handleSettings} title="设置">
+            ⚙️
+          </button>
+          <button className="btn-icon" onClick={toggleEditorTheme} title={editorTheme === 'vs-dark' ? '切换到浅色模式' : '切换到深色模式'}>
+            {editorTheme === 'vs-dark' ? '🌙' : '☀️'}
           </button>
           <button className="btn-primary" onClick={() => autoSave.manualSave()} disabled={!currentPath}>
             保存
