@@ -64,6 +64,7 @@ function App() {
   const [showMarkdownHelp, setShowMarkdownHelp] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const [showToolbar, setShowToolbar] = useState(true)
   const [editorFontSize, setEditorFontSize] = useState(14)
   const [recentFiles, setRecentFiles] = useState([])
@@ -106,6 +107,9 @@ function App() {
       const data = await response.json()
       
       if (data.ok) {
+        // 保存历史记录
+        saveFileHistory(path, content)
+        
         setStatus(`已保存: ${path}`)
         setTimeout(() => setStatus('就绪'), 2000)
         return true
@@ -540,6 +544,30 @@ function App() {
     setShowAbout(true)
   }
 
+  // 文件历史处理函数
+  const handleShowHistory = () => {
+    if (!currentPath) {
+      setStatus('请先打开一个文件')
+      setTimeout(() => setStatus('就绪'), 2000)
+      return
+    }
+    setShowHistory(true)
+  }
+
+  const handleRestoreHistory = (historyContent) => {
+    setContent(historyContent)
+    setStatus('已恢复历史版本')
+    setTimeout(() => setStatus('就绪'), 2000)
+  }
+
+  const handleDeleteHistory = (timestamp) => {
+    if (currentPath) {
+      deleteHistoryVersion(currentPath, timestamp)
+      setStatus('已删除历史版本')
+      setTimeout(() => setStatus('就绪'), 2000)
+    }
+  }
+
   // 最近文件处理函数
   const handleOpenRecentFile = (filePath) => {
     setCurrentPath(filePath)
@@ -647,6 +675,18 @@ function App() {
         />
       )}
 
+      {showHistory && (
+        <FileHistoryDialog
+          filePath={currentPath}
+          currentContent={content}
+          history={getFileHistory(currentPath)}
+          onRestore={handleRestoreHistory}
+          onDelete={handleDeleteHistory}
+          onClose={() => setShowHistory(false)}
+          theme={editorTheme}
+        />
+      )}
+
       <MenuBar
         onNewFile={handleNewFile}
         onSave={() => autoSave.manualSave()}
@@ -683,6 +723,7 @@ function App() {
         onShowMarkdownHelp={handleShowMarkdownHelp}
         onShowShortcuts={handleShowShortcuts}
         onShowAbout={handleShowAbout}
+        onShowHistory={handleShowHistory}
         recentFiles={recentFiles}
         onOpenRecentFile={handleOpenRecentFile}
         onClearRecentFiles={handleClearRecentFiles}

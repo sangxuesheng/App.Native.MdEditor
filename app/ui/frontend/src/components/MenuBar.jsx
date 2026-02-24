@@ -37,6 +37,7 @@ function MenuBar({
   onShowMarkdownHelp,
   onShowShortcuts,
   onShowAbout,
+  onShowHistory,
   disabled,
   theme
 }) {
@@ -87,6 +88,7 @@ function MenuBar({
         { label: '另存为', shortcut: 'Ctrl+Shift+S', action: onSaveAs },
         { divider: true },
         { label: '最近文件', type: 'recent-files' },
+        { label: '文件历史', action: onShowHistory },
         { divider: true },
         { 
           label: '导出', 
