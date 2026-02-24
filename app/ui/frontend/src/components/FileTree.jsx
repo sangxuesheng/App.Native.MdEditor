@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import FavoritesPanel from './FavoritesPanel';
+import FileSearchBox from './FileSearchBox';
+import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
 import './FileTree.css';
 
 const FileTree = ({ 
@@ -91,24 +93,25 @@ const FileTree = ({
     }
   };
 
-  // 过滤树节点（搜索）
+  // 过滤树节点（搜索）- 使用增强的搜索算法
   const filterTree = (nodes, query) => {
-    if (!query) return nodes;
-    
-    const lowerQuery = query.toLowerCase();
-    return nodes.filter(node => {
-      if (node.name.toLowerCase().includes(lowerQuery)) {
-        return true;
-      }
-      if (node.children) {
-        const filteredChildren = filterTree(node.children, query);
-        if (filteredChildren.length > 0) {
-          node.children = filteredChildren;
-          return true;
-        }
-      }
-      return false;
-    });
+    return filterFileTree(nodes, query);
+  };
+
+  // 渲染高亮的文件名
+  const renderHighlightedName = (name, query) => {
+    const parts = highlightMatches(name, query);
+    return (
+      <>
+        {parts.map((part, index) => (
+          part.highlight ? (
+            <mark key={index} className="tree-node-highlight">{part.text}</mark>
+          ) : (
+            <span key={index}>{part.text}</span>
+          )
+        ))}
+      </>
+    );
   };
 
   // 渲染树节点
@@ -132,7 +135,7 @@ const FileTree = ({
           )}
           {!hasChildren && <span className="tree-node-icon">📄</span>}
           <span className="tree-node-name" title={node.path}>
-            {node.name}
+            {searchQuery ? renderHighlightedName(node.name, searchQuery) : node.name}
           </span>
         </div>
         
@@ -151,12 +154,10 @@ const FileTree = ({
     <div className="file-tree">
       <div className="file-tree-header">
         <h3>文件</h3>
-        <input
-          type="text"
-          className="file-tree-search"
-          placeholder="搜索文件..."
+        <FileSearchBox
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={setSearchQuery}
+          onSearch={setSearchQuery}
         />
       </div>
       

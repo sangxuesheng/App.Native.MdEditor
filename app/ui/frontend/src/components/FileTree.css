@@ -190,3 +190,24 @@
 .theme-light .file-tree-content::-webkit-scrollbar-thumb:hover {
   background: #afb8c1;
 }
+
+/* 搜索高亮样式 */
+.tree-node-highlight {
+  background: var(--highlight-bg);
+  color: var(--highlight-color);
+  padding: 1px 2px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+/* 深色主题高亮 */
+.theme-dark .tree-node-highlight {
+  --highlight-bg: #515c6a;
+  --highlight-color: #ffffff;
+}
+
+/* 浅色主题高亮 */
+.theme-light .tree-node-highlight {
+  --highlight-bg: #ffeb3b;
+  --highlight-color: #000000;
+}
