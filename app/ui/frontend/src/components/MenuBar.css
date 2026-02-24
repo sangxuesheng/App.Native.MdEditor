@@ -1,152 +1,39 @@
-.menubar {
-  display: flex;
-  align-items: center;
-  height: 32px;
-  background: var(--menubar-bg);
-  border-bottom: 1px solid var(--border-color);
-  padding: 0 8px;
-  font-size: 13px;
-  user-select: none;
-  position: relative;
-  z-index: 1000;
+
+/* 最近文件样式 */
+.recent-files-submenu {
+  min-width: 300px;
+  max-width: 400px;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
-.menu-item {
-  position: relative;
+.recent-file-item .menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 250px;
 }
 
-.menu-button {
-  background: transparent;
-  border: none;
-  color: var(--text-color);
-  padding: 4px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  border-radius: 4px;
-  transition: background-color 0.15s;
-}
-
-.menu-button:hover,
-.menu-button.active {
-  background: var(--menu-hover-bg);
-}
-
-.menu-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  min-width: 220px;
-  background: var(--dropdown-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  padding: 4px 0;
-  margin-top: 2px;
-  z-index: 1001;
-  animation: menuFadeIn 0.15s ease-out;
-}
-
-@keyframes menuFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.menu-dropdown-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text-color);
-  cursor: pointer;
-  font-size: 13px;
-  text-align: left;
-  transition: background-color 0.1s;
-  position: relative;
-}
-
-.menu-dropdown-item:hover:not(:disabled) {
-  background: var(--menu-item-hover-bg);
-}
-
-.menu-dropdown-item:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.menu-dropdown-item.has-submenu {
-  padding-right: 24px;
-}
-
-.menu-label {
-  flex: 1;
-}
-
-.menu-shortcut {
-  margin-left: 24px;
-  font-size: 11px;
-  opacity: 0.6;
-  font-family: monospace;
-}
-
-.menu-arrow {
-  position: absolute;
-  right: 8px;
+.recent-time {
   font-size: 10px;
-  opacity: 0.6;
+  opacity: 0.5;
+  margin-left: 12px;
 }
 
-.menu-divider {
-  height: 1px;
+.recent-files-submenu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.recent-files-submenu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recent-files-submenu::-webkit-scrollbar-thumb {
   background: var(--border-color);
-  margin: 4px 8px;
+  border-radius: 4px;
 }
 
-.menu-submenu {
-  position: absolute;
-  top: -4px;
-  left: 100%;
-  min-width: 200px;
-  background: var(--dropdown-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  padding: 4px 0;
-  margin-left: 4px;
-  display: none;
-  z-index: 1002;
-  animation: menuFadeIn 0.15s ease-out;
+.recent-files-submenu::-webkit-scrollbar-thumb:hover {
+  background: var(--text-color);
+  opacity: 0.5;
 }
-
-.menu-dropdown-item.has-submenu:hover .menu-submenu {
-  display: block;
-}
-
-/* 深色主题 */
-.theme-dark {
-  --menubar-bg: #1e1e1e;
-  --menu-hover-bg: #2d2d30;
-  --dropdown-bg: #252526;
-  --menu-item-hover-bg: #2a2d2e;
-  --border-color: #3e3e42;
-  --text-color: #cccccc;
-}
-
-/* 浅色主题 */
-.theme-light {
-  --menubar-bg: #f3f3f3;
-  --menu-hover-bg: #e8e8e8;
-  --dropdown-bg: #ffffff;
-  --menu-item-hover-bg: #e8e8e8;
-  --border-color: #d4d4d4;
-  --text-color: #333333;
-}
-

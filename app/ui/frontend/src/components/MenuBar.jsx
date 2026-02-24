@@ -9,6 +9,9 @@ function MenuBar({
   onSave, 
   onSaveAs, 
   onExport,
+  recentFiles,
+  onOpenRecentFile,
+  onClearRecentFiles,
   onUndo,
   onRedo,
   onCopy,
@@ -61,6 +64,20 @@ function MenuBar({
     setActiveMenu(null)
   }
 
+  const formatTime = (timestamp) => {
+    const now = Date.now()
+    const diff = now - timestamp
+    const seconds = Math.floor(diff / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+    
+    if (days > 0) return `${days}天前`
+    if (hours > 0) return `${hours}小时前`
+    if (minutes > 0) return `${minutes}分钟前`
+    return '刚刚'
+  }
+
   const menuConfig = [
     {
       name: '文件',
@@ -68,6 +85,8 @@ function MenuBar({
         { label: '新建', shortcut: 'Ctrl+N', action: onNewFile },
         { label: '保存', shortcut: 'Ctrl+S', action: onSave, disabled },
         { label: '另存为', shortcut: 'Ctrl+Shift+S', action: onSaveAs },
+        { divider: true },
+        { label: '最近文件', type: 'recent-files' },
         { divider: true },
         { 
           label: '导出', 
@@ -194,6 +213,44 @@ function MenuBar({
               {menu.items.map((item, index) => {
                 if (item.divider) {
                   return <div key={`divider-${index}`} className="menu-divider" />
+                }
+                
+                // 最近文件特殊处理
+                if (item.type === 'recent-files') {
+                  return (
+                    <div key="recent-files" className="menu-dropdown-item has-submenu">
+                      <span className="menu-label">{item.label}</span>
+                      <span className="menu-arrow">▶</span>
+                      <div className="menu-submenu recent-files-submenu">
+                        {recentFiles && recentFiles.length > 0 ? (
+                          <>
+                            {recentFiles.map((file, idx) => (
+                              <button
+                                key={file.path}
+                                className="menu-dropdown-item recent-file-item"
+                                onClick={() => handleMenuItemClick(() => onOpenRecentFile(file.path))}
+                                title={file.path}
+                              >
+                                <span className="menu-label">{file.name}</span>
+                                <span className="menu-shortcut recent-time">{formatTime(file.timestamp)}</span>
+                              </button>
+                            ))}
+                            <div className="menu-divider" />
+                            <button
+                              className="menu-dropdown-item"
+                              onClick={() => handleMenuItemClick(onClearRecentFiles)}
+                            >
+                              <span className="menu-label">清空列表</span>
+                            </button>
+                          </>
+                        ) : (
+                          <div className="menu-dropdown-item disabled">
+                            <span className="menu-label">无最近文件</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
                 }
                 
                 if (item.submenu) {

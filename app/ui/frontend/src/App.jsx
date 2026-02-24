@@ -20,6 +20,7 @@ import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
 import './App.css'
+import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 // 初始化 Markdown 渲染器
 const md = new MarkdownIt({
@@ -64,6 +65,7 @@ function App() {
   const [showAbout, setShowAbout] = useState(false)
   const [showToolbar, setShowToolbar] = useState(true)
   const [editorFontSize, setEditorFontSize] = useState(14)
+  const [recentFiles, setRecentFiles] = useState([])
   const [pendingDraft, setPendingDraft] = useState(null)
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const [rootDirs, setRootDirs] = useState([])
@@ -128,6 +130,11 @@ function App() {
     }
   })
 
+  // 加载最近文件列表
+  useEffect(() => {
+    setRecentFiles(getRecentFiles())
+  }, [])
+
   // 加载根目录列表
   useEffect(() => {
     const loadRootDirs = async () => {
@@ -188,6 +195,10 @@ function App() {
       
       if (data.ok) {
         const fileContent = data.content || ''
+        
+        // 添加到最近文件列表
+        addRecentFile(path)
+        setRecentFiles(getRecentFiles())
         
         if (hasDraft(path, fileContent)) {
           const draft = getDraft(path)
@@ -526,6 +537,17 @@ function App() {
     setShowAbout(true)
   }
 
+  // 最近文件处理函数
+  const handleOpenRecentFile = (filePath) => {
+    setCurrentPath(filePath)
+    loadFile(filePath)
+  }
+
+  const handleClearRecentFiles = () => {
+    clearRecentFiles()
+    setRecentFiles([])
+  }
+
 
   return (
     <div className={`app ${editorTheme === 'light' ? 'theme-light' : 'theme-dark'}`}>
@@ -634,6 +656,9 @@ function App() {
         onShowMarkdownHelp={handleShowMarkdownHelp}
         onShowShortcuts={handleShowShortcuts}
         onShowAbout={handleShowAbout}
+        recentFiles={recentFiles}
+        onOpenRecentFile={handleOpenRecentFile}
+        onClearRecentFiles={handleClearRecentFiles}
         disabled={!currentPath}
         theme={editorTheme}
       />
