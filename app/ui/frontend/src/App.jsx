@@ -22,7 +22,7 @@ import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
 import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
-import { getFavorites, toggleFavorite, clearFavorites } from './utils/favoritesManager'
+import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
 // 初始化 Markdown 渲染器
 const md = new MarkdownIt({
   html: true,
@@ -202,6 +202,20 @@ function App() {
       
       if (data.ok) {
         const fileContent = data.content || ''
+        
+        // 检查文件大小
+        const fileSizeKB = fileContent.length / 1024
+        if (fileSizeKB > 1024) { // 大于 1MB
+          const fileSizeMB = (fileSizeKB / 1024).toFixed(2)
+          const confirmed = window.confirm(
+            `文件较大（${fileSizeMB} MB），加载可能需要一些时间。是否继续？`
+          )
+          if (!confirmed) {
+            setStatus('已取消加载')
+            setTimeout(() => setStatus('就绪'), 2000)
+            return
+          }
+        }
         
         // 添加到最近文件列表
         addRecentFile(path)
@@ -598,6 +612,11 @@ function App() {
     }
   }
 
+  const handleReorderFavorites = (newFavorites) => {
+    updateFavoritesOrder(newFavorites)
+    setFavorites(newFavorites)
+  }
+
   const handleOpenFavorite = (path) => {
     setCurrentPath(path)
     loadFile(path)
@@ -761,6 +780,7 @@ function App() {
             onOpenFavorite={handleOpenFavorite}
             onRemoveFavorite={handleRemoveFavorite}
             onClearFavorites={handleClearFavorites}
+            onReorderFavorites={handleReorderFavorites}
           />
         )}
         {(layout === 'horizontal' || layout === 'vertical' || layout === 'editor-only') && (

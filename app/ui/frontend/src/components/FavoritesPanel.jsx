@@ -9,9 +9,11 @@ function FavoritesPanel({
   onOpenFavorite, 
   onRemoveFavorite,
   onClearFavorites,
+  onReorderFavorites,
   currentPath 
 }) {
   const [isExpanded, setIsExpanded] = useState(true)
+  const [draggedIndex, setDraggedIndex] = useState(null)
 
   const handleToggle = () => {
     setIsExpanded(!isExpanded)
@@ -24,6 +26,48 @@ function FavoritesPanel({
   const handleRemoveClick = (e, path) => {
     e.stopPropagation()
     onRemoveFavorite(path)
+  }
+
+  // 拖拽开始
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', index.toString())
+    // 添加拖拽样式
+    e.currentTarget.style.opacity = '0.5'
+  }
+
+  // 拖拽结束
+  const handleDragEnd = (e) => {
+    setDraggedIndex(null)
+    e.currentTarget.style.opacity = '1'
+  }
+
+  // 拖拽经过
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  // 放置
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault()
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      return
+    }
+
+    // 重新排序
+    const newFavorites = [...favorites]
+    const [draggedItem] = newFavorites.splice(draggedIndex, 1)
+    newFavorites.splice(dropIndex, 0, draggedItem)
+
+    // 更新顺序
+    if (onReorderFavorites) {
+      onReorderFavorites(newFavorites)
+    }
+
+    setDraggedIndex(null)
   }
 
   const getFavoriteIcon = (type, path) => {
@@ -53,13 +97,19 @@ function FavoritesPanel({
           ) : (
             <>
               <div className="favorites-list">
-                {favorites.map((item) => (
+                {favorites.map((item, index) => (
                   <div
                     key={item.path}
-                    className={`favorite-item ${currentPath === item.path ? 'active' : ''}`}
+                    className={`favorite-item ${currentPath === item.path ? 'active' : ''} ${draggedIndex === index ? 'dragging' : ''}`}
                     onClick={() => handleItemClick(item.path)}
                     title={item.path}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, index)}
                   >
+                    <span className="favorite-drag-handle" title="拖拽排序">⋮⋮</span>
                     <span className="favorite-icon">
                       {getFavoriteIcon(item.type, item.path)}
                     </span>
@@ -95,4 +145,3 @@ function FavoritesPanel({
 }
 
 export default FavoritesPanel
-

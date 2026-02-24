@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
 import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
+import { useDebounce } from '../hooks/useDebounce';
 import './FileTree.css';
 
 const FileTree = ({ 
@@ -10,13 +11,15 @@ const FileTree = ({
   favorites,
   onOpenFavorite,
   onRemoveFavorite,
-  onClearFavorites
+  onClearFavorites,
+  onReorderFavorites
 }) => {
   const [tree, setTree] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedQuery = useDebounce(searchQuery, 300);
 
   // 加载根目录
   useEffect(() => {
@@ -135,7 +138,7 @@ const FileTree = ({
           )}
           {!hasChildren && <span className="tree-node-icon">📄</span>}
           <span className="tree-node-name" title={node.path}>
-            {searchQuery ? renderHighlightedName(node.name, searchQuery) : node.name}
+            {debouncedQuery ? renderHighlightedName(node.name, debouncedQuery) : node.name}
           </span>
         </div>
         
@@ -148,7 +151,7 @@ const FileTree = ({
     );
   };
 
-  const filteredTree = filterTree([...tree], searchQuery);
+  const filteredTree = filterTree([...tree], debouncedQuery);
 
   return (
     <div className="file-tree">
@@ -166,6 +169,7 @@ const FileTree = ({
         onOpenFavorite={onOpenFavorite}
         onRemoveFavorite={onRemoveFavorite}
         onClearFavorites={onClearFavorites}
+        onReorderFavorites={onReorderFavorites}
         currentPath={currentPath}
       />
       

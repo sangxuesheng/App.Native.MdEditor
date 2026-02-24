@@ -191,3 +191,39 @@
   --scrollbar-thumb-hover: #a8a8a8;
 }
 
+
+/* 拖拽相关样式 */
+.favorite-drag-handle {
+  margin-right: 4px;
+  font-size: 12px;
+  opacity: 0.3;
+  cursor: grab;
+  user-select: none;
+}
+
+.favorite-item:hover .favorite-drag-handle {
+  opacity: 0.6;
+}
+
+.favorite-item.dragging {
+  opacity: 0.5;
+  background: var(--dragging-bg);
+}
+
+.favorite-item[draggable="true"] {
+  cursor: move;
+}
+
+.favorite-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* 深色主题拖拽 */
+.theme-dark {
+  --dragging-bg: #37373d;
+}
+
+/* 浅色主题拖拽 */
+.theme-light {
+  --dragging-bg: #d4d4d4;
+}
