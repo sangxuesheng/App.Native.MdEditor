@@ -1,0 +1,82 @@
+.markdown-help-content {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.help-section {
+  margin-bottom: 24px;
+}
+
+.help-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.help-example {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--code-bg);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.help-example code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--code-color);
+  padding: 4px 8px;
+  background: var(--code-inline-bg);
+  border-radius: 4px;
+}
+
+.help-example pre {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--code-color);
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* 深色主题 */
+.theme-dark .help-section h3 {
+  color: #e6edf3;
+}
+
+.theme-dark .help-example {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+.theme-dark .help-example code {
+  color: #79c0ff;
+  background: #0d1117;
+}
+
+.theme-dark .help-example pre {
+  color: #c9d1d9;
+}
+
+/* 浅色主题 */
+.theme-light .help-section h3 {
+  color: #24292f;
+}
+
+.theme-light .help-example {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+.theme-light .help-example code {
+  color: #0969da;
+  background: #ffffff;
+}
+
+.theme-light .help-example pre {
+  color: #24292f;
+}
+

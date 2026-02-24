@@ -1,0 +1,17 @@
+对于你的 v1.5.0 应用
+你现在可以：
+SSH 连接到飞牛 NAS
+进入应用开发目录：
+
+cd /vol4/1000/开发文件夹/mac
+
+修改前端代码后重新构建：
+
+   cd app/ui/frontend   export PATH=/var/apps/nodejs_v22/target/bin:$PATH   npm run build
+
+快速安装更新：
+
+   cd /vol4/1000/开发文件夹/mac   appcenter-cli install-local
+
+   
+这样就可以实现快速迭代开发，无需每次都手动打包 fpk 文件！

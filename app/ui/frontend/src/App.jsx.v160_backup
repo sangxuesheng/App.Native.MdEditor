@@ -14,9 +14,6 @@ import NewFileDialog from './components/NewFileDialog'
 import SaveAsDialog from './components/SaveAsDialog'
 import ExportDialog from './components/ExportDialog'
 import SettingsDialog from './components/SettingsDialog'
-import MarkdownHelpDialog from './components/MarkdownHelpDialog'
-import ShortcutsDialog from './components/ShortcutsDialog'
-import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
 import './App.css'
@@ -59,11 +56,6 @@ function App() {
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
-  const [showMarkdownHelp, setShowMarkdownHelp] = useState(false)
-  const [showShortcuts, setShowShortcuts] = useState(false)
-  const [showAbout, setShowAbout] = useState(false)
-  const [showToolbar, setShowToolbar] = useState(true)
-  const [editorFontSize, setEditorFontSize] = useState(14)
   const [pendingDraft, setPendingDraft] = useState(null)
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const [rootDirs, setRootDirs] = useState([])
@@ -546,27 +538,6 @@ function App() {
         />
       )}
 
-      {showMarkdownHelp && (
-        <MarkdownHelpDialog
-          onClose={() => setShowMarkdownHelp(false)}
-          theme={editorTheme}
-        />
-      )}
-
-      {showShortcuts && (
-        <ShortcutsDialog
-          onClose={() => setShowShortcuts(false)}
-          theme={editorTheme}
-        />
-      )}
-
-      {showAbout && (
-        <AboutDialog
-          onClose={() => setShowAbout(false)}
-          theme={editorTheme}
-        />
-      )}
-
       <MenuBar
         onNewFile={handleNewFile}
         onSave={() => autoSave.manualSave()}
@@ -595,14 +566,6 @@ function App() {
         onToggleFileTree={() => setShowFileTree(!showFileTree)}
         onToggleTheme={toggleEditorTheme}
         onSettings={handleSettings}
-        onToggleToolbar={handleToggleToolbar}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onZoomReset={handleZoomReset}
-        onLayoutChange={setLayout}
-        onShowMarkdownHelp={handleShowMarkdownHelp}
-        onShowShortcuts={handleShowShortcuts}
-        onShowAbout={handleShowAbout}
         disabled={!currentPath}
         theme={editorTheme}
       />
@@ -634,12 +597,10 @@ function App() {
         )}
         {(layout === 'horizontal' || layout === 'vertical' || layout === 'editor-only') && (
           <div className="editor-pane">
-            {showToolbar && (
-              <EditorToolbar 
-                onInsert={handleToolbarInsert} 
-                disabled={!editorRef.current}
-              />
-            )}
+            <EditorToolbar 
+              onInsert={handleToolbarInsert} 
+              disabled={!editorRef.current}
+            />
             <Editor
               height="100%"
               defaultLanguage="markdown"

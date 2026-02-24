@@ -26,6 +26,14 @@ function MenuBar({
   onToggleFileTree,
   onToggleTheme,
   onSettings,
+  onToggleToolbar,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset,
+  onLayoutChange,
+  onShowMarkdownHelp,
+  onShowShortcuts,
+  onShowAbout,
   disabled,
   theme
 }) {
@@ -140,10 +148,10 @@ function MenuBar({
     {
       name: '样式',
       items: [
-        { label: '水平布局', action: () => {} },
-        { label: '垂直布局', action: () => {} },
-        { label: '仅编辑器', action: () => {} },
-        { label: '仅预览', action: () => {} },
+        { label: '水平布局', action: () => onLayoutChange('horizontal') },
+        { label: '垂直布局', action: () => onLayoutChange('vertical') },
+        { label: '仅编辑器', action: () => onLayoutChange('editor-only') },
+        { label: '仅预览', action: () => onLayoutChange('preview-only') },
         { divider: true },
         { label: '切换主题', shortcut: 'Ctrl+T', action: onToggleTheme }
       ]
@@ -152,20 +160,20 @@ function MenuBar({
       name: '视图',
       items: [
         { label: '切换文件树', shortcut: 'Ctrl+B', action: onToggleFileTree },
-        { label: '切换工具栏', action: () => {} },
+        { label: '切换工具栏', action: onToggleToolbar },
         { divider: true },
-        { label: '放大', shortcut: 'Ctrl++', action: () => {} },
-        { label: '缩小', shortcut: 'Ctrl+-', action: () => {} },
-        { label: '重置缩放', shortcut: 'Ctrl+0', action: () => {} }
+        { label: '放大', shortcut: 'Ctrl++', action: onZoomIn },
+        { label: '缩小', shortcut: 'Ctrl+-', action: onZoomOut },
+        { label: '重置缩放', shortcut: 'Ctrl+0', action: onZoomReset }
       ]
     },
     {
       name: '帮助',
       items: [
-        { label: 'Markdown 语法', action: () => {} },
-        { label: '快捷键列表', action: () => {} },
+        { label: 'Markdown 语法', action: onShowMarkdownHelp },
+        { label: '快捷键列表', action: onShowShortcuts },
         { divider: true },
-        { label: '关于', action: () => {} }
+        { label: '关于', action: onShowAbout }
       ]
     }
   ]

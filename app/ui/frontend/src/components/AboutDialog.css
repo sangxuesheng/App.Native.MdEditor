@@ -1,0 +1,201 @@
+.about-dialog {
+  max-width: 500px;
+}
+
+.about-content {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.about-logo {
+  margin-bottom: 24px;
+}
+
+.logo-circle {
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.about-info {
+  margin-bottom: 32px;
+}
+
+.app-name {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.app-version {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.app-description {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.about-features,
+.about-tech {
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.about-features h4,
+.about-tech h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.about-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.about-features li {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background: var(--item-bg);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.about-features li:hover {
+  background: var(--item-hover-bg);
+  transform: translateX(4px);
+}
+
+.tech-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.tech-tag {
+  display: inline-block;
+  padding: 6px 12px;
+  background: var(--tag-bg);
+  color: var(--tag-color);
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--tag-border);
+  transition: all 0.2s;
+}
+
+.tech-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.about-footer-info {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.about-footer-info p {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 4px 0;
+}
+
+/* 深色主题 */
+.theme-dark .app-name {
+  color: #e6edf3;
+}
+
+.theme-dark .app-version,
+.theme-dark .app-description {
+  color: #8b949e;
+}
+
+.theme-dark .about-features h4,
+.theme-dark .about-tech h4 {
+  color: #e6edf3;
+}
+
+.theme-dark .about-features li {
+  background: #161b22;
+  color: #c9d1d9;
+}
+
+.theme-dark .about-features li:hover {
+  background: #1c2128;
+}
+
+.theme-dark .tech-tag {
+  background: #161b22;
+  color: #79c0ff;
+  border-color: #30363d;
+}
+
+.theme-dark .about-footer-info {
+  border-top-color: #30363d;
+}
+
+.theme-dark .about-footer-info p {
+  color: #6e7681;
+}
+
+/* 浅色主题 */
+.theme-light .app-name {
+  color: #24292f;
+}
+
+.theme-light .app-version,
+.theme-light .app-description {
+  color: #57606a;
+}
+
+.theme-light .about-features h4,
+.theme-light .about-tech h4 {
+  color: #24292f;
+}
+
+.theme-light .about-features li {
+  background: #f6f8fa;
+  color: #24292f;
+}
+
+.theme-light .about-features li:hover {
+  background: #eaeef2;
+}
+
+.theme-light .tech-tag {
+  background: #f6f8fa;
+  color: #0969da;
+  border-color: #d0d7de;
+}
+
+.theme-light .about-footer-info {
+  border-top-color: #d0d7de;
+}
+
+.theme-light .about-footer-info p {
+  color: #6e7781;
+}
+
