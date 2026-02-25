@@ -11,7 +11,10 @@ cd /vol4/1000/开发文件夹/mac
 
 快速安装更新：
 
-   cd /vol4/1000/开发文件夹/mac   appcenter-cli install-local
+cd /vol4/1000/开发文件夹/mac 
+     appcenter-cli install-local
 
-   
+
 这样就可以实现快速迭代开发，无需每次都手动打包 fpk 文件！
+
+http://192.168.2.2:18080/
