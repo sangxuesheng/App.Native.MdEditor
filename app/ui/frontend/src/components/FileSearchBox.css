@@ -1,6 +1,6 @@
 .file-search-box {
   position: relative;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .search-input-wrapper {
@@ -26,12 +26,12 @@
 
 .search-input {
   flex: 1;
-  padding: 6px 8px 6px 0;
+  padding: 4px 8px 4px 0;
   background: transparent;
   border: none;
   outline: none;
   color: var(--text-color);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .search-input::placeholder {

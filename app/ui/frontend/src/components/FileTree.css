@@ -11,16 +11,21 @@
 }
 
 .file-tree-header {
-  padding: 12px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .file-tree-header h3 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  margin: 0;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .file-tree-content {
