@@ -132,6 +132,22 @@ const FileTree = ({
     });
   };
 
+  // 处理空白区域右键菜单（显示根目录菜单）
+  const handleEmptyAreaContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 如果有根目录，使用第一个根目录
+    if (tree.length > 0 && tree[0].type === 'directory') {
+      setSelectedNode(tree[0]);
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        node: tree[0]
+      });
+    }
+  };
+
   // 右键菜单操作处理
   const handleMenuAction = async (action) => {
     if (!selectedNode) return;
@@ -449,7 +465,7 @@ const FileTree = ({
         currentPath={currentPath}
       />
       
-      <div className="file-tree-content">
+      <div className="file-tree-content" onContextMenu={handleEmptyAreaContextMenu}>
         {loading && tree.length === 0 && (
           <div className="file-tree-loading">加载中...</div>
         )}
