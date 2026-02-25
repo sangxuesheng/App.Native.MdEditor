@@ -35,25 +35,15 @@ const md = new MarkdownIt({
   .use(footnote)
   .use(katex)
 
-// Mermaid 懒加载 - 使用预加载的 CDN
+// Mermaid 懒加载
 let mermaidModule = null
 const loadMermaid = async () => {
   if (!mermaidModule) {
-    // 等待 window.mermaid 可用
-    let attempts = 0
-    while (!window.mermaid && attempts < 50) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-      attempts++
-    }
-    
-    if (!window.mermaid) {
-      throw new Error('Mermaid not available')
-    }
-    
-    mermaidModule = window.mermaid
+    const mermaid = await import('mermaid')
+    mermaidModule = mermaid.default
     mermaidModule.initialize({ 
       startOnLoad: false,
-      theme: 'default',
+      theme: 'dark',
       securityLevel: 'loose'
     })
   }
@@ -346,24 +336,11 @@ function App() {
       const code = match[1]
       const id = `mermaid-${mermaidIndex++}`
       mermaidBlocks.push({ id, code })
+      html = html.replace(
+        /<pre><code class="language-mermaid">[\s\S]*?<\/code><\/pre>/,
+        `<div class="mermaid" id="${id}">${code}</div>`
+      )
     }
-
-    console.log('Mermaid blocks found in content:', mermaidBlocks.length)
-    
-    // 一次性替换所有 Mermaid 代码块，使用 HTML 中的代码内容
-    let blockIndex = 0
-    html = html.replace(
-      /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
-      (match, htmlCode) => {
-        const id = `mermaid-${blockIndex}`
-        blockIndex++
-        // 解码 HTML 实体
-        const textarea = document.createElement('textarea')
-        textarea.innerHTML = htmlCode
-        const decodedCode = textarea.value
-        return `<div class="mermaid" id="${id}" data-code="${encodeURIComponent(decodedCode)}">${decodedCode}</div>`
-      }
-    )
 
     previewRef.current.innerHTML = html
 
@@ -376,30 +353,9 @@ function App() {
         const mermaid = await loadMermaid()
         setMermaidLoaded(true)
         
-        // 等待 DOM 更新完成
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        const mermaidNodes = previewRef.current.querySelectorAll('.mermaid')
-        console.log('Mermaid nodes found:', mermaidNodes.length)
-        
-        // 逐个渲染 Mermaid 图表
-        for (let i = 0; i < mermaidNodes.length; i++) {
-          const node = mermaidNodes[i]
-          const code = node.textContent
-          const id = node.id || `mermaid-${i}`
-          
-          console.log(`Rendering node ${i}:`, code.substring(0, 50))
-          
-          try {
-            const { svg } = await mermaid.render(id + '-svg', code)
-            node.innerHTML = svg
-          } catch (err) {
-            console.error(`Failed to render mermaid ${i}:`, err)
-            node.innerHTML = `<pre style="color: red;">Mermaid 渲染失败: ${err.message}</pre>`
-          }
-        }
-        
-        console.log('Mermaid rendering completed')
+        await mermaid.run({
+          nodes: previewRef.current.querySelectorAll('.mermaid')
+        })
         
         if (!mermaidLoaded) {
           setStatus('就绪')
