@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { isFavorite } from '../utils/favoritesManager'
 import './ContextMenu.css'
 
 /**
@@ -7,11 +8,92 @@ import './ContextMenu.css'
 function ContextMenu({ 
   x, 
   y, 
-  items, 
-  onClose,
-  theme 
+  node,
+  onAction,
+  onClose
 }) {
   const menuRef = useRef(null)
+
+  // 根据节点类型生成菜单项
+  const getMenuItems = () => {
+    if (!node) return []
+    
+    const isFile = node.type === 'file'
+    const isDirectory = node.type === 'directory'
+    const isFav = isFavorite(node.path)
+    
+    const items = []
+    
+    // 打开
+    items.push({
+      label: isFile ? '打开文件' : '展开文件夹',
+      icon: isFile ? '📄' : '📁',
+      action: () => onAction('open')
+    })
+    
+    items.push({ divider: true })
+    
+    // 重命名
+    items.push({
+      label: '重命名',
+      icon: '✏️',
+      action: () => onAction('rename')
+    })
+    
+    // 删除
+    items.push({
+      label: '删除',
+      icon: '🗑️',
+      action: () => onAction('delete')
+    })
+    
+    items.push({ divider: true })
+    
+    // 复制
+    items.push({
+      label: '复制',
+      icon: '📋',
+      action: () => onAction('copy')
+    })
+    
+    // 剪切
+    items.push({
+      label: '剪切',
+      icon: '✂️',
+      action: () => onAction('cut')
+    })
+    
+    items.push({ divider: true })
+    
+    // 收藏
+    items.push({
+      label: isFav ? '取消收藏' : '添加到收藏夹',
+      icon: isFav ? '☆' : '★',
+      action: () => onAction('favorite')
+    })
+    
+    // 刷新（仅目录）
+    if (isDirectory) {
+      items.push({
+        label: '刷新',
+        icon: '🔄',
+        action: () => onAction('refresh')
+      })
+    }
+    
+    items.push({ divider: true })
+    
+    // 属性
+    items.push({
+      label: '属性',
+      icon: 'ℹ️',
+      action: () => onAction('properties')
+    })
+    
+    return items
+  }
+
+  const items = getMenuItems()
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -59,7 +141,7 @@ function ContextMenu({
   return (
     <div 
       ref={menuRef}
-      className={`context-menu ${theme}`}
+      className="context-menu"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -88,5 +170,3 @@ function ContextMenu({
 }
 
 export default ContextMenu
-
-
