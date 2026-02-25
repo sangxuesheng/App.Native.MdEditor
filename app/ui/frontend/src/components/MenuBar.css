@@ -1,10 +1,10 @@
 .menubar {
   display: flex;
   align-items: center;
-  height: 32px;
-  background: var(--menubar-bg);
-  border-bottom: 1px solid var(--border-color);
-  padding: 0 8px;
+  height: auto;
+  background: transparent;
+  border: none;
+  padding: 0;
   font-size: 13px;
   user-select: none;
   position: relative;

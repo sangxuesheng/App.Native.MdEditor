@@ -11,9 +11,16 @@
 }
 
 .file-tree-header {
-  padding: 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
 }
 
 .file-tree-header h3 {
