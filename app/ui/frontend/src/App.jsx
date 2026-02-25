@@ -53,7 +53,7 @@ function App() {
   const [content, setContent] = useState('')
   const [currentPath, setCurrentPath] = useState('')
   const [status, setStatus] = useState('就绪')
-  const [editorTheme, setEditorTheme] = useState('vs-dark')
+  const [editorTheme, setEditorTheme] = useState('light')
   const [layout, setLayout] = useState('vertical')
   const [showFileTree, setShowFileTree] = useState(true)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
