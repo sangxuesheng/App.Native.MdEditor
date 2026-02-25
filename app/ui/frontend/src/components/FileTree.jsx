@@ -5,7 +5,7 @@ import ContextMenu from './ContextMenu';
 import RenameDialog from './RenameDialog';
 import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
 import { useDebounce } from '../hooks/useDebounce';
-import { toggleFavorite, isFavorite } from '../utils/favoritesManager';
+import { toggleFavorite, isFavorite, updateFavoritePath } from '../utils/favoritesManager';
 import './FileTree.css';
 
 const FileTree = ({ 
@@ -204,6 +204,13 @@ const FileTree = ({
       const data = await response.json();
       
       if (data.ok) {
+        // 更新收藏夹中的路径
+        updateFavoritePath(oldPath, newPath);
+        if (onReorderFavorites) {
+          const { getFavorites } = await import('../utils/favoritesManager');
+          onReorderFavorites(getFavorites());
+        }
+        
         // 刷新父目录
         const parentPath = pathParts.slice(0, -1).join('/') || '/';
         await loadDirectory(parentPath);

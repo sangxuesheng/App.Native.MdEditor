@@ -146,6 +146,33 @@ export function clearFavorites() {
 }
 
 /**
+ * 更新收藏项的路径（用于文件重命名）
+ * @param {string} oldPath - 旧路径
+ * @param {string} newPath - 新路径
+ * @returns {boolean} 是否更新成功
+ */
+export function updateFavoritePath(oldPath, newPath) {
+  try {
+    const favorites = getFavorites()
+    const index = favorites.findIndex(item => item.path === oldPath)
+    
+    if (index === -1) {
+      return false // 不在收藏夹中
+    }
+    
+    // 更新路径和名称
+    favorites[index].path = newPath
+    favorites[index].name = getFileName(newPath)
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites))
+    return true
+  } catch (error) {
+    console.error('Failed to update favorite path:', error)
+    return false
+  }
+}
+
+/**
  * 从路径中提取文件名
  * @param {string} path - 文件路径
  * @returns {string}
@@ -174,4 +201,3 @@ export function getFavoriteIcon(type, path) {
   
   return '📄'
 }
-
