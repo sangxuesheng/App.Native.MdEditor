@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
+import ContextMenu from './ContextMenu';
+import RenameDialog from './RenameDialog';
 import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
 import { useDebounce } from '../hooks/useDebounce';
+import { toggleFavorite, isFavorite } from '../utils/favoritesManager';
 import './FileTree.css';
 
 const FileTree = ({ 
@@ -20,10 +23,25 @@ const FileTree = ({
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 300);
+  
+  // 右键菜单状态
+  const [contextMenu, setContextMenu] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
+  
+  // 重命名对话框状态
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [renameNode, setRenameNode] = useState(null);
 
   // 加载根目录
   useEffect(() => {
     loadDirectory('/');
+  }, []);
+
+  // 点击其他地方关闭右键菜单
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
   }, []);
 
   // 加载目录内容
@@ -96,7 +114,213 @@ const FileTree = ({
     }
   };
 
-  // 过滤树节点（搜索）- 使用增强的搜索算法
+  // 处理右键菜单
+  const handleContextMenu = (e, node) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setSelectedNode(node);
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      node
+    });
+  };
+
+  // 右键菜单操作处理
+  const handleMenuAction = async (action) => {
+    if (!selectedNode) return;
+    
+    setContextMenu(null);
+    
+    switch (action) {
+      case 'open':
+        if (selectedNode.type === 'file') {
+          onFileSelect(selectedNode.path);
+        } else {
+          toggleDirectory(selectedNode);
+        }
+        break;
+        
+      case 'rename':
+        setRenameNode(selectedNode);
+        setShowRenameDialog(true);
+        break;
+        
+      case 'delete':
+        await handleDelete(selectedNode);
+        break;
+        
+      case 'copy':
+        await handleCopy(selectedNode);
+        break;
+        
+      case 'cut':
+        await handleCut(selectedNode);
+        break;
+        
+      case 'favorite':
+        toggleFavorite(selectedNode.path, selectedNode.type);
+        // 刷新收藏夹显示
+        if (onReorderFavorites) {
+          const { getFavorites } = await import('../utils/favoritesManager');
+          onReorderFavorites(getFavorites());
+        }
+        break;
+        
+      case 'refresh':
+        if (selectedNode.type === 'directory') {
+          await loadDirectory(selectedNode.path);
+        }
+        break;
+        
+      case 'properties':
+        handleShowProperties(selectedNode);
+        break;
+        
+      default:
+        break;
+    }
+    
+    setSelectedNode(null);
+  };
+
+  // 重命名文件/文件夹
+  const handleRename = async (newName) => {
+    if (!renameNode) return;
+    
+    try {
+      const oldPath = renameNode.path;
+      const pathParts = oldPath.split('/');
+      pathParts[pathParts.length - 1] = newName;
+      const newPath = pathParts.join('/');
+      
+      const response = await fetch('/api/file/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPath, newPath })
+      });
+      
+      const data = await response.json();
+      
+      if (data.ok) {
+        // 刷新父目录
+        const parentPath = pathParts.slice(0, -1).join('/') || '/';
+        await loadDirectory(parentPath);
+        
+        // 如果重命名的是当前打开的文件，更新路径
+        if (currentPath === oldPath) {
+          onFileSelect(newPath);
+        }
+      } else {
+        alert(`重命名失败: ${data.message || data.code}`);
+      }
+    } catch (error) {
+      console.error('Rename error:', error);
+      alert('重命名失败: 网络错误');
+    }
+    
+    setShowRenameDialog(false);
+    setRenameNode(null);
+  };
+
+  // 删除文件/文件夹
+  const handleDelete = async (node) => {
+    const confirmMsg = node.type === 'directory' 
+      ? `确定要删除文件夹 "${node.name}" 及其所有内容吗？`
+      : `确定要删除文件 "${node.name}" 吗？`;
+      
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/file/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: node.path })
+      });
+      
+      const data = await response.json();
+      
+      if (data.ok) {
+        // 刷新父目录
+        const pathParts = node.path.split('/');
+        const parentPath = pathParts.slice(0, -1).join('/') || '/';
+        await loadDirectory(parentPath);
+        
+        // 如果删除的是当前打开的文件，清空编辑器
+        if (currentPath === node.path) {
+          onFileSelect('');
+        }
+      } else {
+        alert(`删除失败: ${data.message || data.code}`);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('删除失败: 网络错误');
+    }
+  };
+
+  // 复制文件/文件夹
+  const handleCopy = async (node) => {
+    try {
+      // 将路径存储到剪贴板（使用 localStorage 模拟）
+      localStorage.setItem('clipboard', JSON.stringify({
+        action: 'copy',
+        path: node.path,
+        type: node.type
+      }));
+      
+      // 显示提示
+      const msg = node.type === 'directory' ? '文件夹已复制' : '文件已复制';
+      console.log(msg);
+    } catch (error) {
+      console.error('Copy error:', error);
+    }
+  };
+
+  // 剪切文件/文件夹
+  const handleCut = async (node) => {
+    try {
+      // 将路径存储到剪贴板（使用 localStorage 模拟）
+      localStorage.setItem('clipboard', JSON.stringify({
+        action: 'cut',
+        path: node.path,
+        type: node.type
+      }));
+      
+      // 显示提示
+      const msg = node.type === 'directory' ? '文件夹已剪切' : '文件已剪切';
+      console.log(msg);
+    } catch (error) {
+      console.error('Cut error:', error);
+    }
+  };
+
+  // 显示属性
+  const handleShowProperties = (node) => {
+    const props = [
+      `名称: ${node.name}`,
+      `路径: ${node.path}`,
+      `类型: ${node.type === 'directory' ? '文件夹' : '文件'}`
+    ];
+    
+    if (node.size !== undefined) {
+      props.push(`大小: ${formatFileSize(node.size)}`);
+    }
+    
+    alert(props.join('\n'));
+  };
+
+  // 格式化文件大小
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  // 过滤树节点（搜索）
   const filterTree = (nodes, query) => {
     return filterFileTree(nodes, query);
   };
@@ -123,6 +347,7 @@ const FileTree = ({
     const isActive = currentPath === node.path;
     const hasChildren = node.type === 'directory';
     const children = node.children || [];
+    const isFav = isFavorite(node.path);
 
     return (
       <div key={node.path} className="tree-node">
@@ -130,6 +355,7 @@ const FileTree = ({
           className={`tree-node-content ${isActive ? 'active' : ''}`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={() => handleFileClick(node)}
+          onContextMenu={(e) => handleContextMenu(e, node)}
         >
           {hasChildren && (
             <span className={`tree-node-icon ${isExpanded ? 'expanded' : ''}`}>
@@ -140,6 +366,7 @@ const FileTree = ({
           <span className="tree-node-name" title={node.path}>
             {debouncedQuery ? renderHighlightedName(node.name, debouncedQuery) : node.name}
           </span>
+          {isFav && <span className="tree-node-favorite" title="已收藏">★</span>}
         </div>
         
         {hasChildren && isExpanded && children.length > 0 && (
@@ -190,9 +417,31 @@ const FileTree = ({
         
         {filteredTree.map(node => renderNode(node))}
       </div>
+      
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          node={contextMenu.node}
+          onAction={handleMenuAction}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+      
+      {/* 重命名对话框 */}
+      {showRenameDialog && renameNode && (
+        <RenameDialog
+          node={renameNode}
+          onConfirm={handleRename}
+          onCancel={() => {
+            setShowRenameDialog(false);
+            setRenameNode(null);
+          }}
+        />
+      )}
     </div>
   );
 };
 
 export default FileTree;
-

@@ -32,8 +32,6 @@ function getAllowedRoots() {
 
 function isUnderRoot(target, root) {
   const rel = path.relative(root, target);
-  // 如果 rel 为空字符串，说明 target 就是 root，也应该允许
-  // 如果 rel 不以 .. 开头且不是绝对路径，说明 target 在 root 下
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
@@ -136,9 +134,7 @@ const server = http.createServer((req, res) => {
         
         const items = entries
           .filter(entry => {
-            // 过滤隐藏文件和特殊目录
             if (entry.name.startsWith('.')) return false;
-            // 只显示目录和 .md 文件
             if (entry.isFile() && !entry.name.endsWith('.md')) return false;
             return true;
           })
@@ -149,11 +145,9 @@ const server = http.createServer((req, res) => {
             isRoot: false
           }))
           .sort((a, b) => {
-            // 目录排在前面
             if (a.type !== b.type) {
               return a.type === 'directory' ? -1 : 1;
             }
-            // 同类型按名称排序
             return a.name.localeCompare(b.name);
           });
         
@@ -172,7 +166,143 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 文件保存：POST /api/file  body: { path: "/abs/...", content: "..." }
+  // 文件重命名：POST /api/file/rename
+  if (parsed.pathname === '/api/file/rename' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const oldPath = body && body.oldPath;
+      const newPath = body && body.newPath;
+      try {
+        const safeOldPath = resolveSafePath(oldPath);
+        const safeNewPath = resolveSafePath(newPath);
+        
+        if (!fs.existsSync(safeOldPath)) {
+          sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '源文件不存在' });
+          return;
+        }
+        
+        if (fs.existsSync(safeNewPath)) {
+          sendJson(res, 409, { ok: false, code: 'ALREADY_EXISTS', message: '目标文件已存在' });
+          return;
+        }
+        
+        fs.mkdir(path.dirname(safeNewPath), { recursive: true }, (mkErr) => {
+          if (mkErr) {
+            sendJson(res, 500, { ok: false, code: 'MKDIR_FAILED', message: '创建目录失败' });
+            return;
+          }
+          
+          fs.rename(safeOldPath, safeNewPath, (renameErr) => {
+            if (renameErr) {
+              if (renameErr.code === 'EACCES') {
+                sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限重命名文件' });
+              } else {
+                sendJson(res, 500, { ok: false, code: 'RENAME_ERROR', message: '重命名失败' });
+              }
+              return;
+            }
+            sendJson(res, 200, { ok: true, oldPath: safeOldPath, newPath: safeNewPath });
+          });
+        });
+      } catch (e) {
+        const code = e && e.message;
+        if (code === 'PATH_NOT_ALLOWED') {
+          sendJson(res, 403, { ok: false, code, message: '目标路径不在授权目录内' });
+        } else if (code === 'PATH_MUST_BE_ABSOLUTE') {
+          sendJson(res, 400, { ok: false, code, message: '需要提供绝对路径' });
+        } else {
+          sendJson(res, 400, { ok: false, code: code || 'INVALID_PATH', message: '无效路径' });
+        }
+      }
+    });
+    return;
+  }
+
+  // 文件删除：POST /api/file/delete
+  if (parsed.pathname === '/api/file/delete' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const requestedPath = body && body.path;
+      try {
+        const safePath = resolveSafePath(requestedPath);
+        
+        if (!fs.existsSync(safePath)) {
+          sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '文件不存在' });
+          return;
+        }
+        
+        const stats = fs.statSync(safePath);
+        
+        if (stats.isDirectory()) {
+          fs.rm(safePath, { recursive: true, force: true }, (rmErr) => {
+            if (rmErr) {
+              if (rmErr.code === 'EACCES') {
+                sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限删除目录' });
+              } else {
+                sendJson(res, 500, { ok: false, code: 'DELETE_ERROR', message: '删除目录失败' });
+              }
+              return;
+            }
+            sendJson(res, 200, { ok: true, path: safePath, type: 'directory' });
+          });
+        } else {
+          fs.unlink(safePath, (unlinkErr) => {
+            if (unlinkErr) {
+              if (unlinkErr.code === 'EACCES') {
+                sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限删除文件' });
+              } else {
+                sendJson(res, 500, { ok: false, code: 'DELETE_ERROR', message: '删除文件失败' });
+              }
+              return;
+            }
+            sendJson(res, 200, { ok: true, path: safePath, type: 'file' });
+          });
+        }
+      } catch (e) {
+        const code = e && e.message;
+        if (code === 'PATH_NOT_ALLOWED') {
+          sendJson(res, 403, { ok: false, code, message: '目标路径不在授权目录内' });
+        } else if (code === 'PATH_MUST_BE_ABSOLUTE') {
+          sendJson(res, 400, { ok: false, code, message: '需要提供绝对路径' });
+        } else {
+          sendJson(res, 400, { ok: false, code: code || 'INVALID_PATH', message: '无效路径' });
+        }
+      }
+    });
+    return;
+  }
+
+  // 文件保存：POST /api/file
   if (parsed.pathname === '/api/file' && req.method === 'POST') {
     let raw = '';
     req.on('data', chunk => {
@@ -229,7 +359,6 @@ const server = http.createServer((req, res) => {
   // 静态文件服务
   const staticPath = path.join(STATIC_DIR, parsed.pathname === '/' ? 'index.html' : parsed.pathname);
   
-  // 检查是否为静态文件请求
   if (fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
     const ext = path.extname(staticPath);
     const mimeTypes = {
@@ -259,7 +388,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // SPA 回退：所有非 API 请求返回 index.html
+  // SPA 回退
   if (!parsed.pathname.startsWith('/api') && !parsed.pathname.startsWith('/health')) {
     const indexPath = path.join(STATIC_DIR, 'index.html');
     if (fs.existsSync(indexPath)) {
