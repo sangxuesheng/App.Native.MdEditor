@@ -189,6 +189,12 @@ const FileTree = ({
         }
         break;
         
+      case 'paste':
+        if (selectedNode.type === 'directory') {
+          await handlePaste(selectedNode);
+        }
+        break;
+        
       case 'newfolder':
         if (selectedNode.type === 'directory') {
           setNewFolderParent(selectedNode);
@@ -360,6 +366,77 @@ const FileTree = ({
       console.log(msg);
     } catch (error) {
       console.error('Cut error:', error);
+    }
+  };
+
+  // 粘贴文件/文件夹
+  const handlePaste = async (targetNode) => {
+    try {
+      const clipboardData = localStorage.getItem('clipboard');
+      if (!clipboardData) {
+        alert('剪贴板为空');
+        return;
+      }
+      
+      const clipData = JSON.parse(clipboardData);
+      const { action, path: sourcePath, type } = clipData;
+      
+      if (!sourcePath) {
+        alert('剪贴板数据无效');
+        return;
+      }
+      
+      // 构建目标路径
+      const fileName = sourcePath.split('/').pop();
+      const targetPath = `${targetNode.path}/${fileName}`;
+      
+      // 检查是否粘贴到自己
+      if (sourcePath === targetPath) {
+        alert('不能粘贴到相同位置');
+        return;
+      }
+      
+      // 检查是否粘贴到子目录（避免循环）
+      if (type === 'directory' && targetPath.startsWith(sourcePath + '/')) {
+        alert('不能将文件夹粘贴到其子目录中');
+        return;
+      }
+      
+      const apiEndpoint = action === 'cut' ? '/api/file/move' : '/api/file/copy';
+      
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourcePath, targetPath })
+      });
+      
+      const data = await response.json();
+      
+      if (data.ok) {
+        // 如果是剪切，清空剪贴板
+        if (action === 'cut') {
+          localStorage.removeItem('clipboard');
+        }
+        
+        // 刷新目标目录
+        await loadDirectory(targetNode.path);
+        
+        // 如果是剪切，也刷新源目录
+        if (action === 'cut') {
+          const sourceParent = sourcePath.split('/').slice(0, -1).join('/') || '/';
+          if (sourceParent !== targetNode.path) {
+            await loadDirectory(sourceParent);
+          }
+        }
+        
+        const msg = action === 'cut' ? '移动成功' : '复制成功';
+        alert(msg);
+      } else {
+        alert(`操作失败: ${data.message || data.code}`);
+      }
+    } catch (error) {
+      console.error('Paste error:', error);
+      alert('粘贴失败: 网络错误');
     }
   };
 

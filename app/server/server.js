@@ -302,6 +302,170 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 复制文件/文件夹：POST /api/file/copy
+  if (parsed.pathname === '/api/file/copy' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const sourcePath = body && body.sourcePath;
+      const targetPath = body && body.targetPath;
+      try {
+        const safeSourcePath = resolveSafePath(sourcePath);
+        const safeTargetPath = resolveSafePath(targetPath);
+        
+        if (!fs.existsSync(safeSourcePath)) {
+          sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '源文件不存在' });
+          return;
+        }
+        
+        if (fs.existsSync(safeTargetPath)) {
+          sendJson(res, 409, { ok: false, code: 'ALREADY_EXISTS', message: '目标文件已存在' });
+          return;
+        }
+        
+        // 确保目标目录存在
+        fs.mkdir(path.dirname(safeTargetPath), { recursive: true }, (mkErr) => {
+          if (mkErr) {
+            sendJson(res, 500, { ok: false, code: 'MKDIR_FAILED', message: '创建目录失败' });
+            return;
+          }
+          
+          // 复制文件或目录
+          const stats = fs.statSync(safeSourcePath);
+          if (stats.isDirectory()) {
+            // 复制目录（递归）
+            const copyDir = (src, dest) => {
+              fs.mkdirSync(dest, { recursive: true });
+              const entries = fs.readdirSync(src, { withFileTypes: true });
+              for (const entry of entries) {
+                const srcPath = path.join(src, entry.name);
+                const destPath = path.join(dest, entry.name);
+                if (entry.isDirectory()) {
+                  copyDir(srcPath, destPath);
+                } else {
+                  fs.copyFileSync(srcPath, destPath);
+                }
+              }
+            };
+            
+            try {
+              copyDir(safeSourcePath, safeTargetPath);
+              sendJson(res, 200, { ok: true, sourcePath: safeSourcePath, targetPath: safeTargetPath });
+            } catch (copyErr) {
+              sendJson(res, 500, { ok: false, code: 'COPY_ERROR', message: '复制失败' });
+            }
+          } else {
+            // 复制文件
+            fs.copyFile(safeSourcePath, safeTargetPath, (copyErr) => {
+              if (copyErr) {
+                if (copyErr.code === 'EACCES') {
+                  sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限复制文件' });
+                } else {
+                  sendJson(res, 500, { ok: false, code: 'COPY_ERROR', message: '复制失败' });
+                }
+                return;
+              }
+              sendJson(res, 200, { ok: true, sourcePath: safeSourcePath, targetPath: safeTargetPath });
+            });
+          }
+        });
+      } catch (e) {
+        const code = e && e.message;
+        if (code === 'PATH_NOT_ALLOWED') {
+          sendJson(res, 403, { ok: false, code, message: '目标路径不在授权目录内' });
+        } else if (code === 'PATH_MUST_BE_ABSOLUTE') {
+          sendJson(res, 400, { ok: false, code, message: '需要提供绝对路径' });
+        } else {
+          sendJson(res, 400, { ok: false, code: code || 'INVALID_PATH', message: '无效路径' });
+        }
+      }
+    });
+    return;
+  }
+
+  // 移动文件/文件夹：POST /api/file/move
+  if (parsed.pathname === '/api/file/move' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const sourcePath = body && body.sourcePath;
+      const targetPath = body && body.targetPath;
+      try {
+        const safeSourcePath = resolveSafePath(sourcePath);
+        const safeTargetPath = resolveSafePath(targetPath);
+        
+        if (!fs.existsSync(safeSourcePath)) {
+          sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '源文件不存在' });
+          return;
+        }
+        
+        if (fs.existsSync(safeTargetPath)) {
+          sendJson(res, 409, { ok: false, code: 'ALREADY_EXISTS', message: '目标文件已存在' });
+          return;
+        }
+        
+        // 确保目标目录存在
+        fs.mkdir(path.dirname(safeTargetPath), { recursive: true }, (mkErr) => {
+          if (mkErr) {
+            sendJson(res, 500, { ok: false, code: 'MKDIR_FAILED', message: '创建目录失败' });
+            return;
+          }
+          
+          // 移动文件或目录
+          fs.rename(safeSourcePath, safeTargetPath, (moveErr) => {
+            if (moveErr) {
+              if (moveErr.code === 'EACCES') {
+                sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限移动文件' });
+              } else {
+                sendJson(res, 500, { ok: false, code: 'MOVE_ERROR', message: '移动失败' });
+              }
+              return;
+            }
+            sendJson(res, 200, { ok: true, sourcePath: safeSourcePath, targetPath: safeTargetPath });
+          });
+        });
+      } catch (e) {
+        const code = e && e.message;
+        if (code === 'PATH_NOT_ALLOWED') {
+          sendJson(res, 403, { ok: false, code, message: '目标路径不在授权目录内' });
+        } else if (code === 'PATH_MUST_BE_ABSOLUTE') {
+          sendJson(res, 400, { ok: false, code, message: '需要提供绝对路径' });
+        } else {
+          sendJson(res, 400, { ok: false, code: code || 'INVALID_PATH', message: '无效路径' });
+        }
+      }
+    });
+    return;
+  }
+
   // 创建文件夹：POST /api/folder/create
   if (parsed.pathname === '/api/folder/create' && req.method === 'POST') {
     let raw = '';

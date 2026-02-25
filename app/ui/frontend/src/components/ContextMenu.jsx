@@ -63,6 +63,25 @@ function ContextMenu({
       action: () => onAction('cut')
     })
     
+    // 粘贴（仅目录，且剪贴板有内容）
+    if (isDirectory) {
+      const clipboard = localStorage.getItem('clipboard');
+      if (clipboard) {
+        try {
+          const clipData = JSON.parse(clipboard);
+          if (clipData && clipData.path) {
+            items.push({
+              label: '粘贴',
+              icon: '📋',
+              action: () => onAction('paste')
+            });
+          }
+        } catch (e) {
+          // 忽略解析错误
+        }
+      }
+    }
+    
     items.push({ divider: true })
     
     // 收藏
