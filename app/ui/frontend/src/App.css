@@ -161,7 +161,7 @@
 
 /* 带文件树的布局 */
 .main-content.with-filetree.layout-horizontal {
-  grid-template-columns: 250px 1fr;
+  grid-template-columns: 280px 1fr;
   grid-template-rows: 1fr 1fr;
   grid-template-areas:
     "filetree editor"
@@ -169,17 +169,17 @@
 }
 
 .main-content.with-filetree.layout-vertical {
-  grid-template-columns: 250px 1fr 1fr;
+  grid-template-columns: 280px 1fr 1fr;
   grid-template-areas: "filetree editor preview";
 }
 
 .main-content.with-filetree.layout-editor-only {
-  grid-template-columns: 250px 1fr;
+  grid-template-columns: 280px 1fr;
   grid-template-areas: "filetree editor";
 }
 
 .main-content.with-filetree.layout-preview-only {
-  grid-template-columns: 250px 1fr;
+  grid-template-columns: 280px 1fr;
   grid-template-areas: "filetree preview";
 }
 
@@ -661,4 +661,58 @@
   right: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+}
+
+/* 状态栏按钮 */
+.statusbar-left,
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statusbar-btn {
+  height: 24px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statusbar-btn:hover {
+  background: #21262d;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+/* 浅色主题状态栏按钮 */
+.app.theme-light .statusbar-btn {
+  border-color: #d0d7de;
+  color: #57606a;
+}
+
+.app.theme-light .statusbar-btn:hover {
+  background: #f6f8fa;
+  border-color: #0969da;
+  color: #0969da;
+}
+
+/* MD3 主题状态栏按钮 */
+.app.theme-md3 .statusbar-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8def8;
+  border-radius: 12px;
+}
+
+.app.theme-md3 .statusbar-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
 }

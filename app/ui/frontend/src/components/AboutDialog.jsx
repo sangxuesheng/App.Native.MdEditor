@@ -1,10 +1,17 @@
 import React from 'react'
+import './Dialog.css'
 import './AboutDialog.css'
 
 function AboutDialog({ onClose, theme }) {
+  const getThemeClass = () => {
+    if (theme === 'light') return 'theme-light'
+    if (theme === 'md3') return 'theme-md3'
+    return 'theme-dark'
+  }
+
   return (
     <div className="dialog-overlay" onClick={onClose}>
-      <div className={`dialog-container about-dialog ${theme === 'light' ? 'theme-light' : 'theme-dark'}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`dialog-container about-dialog ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>关于</h2>
           <button className="dialog-close" onClick={onClose}>×</button>

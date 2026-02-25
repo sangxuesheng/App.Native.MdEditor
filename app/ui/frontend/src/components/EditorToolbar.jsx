@@ -1,4 +1,22 @@
 import React from 'react'
+import { 
+  Heading1, 
+  Heading2, 
+  Heading3, 
+  Bold, 
+  Italic, 
+  Strikethrough,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Link2,
+  Image,
+  Code2,
+  FileCode,
+  Quote,
+  Table,
+  Minus
+} from 'lucide-react'
 import './EditorToolbar.css'
 
 /**
@@ -83,6 +101,8 @@ function EditorToolbar({ onInsert, disabled }) {
     onInsert(table, '', 'insert')
   }
 
+  const iconSize = 16
+
   return (
     <div className="editor-toolbar">
       {/* 标题组 */}
@@ -93,7 +113,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="标题 1"
         >
-          H1
+          <Heading1 size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -101,7 +121,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="标题 2"
         >
-          H2
+          <Heading2 size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -109,7 +129,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="标题 3"
         >
-          H3
+          <Heading3 size={iconSize} />
         </button>
       </div>
 
@@ -123,7 +143,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="加粗 (Ctrl+B)"
         >
-          <strong>B</strong>
+          <Bold size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -131,7 +151,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="斜体 (Ctrl+I)"
         >
-          <em>I</em>
+          <Italic size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -139,7 +159,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="删除线"
         >
-          <s>S</s>
+          <Strikethrough size={iconSize} />
         </button>
       </div>
 
@@ -153,7 +173,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="无序列表"
         >
-          ☰
+          <List size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -161,7 +181,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="有序列表"
         >
-          ≡
+          <ListOrdered size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -169,7 +189,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="任务列表"
         >
-          ☑
+          <CheckSquare size={iconSize} />
         </button>
       </div>
 
@@ -183,7 +203,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="插入链接"
         >
-          🔗
+          <Link2 size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -191,7 +211,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="插入图片"
         >
-          🖼️
+          <Image size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -199,7 +219,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="代码块"
         >
-          {'</>'}
+          <FileCode size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -207,7 +227,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="行内代码"
         >
-          {'{`}'}
+          <Code2 size={iconSize} />
         </button>
       </div>
 
@@ -221,7 +241,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="引用"
         >
-          "
+          <Quote size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -229,7 +249,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="插入表格"
         >
-          ⊞
+          <Table size={iconSize} />
         </button>
         <button 
           className="toolbar-btn" 
@@ -237,7 +257,7 @@ function EditorToolbar({ onInsert, disabled }) {
           disabled={disabled}
           title="分隔线"
         >
-          —
+          <Minus size={iconSize} />
         </button>
       </div>
     </div>
@@ -245,4 +265,3 @@ function EditorToolbar({ onInsert, disabled }) {
 }
 
 export default EditorToolbar
-

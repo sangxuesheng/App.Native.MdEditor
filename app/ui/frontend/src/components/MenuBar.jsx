@@ -1,9 +1,122 @@
 import React, { useState, useRef, useEffect } from 'react'
 import './MenuBar.css'
+import {
+  FilePlus,
+  Save,
+  Download,
+  History,
+  FileText,
+  Sparkles,
+  Undo,
+  Redo,
+  Copy,
+  Scissors,
+  Clipboard,
+  Search,
+  Replace,
+  WrapText,
+  Heading,
+  Heading1,
+  Heading2,
+  Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
+  Bold,
+  Italic,
+  Strikethrough,
+  List,
+  ListOrdered,
+  ListTodo,
+  Quote,
+  Code,
+  Link,
+  Image,
+  Table,
+  Minus,
+  Calculator,
+  Network,
+  FolderTree,
+  Wrench,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  HelpCircle,
+  Keyboard,
+  Info,
+  X
+} from 'lucide-react'
 
 /**
  * 菜单栏组件 - 一二级菜单结构
  */
+
+// 菜单项图标组件
+const MenuItemIcon = ({ type }) => {
+  const iconStyle = { width: '14px', height: '14px', marginRight: '8px', flexShrink: 0, strokeWidth: 2.5 };
+  
+  const icons = {
+    // 文件菜单
+    'new': <FilePlus style={iconStyle} />,
+    'save': <Save style={iconStyle} />,
+    'export': <Download style={iconStyle} />,
+    'history': <History style={iconStyle} />,
+    'recent': <FileText style={iconStyle} />,
+    'autosave': <Sparkles style={iconStyle} />,
+    
+    // 编辑菜单
+    'undo': <Undo style={iconStyle} />,
+    'redo': <Redo style={iconStyle} />,
+    'copy': <Copy style={iconStyle} />,
+    'cut': <Scissors style={iconStyle} />,
+    'paste': <Clipboard style={iconStyle} />,
+    'find': <Search style={iconStyle} />,
+    'replace': <Replace style={iconStyle} />,
+    'format': <WrapText style={iconStyle} />,
+    
+    // 格式菜单
+    'heading': <Heading style={iconStyle} />,
+    'heading-1': <Heading1 style={iconStyle} />,
+    'heading-2': <Heading2 style={iconStyle} />,
+    'heading-3': <Heading3 style={iconStyle} />,
+    'heading-4': <Heading4 style={iconStyle} />,
+    'heading-5': <Heading5 style={iconStyle} />,
+    'heading-6': <Heading6 style={iconStyle} />,
+    'bold': <Bold style={iconStyle} />,
+    'italic': <Italic style={iconStyle} />,
+    'strikethrough': <Strikethrough style={iconStyle} />,
+    'list-ul': <List style={iconStyle} />,
+    'list-ol': <ListOrdered style={iconStyle} />,
+    'list-task': <ListTodo style={iconStyle} />,
+    'quote': <Quote style={iconStyle} />,
+    'code': <Code style={iconStyle} />,
+    
+    // 插入菜单
+    'link': <Link style={iconStyle} />,
+    'image': <Image style={iconStyle} />,
+    'table': <Table style={iconStyle} />,
+    'hr': <Minus style={iconStyle} />,
+    'math': <Calculator style={iconStyle} />,
+    'mermaid': <Network style={iconStyle} />,
+    
+    // 视图菜单
+    'tree': <FolderTree style={iconStyle} />,
+    'toolbar': <Wrench style={iconStyle} />,
+    'zoom-in': <ZoomIn style={iconStyle} />,
+    'zoom-out': <ZoomOut style={iconStyle} />,
+    'zoom-reset': <RotateCcw style={iconStyle} />,
+    
+    // 帮助菜单
+    'help': <HelpCircle style={iconStyle} />,
+    'keyboard': <Keyboard style={iconStyle} />,
+    'about': <Info style={iconStyle} />,
+    'clear': <X style={iconStyle} />,
+  };
+  
+  return icons[type] || null;
+};
+
+
 function MenuBar({ 
   onNewFile, 
   onSave, 
@@ -39,7 +152,9 @@ function MenuBar({
   onShowAbout,
   onShowHistory,
   disabled,
-  theme
+  theme,
+  autoSaveEnabled,
+  onAutoSaveToggle
 }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const menuRef = useRef(null)
@@ -83,22 +198,27 @@ function MenuBar({
     {
       name: '文件',
       items: [
-        { label: '新建', shortcut: 'Ctrl+N', action: onNewFile },
-        { label: '保存', shortcut: 'Ctrl+S', action: onSave, disabled },
-        { label: '另存为', shortcut: 'Ctrl+Shift+S', action: onSaveAs },
-        { divider: true },
-        { label: '最近文件', type: 'recent-files' },
-        { label: '文件历史', action: onShowHistory },
+        { label: '新建', icon: 'new', shortcut: 'Ctrl+N', action: onNewFile },
+        { label: '保存', icon: 'save', shortcut: 'Ctrl+S', action: onSave, disabled },
+        { label: '另存为', icon: 'save', shortcut: 'Ctrl+Shift+S', action: onSaveAs },
         { divider: true },
         { 
-          label: '导出', 
+          icon: 'autosave', label: autoSaveEnabled ? '自动保存: 开启' : '自动保存: 关闭', 
+          action: onAutoSaveToggle 
+        },
+        { divider: true },
+        { label: '最近文件', icon: 'recent', type: 'recent-files' },
+        { label: '文件历史', icon: 'history', action: onShowHistory },
+        { divider: true },
+        { 
+          icon: 'export', label: '导出', 
           submenu: [
-            { label: '公众号格式', action: () => onExport('wechat') },
-            { label: 'HTML 格式', action: () => onExport('html') },
-            { label: 'HTML 格式（无样式）', action: () => onExport('html-plain') },
-            { label: 'HTML 格式（兼容样式）', action: () => onExport('html-compat') },
-            { label: 'MD 格式', action: () => onExport('md') },
-            { label: '复制选中内容', shortcut: 'Ctrl+C', action: () => onExport('copy') }
+            { label: '公众号格式', icon: 'export', action: () => onExport('wechat') },
+            { label: 'HTML 格式', icon: 'export', action: () => onExport('html') },
+            { label: 'HTML 格式（无样式）', icon: 'export', action: () => onExport('html-plain') },
+            { label: 'HTML 格式（兼容样式）', icon: 'export', action: () => onExport('html-compat') },
+            { label: 'MD 格式', icon: 'export', action: () => onExport('md') },
+            { label: '复制选中内容', icon: 'copy', shortcut: 'Ctrl+C', action: () => onExport('copy') }
           ]
         }
       ]
@@ -106,101 +226,95 @@ function MenuBar({
     {
       name: '编辑',
       items: [
-        { label: '撤销', shortcut: 'Ctrl+Z', action: onUndo },
-        { label: '重做', shortcut: 'Ctrl+Y', action: onRedo },
+        { label: '撤销', icon: 'undo', shortcut: 'Ctrl+Z', action: onUndo },
+        { label: '重做', icon: 'redo', shortcut: 'Ctrl+Y', action: onRedo },
         { divider: true },
         { 
-          label: '复制', 
+          icon: 'copy', label: '复制', 
           submenu: [
-            { label: '复制', shortcut: 'Ctrl+C', action: onCopy },
-            { label: '剪切', shortcut: 'Ctrl+X', action: () => {} },
-            { label: '粘贴', shortcut: 'Ctrl+V', action: onPaste }
+            { icon: 'copy', label: '复制', shortcut: 'Ctrl+C', action: onCopy },
+            { label: '剪切', icon: 'cut', shortcut: 'Ctrl+X', action: () => {} },
+            { label: '粘贴', icon: 'paste', shortcut: 'Ctrl+V', action: onPaste }
           ]
         },
-        { label: '粘贴', shortcut: 'Ctrl+V', action: onPaste },
+        { label: '粘贴', icon: 'paste', shortcut: 'Ctrl+V', action: onPaste },
         { divider: true },
-        { label: '格式化文档', shortcut: 'Shift+Alt+F', action: onFormatDocument },
+        { label: '格式化文档', icon: 'format', shortcut: 'Shift+Alt+F', action: onFormatDocument },
         { divider: true },
-        { label: '查找', shortcut: 'Ctrl+F', action: onFind },
-        { label: '替换', shortcut: 'Ctrl+H', action: onReplace }
+        { label: '查找', icon: 'find', shortcut: 'Ctrl+F', action: onFind },
+        { label: '替换', icon: 'replace', shortcut: 'Ctrl+H', action: onReplace }
       ]
     },
     {
       name: '格式',
       items: [
         { 
-          label: '标题', 
+          icon: 'heading', label: '标题', 
           submenu: [
-            { label: '一级标题', shortcut: 'Ctrl+1', action: () => onInsertHeading(1) },
-            { label: '二级标题', shortcut: 'Ctrl+2', action: () => onInsertHeading(2) },
-            { label: '三级标题', shortcut: 'Ctrl+3', action: () => onInsertHeading(3) },
-            { label: '四级标题', shortcut: 'Ctrl+4', action: () => onInsertHeading(4) },
-            { label: '五级标题', shortcut: 'Ctrl+5', action: () => onInsertHeading(5) },
-            { label: '六级标题', shortcut: 'Ctrl+6', action: () => onInsertHeading(6) }
+            { label: '一级标题', icon: 'heading-1', shortcut: 'Ctrl+1', action: () => onInsertHeading(1) },
+            { label: '二级标题', icon: 'heading-2', shortcut: 'Ctrl+2', action: () => onInsertHeading(2) },
+            { label: '三级标题', icon: 'heading-3', shortcut: 'Ctrl+3', action: () => onInsertHeading(3) },
+            { label: '四级标题', icon: 'heading-4', shortcut: 'Ctrl+4', action: () => onInsertHeading(4) },
+            { label: '五级标题', icon: 'heading-5', shortcut: 'Ctrl+5', action: () => onInsertHeading(5) },
+            { label: '六级标题', icon: 'heading-6', shortcut: 'Ctrl+6', action: () => onInsertHeading(6) }
           ]
         },
         { divider: true },
-        { label: '加粗', shortcut: 'Ctrl+B', action: onInsertBold },
-        { label: '斜体', shortcut: 'Ctrl+I', action: onInsertItalic },
-        { label: '删除线', action: () => onInsertCode('strikethrough') },
+        { label: '加粗', icon: 'bold', shortcut: 'Ctrl+B', action: onInsertBold },
+        { label: '斜体', icon: 'italic', shortcut: 'Ctrl+I', action: onInsertItalic },
+        { label: '删除线', icon: 'strikethrough', action: () => onInsertCode('strikethrough') },
         { divider: true },
-        { label: '无序列表', action: () => onInsertCode('ul') },
-        { label: '有序列表', action: () => onInsertCode('ol') },
-        { label: '任务列表', action: () => onInsertCode('task') },
+        { label: '无序列表', icon: 'list-ul', action: () => onInsertCode('ul') },
+        { label: '有序列表', icon: 'list-ol', action: () => onInsertCode('ol') },
+        { label: '任务列表', icon: 'list-task', action: () => onInsertCode('task') },
         { divider: true },
-        { label: '引用', action: () => onInsertCode('quote') },
-        { label: '代码块', action: () => onInsertCode('codeblock') },
-        { label: '行内代码', action: () => onInsertCode('inline') }
+        { label: '引用', icon: 'quote', action: () => onInsertCode('quote') },
+        { label: '代码块', icon: 'code', action: () => onInsertCode('codeblock') },
+        { label: '行内代码', icon: 'code', action: () => onInsertCode('inline') }
       ]
     },
     {
       name: '插入',
       items: [
-        { label: '链接', shortcut: 'Ctrl+K', action: onInsertLink },
-        { label: '图片', action: onInsertImage },
-        { label: '表格', action: onInsertTable },
-        { label: '分隔线', action: () => onInsertCode('hr') },
+        { label: '链接', icon: 'link', shortcut: 'Ctrl+K', action: onInsertLink },
+        { label: '图片', icon: 'image', action: onInsertImage },
+        { label: '表格', icon: 'table', action: onInsertTable },
+        { label: '分隔线', icon: 'hr', action: () => onInsertCode('hr') },
         { divider: true },
-        { label: '代码块', action: () => onInsertCode('codeblock') },
-        { label: '数学公式', action: () => onInsertCode('math') },
-        { label: 'Mermaid 图表', action: () => onInsertCode('mermaid') }
+        { label: '代码块', icon: 'code', action: () => onInsertCode('codeblock') },
+        { label: '数学公式', icon: 'math', action: () => onInsertCode('math') },
+        { label: 'Mermaid 图表', icon: 'mermaid', action: () => onInsertCode('mermaid') }
       ]
     },
     {
       name: '样式',
       items: [
-        { label: '水平布局', action: () => onLayoutChange('horizontal') },
-        { label: '垂直布局', action: () => onLayoutChange('vertical') },
-        { label: '仅编辑器', action: () => onLayoutChange('editor-only') },
-        { label: '仅预览', action: () => onLayoutChange('preview-only') },
-        { divider: true },
-        { label: '切换主题', shortcut: 'Ctrl+T', action: onToggleTheme }
       ]
     },
     {
       name: '视图',
       items: [
-        { label: '切换文件树', shortcut: 'Ctrl+B', action: onToggleFileTree },
-        { label: '切换工具栏', action: onToggleToolbar },
+        { label: '切换文件树', icon: 'tree', shortcut: 'Ctrl+B', action: onToggleFileTree },
+        { label: '切换工具栏', icon: 'toolbar', action: onToggleToolbar },
         { divider: true },
-        { label: '放大', shortcut: 'Ctrl++', action: onZoomIn },
-        { label: '缩小', shortcut: 'Ctrl+-', action: onZoomOut },
-        { label: '重置缩放', shortcut: 'Ctrl+0', action: onZoomReset }
+        { label: '放大', icon: 'zoom-in', shortcut: 'Ctrl++', action: onZoomIn },
+        { label: '缩小', icon: 'zoom-out', shortcut: 'Ctrl+-', action: onZoomOut },
+        { label: '重置缩放', icon: 'zoom-reset', shortcut: 'Ctrl+0', action: onZoomReset }
       ]
     },
     {
       name: '帮助',
       items: [
-        { label: 'Markdown 语法', action: onShowMarkdownHelp },
-        { label: '快捷键列表', action: onShowShortcuts },
+        { label: 'Markdown 语法', icon: 'help', action: onShowMarkdownHelp },
+        { label: '快捷键列表', icon: 'keyboard', action: onShowShortcuts },
         { divider: true },
-        { label: '关于', action: onShowAbout }
+        { label: '关于', icon: 'about', action: onShowAbout }
       ]
     }
   ]
 
   return (
-    <div className="menubar" ref={menuRef}>
+    <div ref={menuRef} style={{ display: 'contents' }}>
       {menuConfig.map((menu) => (
         <div key={menu.name} className="menu-item">
           <button
@@ -221,7 +335,7 @@ function MenuBar({
                 if (item.type === 'recent-files') {
                   return (
                     <div key="recent-files" className="menu-dropdown-item has-submenu">
-                      <span className="menu-label">{item.label}</span>
+                      <>{item.icon && <MenuItemIcon type={item.icon} />}<span className="menu-label">{item.label}</span></>
                       <span className="menu-arrow">▶</span>
                       <div className="menu-submenu recent-files-submenu">
                         {recentFiles && recentFiles.length > 0 ? (
@@ -258,7 +372,7 @@ function MenuBar({
                 if (item.submenu) {
                   return (
                     <div key={item.label} className="menu-dropdown-item has-submenu">
-                      <span className="menu-label">{item.label}</span>
+                      <>{item.icon && <MenuItemIcon type={item.icon} />}<span className="menu-label">{item.label}</span></>
                       <span className="menu-arrow">▶</span>
                       <div className="menu-submenu">
                         {item.submenu.map((subItem) => (
@@ -268,7 +382,7 @@ function MenuBar({
                             onClick={() => handleMenuItemClick(subItem.action)}
                             disabled={subItem.disabled}
                           >
-                            <span className="menu-label">{subItem.label}</span>
+                            <>{subItem.icon && <MenuItemIcon type={subItem.icon} />}<span className="menu-label">{subItem.label}</span></>
                             {subItem.shortcut && (
                               <span className="menu-shortcut">{subItem.shortcut}</span>
                             )}
@@ -286,7 +400,7 @@ function MenuBar({
                     onClick={() => handleMenuItemClick(item.action)}
                     disabled={item.disabled}
                   >
-                    <span className="menu-label">{item.label}</span>
+                    <>{item.icon && <MenuItemIcon type={item.icon} />}<span className="menu-label">{item.label}</span></>
                     {item.shortcut && (
                       <span className="menu-shortcut">{item.shortcut}</span>
                     )}
@@ -302,7 +416,3 @@ function MenuBar({
 }
 
 export default MenuBar
-
-
-
-

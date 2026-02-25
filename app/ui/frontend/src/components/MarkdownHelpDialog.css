@@ -1,10 +1,15 @@
 .markdown-help-content {
-  max-height: 60vh;
-  overflow-y: auto;
+  /* 让内容居中显示 */
+  max-width: 500px;
+  margin: 0 auto;
 }
 
 .help-section {
   margin-bottom: 24px;
+}
+
+.help-section:last-child {
+  margin-bottom: 0;
 }
 
 .help-section h3 {
@@ -21,7 +26,7 @@
   padding: 12px;
   background: var(--code-bg);
   border-radius: 6px;
-  border: 1px solid var(--border-color);
+  border: none;
 }
 
 .help-example code {
@@ -49,7 +54,6 @@
 
 .theme-dark .help-example {
   background: #161b22;
-  border-color: #30363d;
 }
 
 .theme-dark .help-example code {
@@ -68,7 +72,6 @@
 
 .theme-light .help-example {
   background: #f6f8fa;
-  border-color: #d0d7de;
 }
 
 .theme-light .help-example code {
@@ -80,3 +83,20 @@
   color: #24292f;
 }
 
+/* MD3 主题 */
+.theme-md3 .help-section h3 {
+  color: #6750a4;
+}
+
+.theme-md3 .help-example {
+  background: #f6edff;
+}
+
+.theme-md3 .help-example code {
+  color: #6750a4;
+  background: #fef7ff;
+}
+
+.theme-md3 .help-example pre {
+  color: #1d1b20;
+}

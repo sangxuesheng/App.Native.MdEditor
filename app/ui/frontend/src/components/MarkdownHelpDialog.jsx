@@ -1,10 +1,17 @@
 import React from 'react'
+import './Dialog.css'
 import './MarkdownHelpDialog.css'
 
 function MarkdownHelpDialog({ onClose, theme }) {
+  const getThemeClass = () => {
+    if (theme === 'light') return 'theme-light'
+    if (theme === 'md3') return 'theme-md3'
+    return 'theme-dark'
+  }
+
   return (
     <div className="dialog-overlay" onClick={onClose}>
-      <div className={`dialog-container ${theme === 'light' ? 'theme-light' : 'theme-dark'}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`dialog-container ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>Markdown 语法帮助</h2>
           <button className="dialog-close" onClick={onClose}>×</button>
@@ -114,4 +121,3 @@ graph LR
 }
 
 export default MarkdownHelpDialog
-
