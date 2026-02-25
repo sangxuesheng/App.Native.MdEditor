@@ -7,6 +7,7 @@ import katex from 'markdown-it-katex'
 import 'github-markdown-css/github-markdown-dark.css'
 import 'github-markdown-css/github-markdown-light.css'
 import FileTree from './components/FileTree'
+import markdownLogo from './assets/markdown.svg'
 import DraftRecoveryDialog from './components/DraftRecoveryDialog'
 import EditorToolbar from './components/EditorToolbar'
 import MenuBar from './components/MenuBar'
@@ -20,7 +21,6 @@ import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
 import './App.css'
-import markdownLogo from './assets/markdown.svg'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
@@ -715,53 +715,52 @@ function App() {
         />
       )}
 
-      <MenuBar
-        onNewFile={handleNewFile}
-        onSave={() => autoSave.manualSave()}
-        onSaveAs={handleSaveAs}
-        onExport={(format) => {
-          if (format === 'copy') {
-            handleMenuCopy()
-          } else {
-            setShowExportDialog(true)
-          }
-        }}
-        onUndo={handleMenuUndo}
-        onRedo={handleMenuRedo}
-        onCopy={handleMenuCopy}
-        onPaste={handleMenuPaste}
-        onFormatDocument={handleMenuFormatDocument}
-        onFind={handleMenuFind}
-        onReplace={handleMenuReplace}
-        onInsertHeading={(level) => handleToolbarInsert('#'.repeat(level) + ' ', '', 'heading')}
-        onInsertBold={() => handleToolbarInsert('**', '**', 'wrap')}
-        onInsertItalic={() => handleToolbarInsert('*', '*', 'wrap')}
-        onInsertLink={() => handleToolbarInsert('[', '](https://)', 'wrap')}
-        onInsertImage={() => handleToolbarInsert('![', '](https://)', 'wrap')}
-        onInsertCode={handleInsertCode}
-        onInsertTable={() => handleToolbarInsert("\n| 列1 | 列2 |\n|-----|-----|\n| 内容 | 内容 |\n", "", "insert")}
-        onToggleFileTree={() => setShowFileTree(!showFileTree)}
-        onToggleTheme={toggleEditorTheme}
-        onSettings={handleSettings}
-        onToggleToolbar={handleToggleToolbar}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onZoomReset={handleZoomReset}
-        onLayoutChange={setLayout}
-        onShowMarkdownHelp={handleShowMarkdownHelp}
-        onShowShortcuts={handleShowShortcuts}
-        onShowAbout={handleShowAbout}
-        onShowHistory={handleShowHistory}
-        recentFiles={recentFiles}
-        onOpenRecentFile={handleOpenRecentFile}
-        onClearRecentFiles={handleClearRecentFiles}
-        disabled={!currentPath}
-        theme={editorTheme}
-      />
-
       <header className="toolbar">
         <div className="toolbar-left">
-          <h1 className="title">Markdown 编辑器</h1>
+          <img src={markdownLogo} alt="Markdown" className="app-logo" />
+          <MenuBar
+            onNewFile={handleNewFile}
+            onSave={() => autoSave.manualSave()}
+            onSaveAs={handleSaveAs}
+            onExport={(format) => {
+              if (format === 'copy') {
+                handleMenuCopy()
+              } else {
+                setShowExportDialog(true)
+              }
+            }}
+            onUndo={handleMenuUndo}
+            onRedo={handleMenuRedo}
+            onCopy={handleMenuCopy}
+            onPaste={handleMenuPaste}
+            onFormatDocument={handleMenuFormatDocument}
+            onFind={handleMenuFind}
+            onReplace={handleMenuReplace}
+            onInsertHeading={(level) => handleToolbarInsert('#'.repeat(level) + ' ', '', 'heading')}
+            onInsertBold={() => handleToolbarInsert('**', '**', 'wrap')}
+            onInsertItalic={() => handleToolbarInsert('*', '*', 'wrap')}
+            onInsertLink={() => handleToolbarInsert('[', '](https://)', 'wrap')}
+            onInsertImage={() => handleToolbarInsert('![', '](https://)', 'wrap')}
+            onInsertCode={handleInsertCode}
+            onInsertTable={() => handleToolbarInsert("\n| 列1 | 列2 |\n|-----|-----|\n| 内容 | 内容 |\n", "", "insert")}
+            onToggleFileTree={() => setShowFileTree(!showFileTree)}
+            onToggleTheme={toggleEditorTheme}
+            onSettings={handleSettings}
+            onToggleToolbar={handleToggleToolbar}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onZoomReset={handleZoomReset}
+            onLayoutChange={setLayout}
+            onShowMarkdownHelp={handleShowMarkdownHelp}
+            onShowShortcuts={handleShowShortcuts}
+            onShowAbout={handleShowAbout}
+            onShowHistory={handleShowHistory}
+            recentFiles={recentFiles}
+            onOpenRecentFile={handleOpenRecentFile}
+            onClearRecentFiles={handleClearRecentFiles}
+            disabled={!currentPath}
+            theme={editorTheme}
+          />
           {currentPath && <span className="file-path">{currentPath}</span>}
         </div>
         
