@@ -79,14 +79,28 @@ function App() {
   const fileTreeRef = useRef(null)
 
   const toggleEditorTheme = async () => {
-    const newTheme = editorTheme === 'vs-dark' ? 'light' : 'vs-dark'
+    // 三个主题循环切换: light -> vs-dark -> md3 -> light
+    let newTheme = 'light'
+    if (editorTheme === 'light') {
+      newTheme = 'vs-dark'
+    } else if (editorTheme === 'vs-dark') {
+      newTheme = 'md3'
+    } else {
+      newTheme = 'light'
+    }
     setEditorTheme(newTheme)
     
     // 如果 Mermaid 已加载，更新主题
     if (mermaidLoaded && mermaidModule) {
+      let mermaidTheme = 'default'
+      if (newTheme === 'vs-dark') {
+        mermaidTheme = 'dark'
+      } else if (newTheme === 'md3') {
+        mermaidTheme = 'default'
+      }
       mermaidModule.initialize({ 
         startOnLoad: false,
-        theme: newTheme === 'light' ? 'default' : 'dark',
+        theme: mermaidTheme,
         securityLevel: 'loose'
       })
       setTimeout(() => renderMarkdown(), 100)
@@ -633,7 +647,7 @@ function App() {
 
 
   return (
-    <div className={`app ${editorTheme === 'light' ? 'theme-light' : 'theme-dark'}`}>
+    <div className={`app ${editorTheme === 'light' ? 'theme-light' : editorTheme === 'md3' ? 'theme-md3' : 'theme-dark'}`}>
       {showDraftDialog && (
         <DraftRecoveryDialog
           draft={pendingDraft}

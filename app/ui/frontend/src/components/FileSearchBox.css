@@ -207,3 +207,54 @@
   --scrollbar-thumb-hover: #a8a8a8;
 }
 
+
+/* ==================== MD3 主题 ==================== */
+.theme-md3 .file-search-box {
+  --search-bg: #fef7ff;
+  --dropdown-bg: #fef7ff;
+  --header-bg: #f6edff;
+  --hover-bg: #eaddff;
+  --primary-color: #6750a4;
+  --primary-color-alpha: rgba(103, 80, 164, 0.2);
+  --text-secondary: #49454f;
+  --danger-color: #ba1a1a;
+  --danger-bg: rgba(186, 26, 26, 0.1);
+  --highlight-bg: #d0bcff;
+  --highlight-color: #381e72;
+  --scrollbar-thumb: #d0bcff;
+  --scrollbar-thumb-hover: #b69df8;
+}
+
+.theme-md3 .search-input-wrapper {
+  border-color: #d0bcff;
+  border-radius: 20px;
+  background: #fef7ff;
+}
+
+.theme-md3 .search-input-wrapper:focus-within {
+  border-color: #6750a4;
+  box-shadow: 0 0 0 3px rgba(103, 80, 164, 0.15);
+}
+
+.theme-md3 .search-input {
+  color: #1d1b20;
+}
+
+.theme-md3 .search-icon {
+  color: #6750a4;
+}
+
+.theme-md3 .search-clear-btn {
+  color: #6750a4;
+  border-radius: 50%;
+}
+
+.theme-md3 .search-clear-btn:hover {
+  background: #eaddff;
+}
+
+.theme-md3 .search-history-dropdown {
+  border-color: #e6e0e9;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(103, 80, 164, 0.2);
+}

@@ -129,3 +129,59 @@
 .file-tree-content::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
+
+/* ==================== MD3 主题 ==================== */
+.theme-md3 .file-tree {
+  background: #f6edff;
+  border-right-color: #e6e0e9;
+}
+
+.theme-md3 .file-tree-header {
+  background: linear-gradient(135deg, #eaddff 0%, #f6edff 100%);
+  border-bottom-color: #e6e0e9;
+}
+
+.theme-md3 .file-tree-header h3 {
+  color: #6750a4;
+  font-weight: 600;
+}
+
+.theme-md3 .tree-node-content {
+  color: #1d1b20;
+  border-radius: 8px;
+  margin: 2px 4px;
+}
+
+.theme-md3 .tree-node-content:hover {
+  background: #eaddff;
+}
+
+.theme-md3 .tree-node-content.active {
+  background: linear-gradient(135deg, #d0bcff 0%, #eaddff 100%);
+  color: #381e72;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(103, 80, 164, 0.2);
+}
+
+.theme-md3 .tree-node-favorite {
+  color: #f59e0b;
+}
+
+.theme-md3 .tree-node-highlight {
+  background: rgba(208, 188, 255, 0.4);
+  color: #381e72;
+  font-weight: 600;
+}
+
+.theme-md3 .file-tree-content::-webkit-scrollbar-track {
+  background: #f6edff;
+}
+
+.theme-md3 .file-tree-content::-webkit-scrollbar-thumb {
+  background: #d0bcff;
+  border-radius: 4px;
+}
+
+.theme-md3 .file-tree-content::-webkit-scrollbar-thumb:hover {
+  background: #b69df8;
+}
