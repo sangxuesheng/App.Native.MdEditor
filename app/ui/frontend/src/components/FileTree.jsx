@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
 import ContextMenu from './ContextMenu';
@@ -9,7 +9,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { toggleFavorite, isFavorite, updateFavoritePath } from '../utils/favoritesManager';
 import './FileTree.css';
 
-const FileTree = ({ 
+const FileTree = forwardRef(({ 
   onFileSelect, 
   currentPath,
   favorites,
@@ -17,7 +17,7 @@ const FileTree = ({
   onRemoveFavorite,
   onClearFavorites,
   onReorderFavorites
-}) => {
+}, ref) => {
   const [tree, setTree] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
   const [loading, setLoading] = useState(false);
@@ -36,6 +36,11 @@ const FileTree = ({
   // 新建文件夹对话框状态
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [newFolderParent, setNewFolderParent] = useState(null);
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    refreshDirectory: loadDirectory
+  }));
 
   // 加载根目录
   useEffect(() => {
@@ -596,6 +601,8 @@ const FileTree = ({
       )}
     </div>
   );
-};
+});
+
+FileTree.displayName = 'FileTree';
 
 export default FileTree;

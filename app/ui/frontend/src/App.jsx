@@ -75,6 +75,7 @@ function App() {
   const [mermaidLoaded, setMermaidLoaded] = useState(false)
   const previewRef = useRef(null)
   const editorRef = useRef(null)
+  const fileTreeRef = useRef(null)
 
   const toggleEditorTheme = async () => {
     const newTheme = editorTheme === 'vs-dark' ? 'light' : 'vs-dark'
@@ -271,11 +272,18 @@ function App() {
     setShowNewFileDialog(true)
   }
 
-  const handleNewFileConfirm = (filePath, fileContent) => {
+  const handleNewFileConfirm = async (filePath, fileContent) => {
     setCurrentPath(filePath)
     setContent(fileContent)
     autoSave.reset()
     setStatus(`已创建: ${filePath}`)
+    
+    // 刷新文件树（刷新父目录）
+    if (fileTreeRef.current && fileTreeRef.current.refreshDirectory) {
+      const parentPath = filePath.split('/').slice(0, -1).join('/') || '/'
+      await fileTreeRef.current.refreshDirectory(parentPath)
+    }
+    
     setTimeout(() => setStatus('就绪'), 2000)
   }
 
@@ -774,6 +782,7 @@ function App() {
       <main className={`main-content layout-${layout} ${showFileTree ? 'with-filetree' : ''}`}>
         {showFileTree && (
           <FileTree 
+            ref={fileTreeRef}
             onFileSelect={handleFileSelect} 
             currentPath={currentPath}
             favorites={favorites}
