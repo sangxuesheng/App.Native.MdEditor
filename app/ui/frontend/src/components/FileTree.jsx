@@ -3,6 +3,7 @@ import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
 import ContextMenu from './ContextMenu';
 import RenameDialog from './RenameDialog';
+import NewFolderDialog from './NewFolderDialog';
 import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
 import { useDebounce } from '../hooks/useDebounce';
 import { toggleFavorite, isFavorite, updateFavoritePath } from '../utils/favoritesManager';
@@ -31,6 +32,10 @@ const FileTree = ({
   // 重命名对话框状态
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [renameNode, setRenameNode] = useState(null);
+
+  // 新建文件夹对话框状态
+  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
+  const [newFolderParent, setNewFolderParent] = useState(null);
 
   // 加载根目录
   useEffect(() => {
@@ -168,6 +173,13 @@ const FileTree = ({
         }
         break;
         
+      case 'newfolder':
+        if (selectedNode.type === 'directory') {
+          setNewFolderParent(selectedNode);
+          setShowNewFolderDialog(true);
+        }
+        break;
+        
       case 'refresh':
         if (selectedNode.type === 'directory') {
           await loadDirectory(selectedNode.path);
@@ -229,6 +241,36 @@ const FileTree = ({
     
     setShowRenameDialog(false);
     setRenameNode(null);
+  };
+
+  // 新建文件夹
+  const handleNewFolder = async (folderName) => {
+    if (!newFolderParent) return;
+    
+    try {
+      const newPath = `${newFolderParent.path}/${folderName}`;
+      
+      const response = await fetch('/api/folder/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: newPath })
+      });
+      
+      const data = await response.json();
+      
+      if (data.ok) {
+        // 刷新父目录
+        await loadDirectory(newFolderParent.path);
+      } else {
+        alert(`创建文件夹失败: ${data.message || data.code}`);
+      }
+    } catch (error) {
+      console.error('Create folder error:', error);
+      alert('创建文件夹失败: 网络错误');
+    }
+    
+    setShowNewFolderDialog(false);
+    setNewFolderParent(null);
   };
 
   // 删除文件/文件夹
@@ -444,6 +486,18 @@ const FileTree = ({
           onCancel={() => {
             setShowRenameDialog(false);
             setRenameNode(null);
+          }}
+        />
+      )}
+      
+      {/* 新建文件夹对话框 */}
+      {showNewFolderDialog && newFolderParent && (
+        <NewFolderDialog
+          parentPath={newFolderParent.path}
+          onConfirm={handleNewFolder}
+          onCancel={() => {
+            setShowNewFolderDialog(false);
+            setNewFolderParent(null);
           }}
         />
       )}

@@ -72,6 +72,15 @@ function ContextMenu({
       action: () => onAction('favorite')
     })
     
+    // 新建文件夹（仅目录）
+    if (isDirectory) {
+      items.push({
+        label: '新建文件夹',
+        icon: '📁',
+        action: () => onAction('newfolder')
+      })
+    }
+    
     // 刷新（仅目录）
     if (isDirectory) {
       items.push({

@@ -1,0 +1,59 @@
+/* 新建文件夹对话框样式 */
+.new-folder-dialog {
+  width: 450px;
+  max-width: 90vw;
+}
+
+.new-folder-dialog .form-group {
+  margin-bottom: 16px;
+}
+
+.new-folder-dialog .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.new-folder-dialog .form-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: all 0.2s;
+}
+
+.new-folder-dialog .form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
+}
+
+.new-folder-dialog .form-input.error {
+  border-color: var(--error-color);
+}
+
+.new-folder-dialog .form-input.error:focus {
+  box-shadow: 0 0 0 3px rgba(248, 81, 73, 0.1);
+}
+
+.new-folder-dialog .form-error {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--error-color);
+}
+
+.new-folder-dialog .form-hint {
+  margin-top: 12px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  word-break: break-all;
+}
+

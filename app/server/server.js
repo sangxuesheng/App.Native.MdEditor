@@ -302,6 +302,59 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 创建文件夹：POST /api/folder/create
+  if (parsed.pathname === '/api/folder/create' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const requestedPath = body && body.path;
+      try {
+        const safePath = resolveSafePath(requestedPath);
+        
+        if (fs.existsSync(safePath)) {
+          sendJson(res, 409, { ok: false, code: 'ALREADY_EXISTS', message: '文件夹已存在' });
+          return;
+        }
+        
+        fs.mkdir(safePath, { recursive: true }, (mkErr) => {
+          if (mkErr) {
+            if (mkErr.code === 'EACCES') {
+              sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限创建文件夹' });
+            } else {
+              sendJson(res, 500, { ok: false, code: 'MKDIR_FAILED', message: '创建文件夹失败' });
+            }
+            return;
+          }
+          sendJson(res, 200, { ok: true, path: safePath });
+        });
+      } catch (e) {
+        const code = e && e.message;
+        if (code === 'PATH_NOT_ALLOWED') {
+          sendJson(res, 403, { ok: false, code, message: '目标路径不在授权目录内' });
+        } else if (code === 'PATH_MUST_BE_ABSOLUTE') {
+          sendJson(res, 400, { ok: false, code, message: '需要提供绝对路径' });
+        } else {
+          sendJson(res, 400, { ok: false, code: code || 'INVALID_PATH', message: '无效路径' });
+        }
+      }
+    });
+    return;
+  }
+
   // 文件保存：POST /api/file
   if (parsed.pathname === '/api/file' && req.method === 'POST') {
     let raw = '';
