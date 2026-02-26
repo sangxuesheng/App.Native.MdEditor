@@ -37,7 +37,6 @@ function EditorToolbar({ onInsert, disabled }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
   
-  // 计算下拉菜单位置
   useEffect(() => {
     if (showChartMenu && chartButtonRef.current) {
       const rect = chartButtonRef.current.getBoundingClientRect()
@@ -76,23 +75,23 @@ function EditorToolbar({ onInsert, disabled }) {
 
   const insertChart = (type) => {
     const charts = {
-      flowchart: `\`\`\`mermaid
+      flowchart: `${'```'}mermaid
 graph TD
     A[开始] --> B{判断条件}
     B -->|是| C[执行操作]
     B -->|否| D[其他操作]
     C --> E[结束]
     D --> E
-\`\`\``,
-      sequence: `\`\`\`mermaid
+${'```'}`,
+      sequence: `${'```'}mermaid
 sequenceDiagram
     participant A as 用户
     participant B as 系统
     A->>B: 发送请求
     B->>B: 处理请求
     B-->>A: 返回响应
-\`\`\``,
-      class: `\`\`\`mermaid
+${'```'}`,
+      class: `${'```'}mermaid
 classDiagram
     class 动物 {
         +String 名称
@@ -104,16 +103,16 @@ classDiagram
         +吠叫()
     }
     动物 <|-- 狗
-\`\`\``,
-      state: `\`\`\`mermaid
+${'```'}`,
+      state: `${'```'}mermaid
 stateDiagram-v2
     [*] --> 待机
     待机 --> 运行: 启动
     运行 --> 暂停: 暂停
     暂停 --> 运行: 继续
     运行 --> [*]: 停止
-\`\`\``,
-      gantt: `\`\`\`mermaid
+${'```'}`,
+      gantt: `${'```'}mermaid
 gantt
     title 项目进度
     dateFormat  YYYY-MM-DD
@@ -122,15 +121,15 @@ gantt
     任务2           :after a1, 20d
     section 阶段2
     任务3           :2024-02-01, 25d
-\`\`\``,
-      pie: `\`\`\`mermaid
+${'```'}`,
+      pie: `${'```'}mermaid
 pie title 数据分布
     "类别A" : 45
     "类别B" : 30
     "类别C" : 15
     "类别D" : 10
-\`\`\``,
-      journey: `\`\`\`mermaid
+${'```'}`,
+      journey: `${'```'}mermaid
 journey
     title 用户旅程
     section 访问网站
@@ -139,8 +138,8 @@ journey
     section 注册
       填写表单: 3: 用户
       验证邮箱: 2: 用户, 系统
-\`\`\``,
-      er: `\`\`\`mermaid
+${'```'}`,
+      er: `${'```'}mermaid
 erDiagram
     用户 ||--o{ 订单 : 创建
     订单 ||--|{ 订单项 : 包含
@@ -150,7 +149,7 @@ erDiagram
         string 姓名
         string 邮箱
     }
-\`\`\``
+${'```'}`
     }
     
     onInsert(charts[type] + '\n', '', 'insert')
