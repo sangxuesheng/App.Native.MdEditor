@@ -23,7 +23,9 @@ import './EditorToolbar.css'
 
 function EditorToolbar({ onInsert, disabled }) {
   const [showChartMenu, setShowChartMenu] = useState(false)
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
   const chartMenuRef = useRef(null)
+  const chartButtonRef = useRef(null)
   
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -34,6 +36,17 @@ function EditorToolbar({ onInsert, disabled }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+  
+  // 计算下拉菜单位置
+  useEffect(() => {
+    if (showChartMenu && chartButtonRef.current) {
+      const rect = chartButtonRef.current.getBoundingClientRect()
+      setMenuPosition({
+        top: rect.bottom + 8,
+        left: rect.left
+      })
+    }
+  }, [showChartMenu])
   
   const insertHeading = (level) => {
     const prefix = '#'.repeat(level) + ' '
@@ -190,26 +203,42 @@ erDiagram
         <button className="toolbar-btn" onClick={insertHorizontalRule} disabled={disabled} title="分隔线"><Minus size={iconSize} /></button>
       </div>
       <div className="toolbar-divider"></div>
-      <div className="toolbar-group chart-group" ref={chartMenuRef}>
-        <button className={`toolbar-btn chart-btn ${showChartMenu ? 'active' : ''}`} onClick={() => setShowChartMenu(!showChartMenu)} disabled={disabled} title="插入图表">
+      <div className="toolbar-group chart-group">
+        <button 
+          ref={chartButtonRef}
+          className={`toolbar-btn chart-btn ${showChartMenu ? 'active' : ''}`} 
+          onClick={() => setShowChartMenu(!showChartMenu)} 
+          disabled={disabled} 
+          title="插入图表"
+        >
           <BarChart3 size={iconSize} />
           <ChevronDown size={12} />
         </button>
-        {showChartMenu && (
-          <div className="chart-dropdown">
-            <div className="chart-dropdown-header">图表类型</div>
-            <div className="chart-grid">
-              {chartTypes.map(chart => (
-                <button key={chart.id} className="chart-item" onClick={() => insertChart(chart.id)} disabled={disabled}>
-                  <span className="chart-icon">{chart.icon}</span>
-                  <span className="chart-label">{chart.label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="chart-dropdown-footer">图表将在预览面板中渲染</div>
-          </div>
-        )}
       </div>
+      
+      {showChartMenu && (
+        <div 
+          ref={chartMenuRef}
+          className="chart-dropdown" 
+          style={{
+            position: 'fixed',
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+            zIndex: 9999
+          }}
+        >
+          <div className="chart-dropdown-header">图表类型</div>
+          <div className="chart-grid">
+            {chartTypes.map(chart => (
+              <button key={chart.id} className="chart-item" onClick={() => insertChart(chart.id)} disabled={disabled}>
+                <span className="chart-icon">{chart.icon}</span>
+                <span className="chart-label">{chart.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="chart-dropdown-footer">图表将在预览面板中渲染</div>
+        </div>
+      )}
     </div>
   )
 }

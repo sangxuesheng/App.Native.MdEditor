@@ -716,3 +716,18 @@
   background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
 }
+
+/* 修复工具栏下拉菜单被遮挡的问题 */
+.editor-pane {
+  position: relative;
+  z-index: 1;
+}
+
+.editor-toolbar {
+  position: relative;
+  z-index: 100;
+}
+
+.chart-dropdown {
+  position: fixed !important;
+}

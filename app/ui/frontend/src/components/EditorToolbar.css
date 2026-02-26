@@ -6,9 +6,11 @@
   background: #1e1e1e;
   border-bottom: 1px solid #333;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   min-height: 53px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 100;
 }
 
 .toolbar-group {
@@ -74,16 +76,14 @@
   color: #58a6ff;
 }
 
-/* 图表下拉菜单 */
+/* 图表下拉菜单 - 使用 fixed 定位 */
 .chart-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
+  position: fixed;
   background: #2d2d2d;
   border: 1px solid #444;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
   min-width: 320px;
   max-width: 400px;
   overflow: hidden;
@@ -227,7 +227,7 @@
 .theme-light .chart-dropdown {
   background: #ffffff;
   border-color: #d0d7de;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .theme-light .chart-dropdown-header {
@@ -306,7 +306,7 @@
 .theme-md3 .chart-dropdown {
   background: #fef7ff;
   border-color: #d0bcff;
-  box-shadow: 0 4px 12px rgba(103, 80, 164, 0.15);
+  box-shadow: 0 8px 24px rgba(103, 80, 164, 0.2);
   border-radius: 16px;
 }
 
