@@ -16,12 +16,6 @@ import {
   Replace,
   WrapText,
   Heading,
-  Heading1,
-  Heading2,
-  Heading3,
-  Heading4,
-  Heading5,
-  Heading6,
   Bold,
   Italic,
   Strikethrough,
@@ -76,12 +70,6 @@ const MenuItemIcon = ({ type }) => {
     
     // 格式菜单
     'heading': <Heading style={iconStyle} />,
-    'heading-1': <Heading1 style={iconStyle} />,
-    'heading-2': <Heading2 style={iconStyle} />,
-    'heading-3': <Heading3 style={iconStyle} />,
-    'heading-4': <Heading4 style={iconStyle} />,
-    'heading-5': <Heading5 style={iconStyle} />,
-    'heading-6': <Heading6 style={iconStyle} />,
     'bold': <Bold style={iconStyle} />,
     'italic': <Italic style={iconStyle} />,
     'strikethrough': <Strikethrough style={iconStyle} />,
@@ -97,7 +85,7 @@ const MenuItemIcon = ({ type }) => {
     'table': <Table style={iconStyle} />,
     'hr': <Minus style={iconStyle} />,
     'math': <Calculator style={iconStyle} />,
-    'mermaid': <Network style={iconStyle} />,
+    'ListTree': <Network style={iconStyle} />,
     
     // 视图菜单
     'tree': <FolderTree style={iconStyle} />,
@@ -251,12 +239,12 @@ function MenuBar({
         { 
           icon: 'heading', label: '标题', 
           submenu: [
-            { label: '一级标题', icon: 'heading-1', shortcut: 'Ctrl+1', action: () => onInsertHeading(1) },
-            { label: '二级标题', icon: 'heading-2', shortcut: 'Ctrl+2', action: () => onInsertHeading(2) },
-            { label: '三级标题', icon: 'heading-3', shortcut: 'Ctrl+3', action: () => onInsertHeading(3) },
-            { label: '四级标题', icon: 'heading-4', shortcut: 'Ctrl+4', action: () => onInsertHeading(4) },
-            { label: '五级标题', icon: 'heading-5', shortcut: 'Ctrl+5', action: () => onInsertHeading(5) },
-            { label: '六级标题', icon: 'heading-6', shortcut: 'Ctrl+6', action: () => onInsertHeading(6) }
+            { label: '一级标题', icon: 'heading', shortcut: 'Ctrl+1', action: () => onInsertHeading(1) },
+            { label: '二级标题', icon: 'heading', shortcut: 'Ctrl+2', action: () => onInsertHeading(2) },
+            { label: '三级标题', icon: 'heading', shortcut: 'Ctrl+3', action: () => onInsertHeading(3) },
+            { label: '四级标题', icon: 'heading', shortcut: 'Ctrl+4', action: () => onInsertHeading(4) },
+            { label: '五级标题', icon: 'heading', shortcut: 'Ctrl+5', action: () => onInsertHeading(5) },
+            { label: '六级标题', icon: 'heading', shortcut: 'Ctrl+6', action: () => onInsertHeading(6) }
           ]
         },
         { divider: true },
@@ -283,7 +271,7 @@ function MenuBar({
         { divider: true },
         { label: '代码块', icon: 'code', action: () => onInsertCode('codeblock') },
         { label: '数学公式', icon: 'math', action: () => onInsertCode('math') },
-        { label: 'Mermaid 图表', icon: 'mermaid', action: () => onInsertCode('mermaid') }
+        { label: 'Mermaid 图表', icon: 'ListTree', action: () => onInsertCode('ListTree') }
       ]
     },
     {
@@ -294,7 +282,6 @@ function MenuBar({
     {
       name: '视图',
       items: [
-        { label: '切换文件树', icon: 'tree', shortcut: 'Ctrl+B', action: onToggleFileTree },
         { label: '切换工具栏', icon: 'toolbar', action: onToggleToolbar },
         { divider: true },
         { label: '放大', icon: 'zoom-in', shortcut: 'Ctrl++', action: onZoomIn },
