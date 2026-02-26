@@ -385,7 +385,8 @@ function App() {
         // 逐个渲染 Mermaid 图表
         for (let i = 0; i < mermaidNodes.length; i++) {
           const node = mermaidNodes[i]
-          const code = node.textContent
+          const encodedCode = node.getAttribute('data-code')
+          const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
           const id = node.id || `mermaid-${i}`
           
           console.log(`Rendering node ${i}:`, code.substring(0, 50))
