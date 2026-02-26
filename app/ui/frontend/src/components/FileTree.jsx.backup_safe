@@ -16,8 +16,7 @@ const FileTree = forwardRef(({
   onOpenFavorite,
   onRemoveFavorite,
   onClearFavorites,
-  onReorderFavorites,
-  style
+  onReorderFavorites
 }, ref) => {
   const [tree, setTree] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
@@ -529,7 +528,7 @@ const FileTree = forwardRef(({
   const filteredTree = filterTree([...tree], debouncedQuery);
 
   return (
-    <div className="file-tree" style={style}>
+    <div className="file-tree">
       <div className="file-tree-header">
         <h3>文件</h3>
         <FileSearchBox

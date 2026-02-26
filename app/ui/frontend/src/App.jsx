@@ -7,6 +7,7 @@ import katex from 'markdown-it-katex'
 import 'github-markdown-css/github-markdown-dark.css'
 import 'github-markdown-css/github-markdown-light.css'
 import FileTree from './components/FileTree'
+import Resizer from './components/Resizer'
 import markdownLogo from './assets/markdown.svg'
 import DraftRecoveryDialog from './components/DraftRecoveryDialog'
 import EditorToolbar from './components/EditorToolbar'
@@ -88,6 +89,46 @@ function App() {
   const previewRef = useRef(null)
   const editorRef = useRef(null)
   const fileTreeRef = useRef(null)
+  // 面板宽度状态
+  const [fileTreeWidth, setFileTreeWidth] = useState(() => {
+    const saved = localStorage.getItem('md-editor-filetree-width')
+    return saved ? parseInt(saved) : 280
+  })
+  const [editorWidth, setEditorWidth] = useState(() => {
+    const saved = localStorage.getItem('md-editor-editor-width')
+    return saved ? parseInt(saved) : 50 // 百分比
+  })
+
+  // 保存面板宽度到 localStorage
+  useEffect(() => {
+    localStorage.setItem('md-editor-filetree-width', fileTreeWidth.toString())
+  }, [fileTreeWidth])
+
+  useEffect(() => {
+    localStorage.setItem('md-editor-editor-width', editorWidth.toString())
+  }, [editorWidth])
+
+  // 处理文件树宽度调整
+  const handleFileTreeResize = useCallback((delta) => {
+    setFileTreeWidth(prev => {
+      const newWidth = prev + delta
+      return Math.max(200, Math.min(600, newWidth)) // 限制在 200-600px
+    })
+  }, [])
+
+  // 处理编辑器宽度调整
+  const handleEditorResize = useCallback((delta) => {
+    const mainContent = document.querySelector('.main-content')
+    if (!mainContent) return
+    
+    const totalWidth = mainContent.offsetWidth - (showFileTree ? fileTreeWidth : 0) - 8 // 减去分隔条宽度
+    const deltaPercent = (delta / totalWidth) * 100
+    
+    setEditorWidth(prev => {
+      const newWidth = prev + deltaPercent
+      return Math.max(20, Math.min(80, newWidth)) // 限制在 20%-80%
+    })
+  }, [showFileTree, fileTreeWidth])
 
   const toggleEditorTheme = async () => {
     // 三个主题循环切换: light -> vs-dark -> md3 -> light
@@ -848,49 +889,58 @@ function App() {
 
       <main className={`main-content layout-${layout} ${showFileTree ? 'with-filetree' : ''}`}>
         {showFileTree && (
-          <FileTree 
-            ref={fileTreeRef}
-            onFileSelect={handleFileSelect} 
-            currentPath={currentPath}
-            favorites={favorites}
-            onOpenFavorite={handleOpenFavorite}
-            onRemoveFavorite={handleRemoveFavorite}
-            onClearFavorites={handleClearFavorites}
-            onReorderFavorites={handleReorderFavorites}
-          />
+          <>
+            <FileTree 
+              ref={fileTreeRef}
+              onFileSelect={handleFileSelect} 
+              currentPath={currentPath}
+              favorites={favorites}
+              onOpenFavorite={handleOpenFavorite}
+              onRemoveFavorite={handleRemoveFavorite}
+              onClearFavorites={handleClearFavorites}
+              onReorderFavorites={handleReorderFavorites}
+              style={{ width: `${fileTreeWidth}px`, flexShrink: 0 }}
+            />
+            <Resizer direction="vertical" onResize={handleFileTreeResize} />
+          </>
         )}
         {(layout === 'horizontal' || layout === 'vertical' || layout === 'editor-only') && (
-          <div className="editor-pane">
-            {showToolbar && (
-              <EditorToolbar 
-                onInsert={handleToolbarInsert} 
-                disabled={!editorRef.current}
+          <>
+            <div className="editor-pane" style={(layout === 'vertical') ? { width: `${editorWidth}%`, flexShrink: 0 } : {}}>
+              {showToolbar && (
+                <EditorToolbar 
+                  onInsert={handleToolbarInsert} 
+                  disabled={!editorRef.current}
+                />
+              )}
+              <Editor
+                height="100%"
+                defaultLanguage="markdown"
+                theme={editorTheme}
+                value={content}
+                onChange={(value) => setContent(value || '')}
+                onMount={handleEditorMount}
+                options={{
+                  fontSize: editorFontSize,
+                  lineHeight: 24,
+                  minimap: { enabled: false },
+                  wordWrap: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  fontLigatures: true
+                }}
               />
+            </div>
+            {(layout === 'vertical' || layout === 'horizontal') && (
+              <Resizer direction={layout === 'vertical' ? 'vertical' : 'horizontal'} onResize={handleEditorResize} />
             )}
-            <Editor
-              height="100%"
-              defaultLanguage="markdown"
-              theme={editorTheme}
-              value={content}
-              onChange={(value) => setContent(value || '')}
-              onMount={handleEditorMount}
-              options={{
-                fontSize: editorFontSize,
-                lineHeight: 24,
-                minimap: { enabled: false },
-                wordWrap: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                tabSize: 2,
-                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                fontLigatures: true
-              }}
-            />
-          </div>
+          </>
         )}
 
         {(layout === 'horizontal' || layout === 'vertical' || layout === 'preview-only') && (
-          <div className="preview-pane">
+          <div className="preview-pane" style={(layout === 'vertical') ? { flex: 1 } : {}}>
             <div 
               ref={previewRef}
               className="markdown-body"
