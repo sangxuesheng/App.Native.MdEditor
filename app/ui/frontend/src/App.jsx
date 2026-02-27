@@ -945,7 +945,7 @@ function App() {
         )}
         {(layout === 'vertical' || layout === 'editor-only') && (
           <>
-            <div className="editor-pane" style={(layout === 'vertical') ? { width: `${editorWidth}%`, flexShrink: 0 } : {}}>
+            <div className="editor-pane" style={(layout === 'vertical') ? { width: `${editorWidth}%`, flexShrink: 0, flex: '1 1 auto', minHeight: 0 } : { flex: 1, minHeight: 0 }}>
               
               <Editor
                 height="100%"
@@ -984,7 +984,7 @@ function App() {
         )}
 
         {(layout === 'vertical' || layout === 'preview-only') && (
-          <div className="preview-pane" style={(layout === 'vertical') ? { flex: 1 } : {}}>
+          <div className="preview-pane" style={(layout === 'vertical') ? { flex: 1, minHeight: 0 } : { flex: 1, minHeight: 0 }}>
             <div 
               ref={previewRef}
               className="markdown-body"
