@@ -168,12 +168,16 @@
   flex-direction: column;
   border-right: 1px solid #21262d;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .preview-pane {
   overflow: auto;
   padding: 24px;
   background: #0d1117;
+  flex: 1;
+  min-height: 0;
 }
 
 /* 单独显示时占满空间 */
