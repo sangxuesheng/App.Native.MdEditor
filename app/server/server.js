@@ -14,7 +14,6 @@ const path = require('path');
 
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
 const STATIC_DIR = path.join(__dirname, '../ui/frontend/dist');
-const UPLOAD_DIR = path.join(__dirname, '../uploads/images');
 
 // 授权目录解析
 function getAllowedRoots() {
@@ -61,281 +60,12 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
-
-// ==================== 图片上传相关函数 ====================
-
-// 解析 multipart/form-data
-function parseMultipartFormData(req, boundary, callback) {
-  const chunks = [];
-  let totalSize = 0;
-  const maxSize = 10 * 1024 * 1024; // 10MB
-
-  req.on('data', chunk => {
-    totalSize += chunk.length;
-    if (totalSize > maxSize) {
-      callback(new Error('FILE_TOO_LARGE'));
-      req.destroy();
-      return;
-    }
-    chunks.push(chunk);
-  });
-
-  req.on('end', () => {
-    try {
-      const buffer = Buffer.concat(chunks);
-      const parts = [];
-      const boundaryBuffer = Buffer.from('--' + boundary);
-      let start = 0;
-
-      while (true) {
-        const boundaryIndex = buffer.indexOf(boundaryBuffer, start);
-        if (boundaryIndex === -1) break;
-
-        const nextBoundaryIndex = buffer.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
-        if (nextBoundaryIndex === -1) break;
-
-        const partBuffer = buffer.slice(boundaryIndex + boundaryBuffer.length, nextBoundaryIndex);
-        const headerEnd = partBuffer.indexOf('\r\n\r\n');
-        
-        if (headerEnd !== -1) {
-          const headers = partBuffer.slice(0, headerEnd).toString('utf8');
-          const content = partBuffer.slice(headerEnd + 4, partBuffer.length - 2);
-          
-          const nameMatch = headers.match(/name="([^"]+)"/);
-          const filenameMatch = headers.match(/filename="([^"]+)"/);
-          
-          if (nameMatch) {
-            parts.push({
-              name: nameMatch[1],
-              filename: filenameMatch ? filenameMatch[1] : null,
-              content: content
-            });
-          }
-        }
-
-        start = nextBoundaryIndex;
-      }
-
-      callback(null, parts);
-    } catch (err) {
-      callback(err);
-    }
-  });
-
-  req.on('error', err => {
-    callback(err);
-  });
-}
-
-// 生成唯一文件名
-function generateUniqueFilename(originalName) {
-  const ext = path.extname(originalName);
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  return timestamp + '_' + random + ext;
-}
-
-// 获取图片存储路径（按日期分类）
-function getImageStoragePath() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return path.join(UPLOAD_DIR, String(year), month, day);
-}
-
-// 验证图片文件类型
-function isValidImageType(filename) {
-  const ext = path.extname(filename).toLowerCase();
-  return ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
-}
-
 const server = http.createServer((req, res) => {
   const parsed = url.parse(req.url, true);
 
   // 健康检查
   if (parsed.pathname === '/health') {
     sendJson(res, 200, { ok: true, app: 'App.Native.MdEditor' });
-    return;
-  }
-
-
-  // ==================== 图片上传 API ====================
-  
-  // 图片上传：POST /api/image/upload
-  if (parsed.pathname === '/api/image/upload' && req.method === 'POST') {
-    const contentType = req.headers['content-type'] || '';
-    const boundaryMatch = contentType.match(/boundary=(.+)$/);
-    
-    if (!boundaryMatch) {
-      sendJson(res, 400, { ok: false, code: 'INVALID_CONTENT_TYPE', message: '需要 multipart/form-data' });
-      return;
-    }
-    
-    const boundary = boundaryMatch[1];
-    
-    parseMultipartFormData(req, boundary, (err, parts) => {
-      if (err) {
-        if (err.message === 'FILE_TOO_LARGE') {
-          sendJson(res, 413, { ok: false, code: 'FILE_TOO_LARGE', message: '文件大小超过 10MB 限制' });
-        } else {
-          sendJson(res, 400, { ok: false, code: 'PARSE_ERROR', message: '解析上传文件失败' });
-        }
-        return;
-      }
-      
-      const imagePart = parts.find(p => p.filename);
-      if (!imagePart) {
-        sendJson(res, 400, { ok: false, code: 'NO_FILE', message: '未找到上传的文件' });
-        return;
-      }
-      
-      if (!isValidImageType(imagePart.filename)) {
-        sendJson(res, 400, { ok: false, code: 'INVALID_TYPE', message: '只支持 JPG, PNG, GIF, WebP 格式' });
-        return;
-      }
-      
-      const storagePath = getImageStoragePath();
-      const filename = generateUniqueFilename(imagePart.filename);
-      const fullPath = path.join(storagePath, filename);
-      
-      // 创建目录
-      fs.mkdir(storagePath, { recursive: true }, (mkErr) => {
-        if (mkErr) {
-          sendJson(res, 500, { ok: false, code: 'MKDIR_FAILED', message: '创建存储目录失败' });
-          return;
-        }
-        
-        // 保存文件
-        fs.writeFile(fullPath, imagePart.content, (writeErr) => {
-          if (writeErr) {
-            sendJson(res, 500, { ok: false, code: 'WRITE_ERROR', message: '保存文件失败' });
-            return;
-          }
-          
-          // 获取文件信息
-          fs.stat(fullPath, (statErr, stats) => {
-            if (statErr) {
-              sendJson(res, 500, { ok: false, code: 'STAT_ERROR', message: '获取文件信息失败' });
-              return;
-            }
-            
-            const relativePath = path.relative(path.join(__dirname, '..'), fullPath);
-            const url = '/' + relativePath.replace(/\\/g, '/');
-            
-            sendJson(res, 200, {
-              ok: true,
-              data: {
-                url: url,
-                filename: filename,
-                originalName: imagePart.filename,
-                size: stats.size,
-                uploadDate: new Date().toISOString()
-              }
-            });
-          });
-        });
-      });
-    });
-    return;
-  }
-
-  // 图片列表：GET /api/images
-  if (parsed.pathname === '/api/images' && req.method === 'GET') {
-    const page = parseInt(parsed.query.page) || 1;
-    const limit = parseInt(parsed.query.limit) || 20;
-    const search = parsed.query.search || '';
-    
-    // 递归读取所有图片
-    function getAllImages(dir, fileList = []) {
-      if (!fs.existsSync(dir)) {
-        return fileList;
-      }
-      
-      const files = fs.readdirSync(dir);
-      files.forEach(file => {
-        const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
-        
-        if (stat.isDirectory()) {
-          getAllImages(filePath, fileList);
-        } else if (isValidImageType(file)) {
-          if (!search || file.toLowerCase().includes(search.toLowerCase())) {
-            const relativePath = path.relative(path.join(__dirname, '..'), filePath);
-            const url = '/' + relativePath.replace(/\\/g, '/');
-            fileList.push({
-              url: url,
-              filename: file,
-              size: stat.size,
-              uploadDate: stat.mtime.toISOString()
-            });
-          }
-        }
-      });
-      
-      return fileList;
-    }
-    
-    try {
-      const allImages = getAllImages(UPLOAD_DIR);
-      allImages.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
-      
-      const total = allImages.length;
-      const start = (page - 1) * limit;
-      const end = start + limit;
-      const images = allImages.slice(start, end);
-      
-      sendJson(res, 200, {
-        ok: true,
-        data: {
-          images: images,
-          total: total,
-          page: page,
-          limit: limit
-        }
-      });
-    } catch (err) {
-      sendJson(res, 500, { ok: false, code: 'READ_ERROR', message: '读取图片列表失败' });
-    }
-    return;
-  }
-
-  // 删除图片：DELETE /api/image
-  if (parsed.pathname === '/api/image' && req.method === 'DELETE') {
-    const imageUrl = parsed.query.url;
-    
-    if (!imageUrl) {
-      sendJson(res, 400, { ok: false, code: 'MISSING_URL', message: '缺少图片 URL' });
-      return;
-    }
-    
-    try {
-      // 将 URL 转换为文件路径
-      const relativePath = imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
-      const imagePath = path.join(__dirname, '..', relativePath);
-      
-      // 验证路径在 uploads 目录内
-      if (!imagePath.startsWith(path.join(__dirname, '../uploads'))) {
-        sendJson(res, 403, { ok: false, code: 'INVALID_PATH', message: '无效的图片路径' });
-        return;
-      }
-      
-      if (!fs.existsSync(imagePath)) {
-        sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '图片不存在' });
-        return;
-      }
-      
-      fs.unlink(imagePath, (unlinkErr) => {
-        if (unlinkErr) {
-          sendJson(res, 500, { ok: false, code: 'DELETE_ERROR', message: '删除图片失败' });
-          return;
-        }
-        
-        sendJson(res, 200, { ok: true, message: '图片已删除' });
-      });
-    } catch (err) {
-      sendJson(res, 500, { ok: false, code: 'ERROR', message: '删除图片失败' });
-    }
     return;
   }
 
@@ -790,6 +520,113 @@ const server = http.createServer((req, res) => {
   }
 
   // 文件保存：POST /api/file
+
+  // 图片上传：POST /api/image/upload
+  if (parsed.pathname === '/api/image/upload' && req.method === 'POST') {
+    const contentType = req.headers['content-type'] || '';
+    
+    if (!contentType.includes('multipart/form-data')) {
+      sendJson(res, 400, { ok: false, code: 'INVALID_CONTENT_TYPE', message: '需要 multipart/form-data' });
+      return;
+    }
+    
+    // 简单的 multipart 解析（生产环境建议使用 multer 等库）
+    const boundary = contentType.split('boundary=')[1];
+    if (!boundary) {
+      sendJson(res, 400, { ok: false, code: 'NO_BOUNDARY', message: '缺少 boundary' });
+      return;
+    }
+    
+    let rawData = Buffer.alloc(0);
+    req.on('data', chunk => {
+      rawData = Buffer.concat([rawData, chunk]);
+      if (rawData.length > 10 * 1024 * 1024) { // 10MB 限制
+        sendJson(res, 413, { ok: false, code: 'FILE_TOO_LARGE', message: '文件过大' });
+        req.destroy();
+      }
+    });
+    
+    req.on('end', () => {
+      try {
+        const parts = rawData.toString('binary').split('--' + boundary);
+        const uploadedImages = [];
+        
+        // 创建图片存储目录
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        
+        // 使用第一个授权目录作为图片存储位置
+        const roots = getAllowedRoots();
+        if (!roots.length) {
+          sendJson(res, 500, { ok: false, code: 'NO_STORAGE', message: '未配置存储目录' });
+          return;
+        }
+        
+        const imagesDir = path.join(roots[0], 'images', year.toString(), month, day);
+        
+        // 确保目录存在
+        if (!fs.existsSync(imagesDir)) {
+          fs.mkdirSync(imagesDir, { recursive: true });
+        }
+        
+        for (const part of parts) {
+          if (!part.includes('Content-Disposition')) continue;
+          
+          // 提取文件名
+          const filenameMatch = part.match(/filename="([^"]+)"/);
+          if (!filenameMatch) continue;
+          
+          const originalFilename = filenameMatch[1];
+          const ext = path.extname(originalFilename);
+          
+          // 验证文件类型
+          if (!['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext.toLowerCase())) {
+            continue;
+          }
+          
+          // 生成唯一文件名
+          const timestamp = Date.now();
+          const random = Math.random().toString(36).substring(2, 8);
+          const filename = `${timestamp}_${random}${ext}`;
+          const filepath = path.join(imagesDir, filename);
+          
+          // 提取文件内容
+          const contentStart = part.indexOf('\r\n\r\n') + 4;
+          const contentEnd = part.lastIndexOf('\r\n');
+          if (contentStart < 4 || contentEnd < 0) continue;
+          
+          const fileContent = Buffer.from(part.substring(contentStart, contentEnd), 'binary');
+          
+          // 保存文件
+          fs.writeFileSync(filepath, fileContent);
+          
+          // 生成相对 URL
+          const relativeUrl = `/images/${year}/${month}/${day}/${filename}`;
+          
+          uploadedImages.push({
+            url: relativeUrl,
+            filename: originalFilename,
+            size: fileContent.length,
+            alt: originalFilename.replace(/\.[^.]+$/, '')
+          });
+        }
+        
+        if (uploadedImages.length === 0) {
+          sendJson(res, 400, { ok: false, code: 'NO_IMAGES', message: '没有有效的图片文件' });
+          return;
+        }
+        
+        sendJson(res, 200, { ok: true, images: uploadedImages });
+      } catch (err) {
+        console.error('Image upload error:', err);
+        sendJson(res, 500, { ok: false, code: 'UPLOAD_ERROR', message: '上传失败' });
+      }
+    });
+    return;
+  }
+
   if (parsed.pathname === '/api/file' && req.method === 'POST') {
     let raw = '';
     req.on('data', chunk => {
@@ -845,32 +682,50 @@ const server = http.createServer((req, res) => {
 
   // 静态文件服务
 
-  // 上传文件静态服务
-  if (parsed.pathname.startsWith('/uploads/')) {
-    const uploadPath = path.join(__dirname, '..', parsed.pathname);
-    
-    if (fs.existsSync(uploadPath) && fs.statSync(uploadPath).isFile()) {
-      const ext = path.extname(uploadPath);
-      const mimeTypes = {
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp'
-      };
-      const contentType = mimeTypes[ext] || 'application/octet-stream';
+  // 图片静态文件服务：/images/...
+  if (parsed.pathname.startsWith('/images/')) {
+    try {
+      const roots = getAllowedRoots();
+      if (!roots.length) {
+        res.writeHead(404);
+        res.end('Not Found');
+        return;
+      }
       
-      fs.readFile(uploadPath, (err, data) => {
-        if (err) {
-          res.writeHead(500);
-          res.end('Internal Server Error');
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': contentType });
-        res.end(data);
-      });
-      return;
+      const imagePath = path.join(roots[0], parsed.pathname);
+      
+      if (fs.existsSync(imagePath) && fs.statSync(imagePath).isFile()) {
+        const ext = path.extname(imagePath).toLowerCase();
+        const mimeTypes = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp',
+          '.svg': 'image/svg+xml'
+        };
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        
+        fs.readFile(imagePath, (err, data) => {
+          if (err) {
+            res.writeHead(500);
+            res.end('Internal Server Error');
+            return;
+          }
+          res.writeHead(200, { 
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=31536000'
+          });
+          res.end(data);
+        });
+        return;
+      }
+    } catch (err) {
+      console.error('Image serve error:', err);
     }
+    res.writeHead(404);
+    res.end('Not Found');
+    return;
   }
 
   const staticPath = path.join(STATIC_DIR, parsed.pathname === '/' ? 'index.html' : parsed.pathname);

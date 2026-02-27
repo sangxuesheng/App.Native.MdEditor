@@ -18,7 +18,7 @@ import ExportDialog from './components/ExportDialog'
 import SettingsDialog from './components/SettingsDialog'
 import MarkdownHelpDialog from './components/MarkdownHelpDialog'
 import ShortcutsDialog from './components/ShortcutsDialog'
-import ImageManager from './components/ImageManager'
+import ImageManagerDialog from './components/ImageManagerDialog'
 import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
@@ -492,38 +492,6 @@ function App() {
         }
         break
 
-  // 处理图片管理器插入
-  const handleImageInsert = (markdown) => {
-    if (editorRef.current) {
-      const editor = editorRef.current;
-
-  // 处理图片管理器插入
-  const handleImageInsert = (markdown) => {
-    if (editorRef.current) {
-      const editor = editorRef.current
-      const selection = editor.getSelection()
-      const op = {
-        range: selection,
-        text: markdown,
-        forceMoveMarkers: true
-      }
-      editor.executeEdits('insert-image', [op])
-      editor.focus()
-    }
-  }
-      const selection = editor.getSelection();
-      const id = { major: 1, minor: 1 };
-      const op = {
-        range: selection,
-        text: markdown,
-        forceMoveMarkers: true
-      };
-      editor.executeEdits('insert-image', [op]);
-      editor.focus();
-    }
-  };
-
-
       case 'line':
         const lineContent = model.getLineContent(selection.startLineNumber)
         newText = `${before}${lineContent}`
@@ -586,6 +554,20 @@ function App() {
     }
 
     editor.focus()
+  }
+
+  const handleImageInsert = (markdown) => {
+    if (editorRef.current) {
+      const editor = editorRef.current
+      const selection = editor.getSelection()
+      const op = {
+        range: selection,
+        text: markdown,
+        forceMoveMarkers: true
+      }
+      editor.executeEdits('insert-image', [op])
+      editor.focus()
+    }
   }
 
   const handleEditorMount = (editor) => {
@@ -674,16 +656,40 @@ function App() {
 
   const handleMenuCopy = () => {
     if (editorRef.current) {
+      editorRef.current.focus()
       editorRef.current.trigger('keyboard', 'editor.action.clipboardCopyAction')
     }
   }
 
-  const handleMenuPaste = () => {
+  const handleMenuCut = () => {
     if (editorRef.current) {
-      editorRef.current.trigger('keyboard', 'editor.action.clipboardPasteAction')
+      editorRef.current.focus()
+      editorRef.current.trigger('keyboard', 'editor.action.clipboardCutAction')
     }
   }
 
+  const handleMenuPaste = async () => {
+    if (editorRef.current) {
+      editorRef.current.focus()
+      
+      // 尝试使用浏览器剪贴板 API
+      try {
+        const text = await navigator.clipboard.readText()
+        if (text) {
+          const selection = editorRef.current.getSelection()
+          editorRef.current.executeEdits('paste', [{
+            range: selection,
+            text: text,
+            forceMoveMarkers: true
+          }])
+        }
+      } catch (err) {
+        // 如果剪贴板 API 失败，回退到 Monaco 的方法
+        console.log('使用 Monaco Editor 粘贴方法')
+        editorRef.current.trigger('keyboard', 'editor.action.clipboardPasteAction')
+      }
+    }
+  }
   const handleMenuFormatDocument = () => {
     if (editorRef.current) {
       editorRef.current.getAction('editor.action.formatDocument').run()
@@ -923,6 +929,7 @@ function App() {
             onUndo={handleMenuUndo}
             onRedo={handleMenuRedo}
             onCopy={handleMenuCopy}
+            onCut={handleMenuCut}
             onPaste={handleMenuPaste}
             onFormatDocument={handleMenuFormatDocument}
             onFind={handleMenuFind}
@@ -1093,9 +1100,11 @@ function App() {
       </footer>
 
       {showImageManager && (
-        <ImageManager
-          onInsert={handleImageInsert}
+        <ImageManagerDialog
+          isOpen={showImageManager}
           onClose={() => setShowImageManager(false)}
+          onInsertImage={handleImageInsert}
+          theme={editorTheme}
         />
       )}
     </div>

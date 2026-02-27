@@ -116,6 +116,7 @@ function MenuBar({
   onUndo,
   onRedo,
   onCopy,
+  onCut,
   onPaste,
   onFormatDocument,
   onFind,
@@ -210,14 +211,8 @@ function MenuBar({
         { label: '撤销', icon: 'undo', shortcut: 'Ctrl+Z', action: onUndo },
         { label: '重做', icon: 'redo', shortcut: 'Ctrl+Y', action: onRedo },
         { divider: true },
-        { 
-          icon: 'copy', label: '复制', 
-          submenu: [
-            { icon: 'copy', label: '复制', shortcut: 'Ctrl+C', action: onCopy },
-            { label: '剪切', icon: 'cut', shortcut: 'Ctrl+X', action: () => {} },
-            { label: '粘贴', icon: 'paste', shortcut: 'Ctrl+V', action: onPaste }
-          ]
-        },
+        { label: '复制', icon: 'copy', shortcut: 'Ctrl+C', action: onCopy },
+        { label: '剪切', icon: 'cut', shortcut: 'Ctrl+X', action: onCut },
         { label: '粘贴', icon: 'paste', shortcut: 'Ctrl+V', action: onPaste },
         { divider: true },
         { label: '格式化文档', icon: 'format', shortcut: 'Shift+Alt+F', action: onFormatDocument },

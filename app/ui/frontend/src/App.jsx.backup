@@ -18,6 +18,7 @@ import ExportDialog from './components/ExportDialog'
 import SettingsDialog from './components/SettingsDialog'
 import MarkdownHelpDialog from './components/MarkdownHelpDialog'
 import ShortcutsDialog from './components/ShortcutsDialog'
+import ImageManager from './components/ImageManager'
 import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
@@ -64,6 +65,7 @@ const loadMermaid = async () => {
 
 function App() {
   const [content, setContent] = useState('')
+  const [showImageManager, setShowImageManager] = useState(false)
   const [currentPath, setCurrentPath] = useState('')
   const [status, setStatus] = useState('就绪')
   const [editorTheme, setEditorTheme] = useState('light')
@@ -490,6 +492,38 @@ function App() {
         }
         break
 
+  // 处理图片管理器插入
+  const handleImageInsert = (markdown) => {
+    if (editorRef.current) {
+      const editor = editorRef.current;
+
+  // 处理图片管理器插入
+  const handleImageInsert = (markdown) => {
+    if (editorRef.current) {
+      const editor = editorRef.current
+      const selection = editor.getSelection()
+      const op = {
+        range: selection,
+        text: markdown,
+        forceMoveMarkers: true
+      }
+      editor.executeEdits('insert-image', [op])
+      editor.focus()
+    }
+  }
+      const selection = editor.getSelection();
+      const id = { major: 1, minor: 1 };
+      const op = {
+        range: selection,
+        text: markdown,
+        forceMoveMarkers: true
+      };
+      editor.executeEdits('insert-image', [op]);
+      editor.focus();
+    }
+  };
+
+
       case 'line':
         const lineContent = model.getLineContent(selection.startLineNumber)
         newText = `${before}${lineContent}`
@@ -897,7 +931,7 @@ function App() {
             onInsertBold={() => handleToolbarInsert('**', '**', 'wrap')}
             onInsertItalic={() => handleToolbarInsert('*', '*', 'wrap')}
             onInsertLink={() => handleToolbarInsert('[', '](https://)', 'wrap')}
-            onInsertImage={() => handleToolbarInsert('![', '](https://)', 'wrap')}
+            onInsertImage={() => setShowImageManager(true)}
             onInsertCode={handleInsertCode}
             onInsertTable={() => handleToolbarInsert("\n| 列1 | 列2 |\n|-----|-----|\n| 内容 | 内容 |\n", "", "insert")}
             onToggleFileTree={() => setShowFileTree(!showFileTree)}
@@ -1057,6 +1091,13 @@ function App() {
           </button>
         </div>
       </footer>
+
+      {showImageManager && (
+        <ImageManager
+          onInsert={handleImageInsert}
+          onClose={() => setShowImageManager(false)}
+        />
+      )}
     </div>
   )
 }
