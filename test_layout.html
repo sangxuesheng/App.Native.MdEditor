@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+.app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0d1117;
+}
+
+.toolbar {
+  height: 48px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  flex-shrink: 0;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 0;
+  overflow: hidden;
+  background: #0d1117;
+}
+
+.editor-toolbar {
+  width: 100%;
+  flex-basis: 100%;
+  height: 53px;
+  background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+  border-bottom: 1px solid #30363d;
+  flex-shrink: 0;
+  order: -1;
+}
+
+.editor-preview-container {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  width: 100%;
+  order: 1;
+  background: #1a1a1a;
+}
+
+.editor-pane {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #21262d;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  background: #0d1117;
+}
+
+.editor-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  color: #c9d1d9;
+}
+
+.preview-pane {
+  overflow: auto;
+  padding: 24px;
+  background: #0d1117;
+  flex: 1;
+  min-height: 0;
+  color: #c9d1d9;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">工具栏</div>
+  
+  <main class="main-content">
+    <div class="editor-toolbar">编辑器工具栏</div>
+    
+    <div class="editor-preview-container">
+      <div class="editor-pane">
+        <div class="editor-content">
+          <h3>编辑器内容</h3>
+          <p>第1行</p><p>第2行</p><p>第3行</p><p>第4行</p><p>第5行</p>
+          <p>第6行</p><p>第7行</p><p>第8行</p><p>第9行</p><p>第10行</p>
+          <p>第11行</p><p>第12行</p><p>第13行</p><p>第14行</p><p>第15行</p>
+          <p>第16行</p><p>第17行</p><p>第18行</p><p>第19行</p><p>第20行</p>
+          <p>第21行</p><p>第22行</p><p>第23行</p><p>第24行</p><p>第25行</p>
+          <p>第26行</p><p>第27行</p><p>第28行</p><p>第29行</p><p>第30行</p>
+          <p>第31行</p><p>第32行</p><p>第33行</p><p>第34行</p><p>第35行</p>
+          <p>第36行</p><p>第37行</p><p>第38行</p><p>第39行</p><p>第40行</p>
+          <p>第41行</p><p>第42行</p><p>第43行</p><p>第44行</p><p>第45行</p>
+          <p>第46行</p><p>第47行</p><p>第48行</p><p>第49行</p><p>第50行</p>
+        </div>
+      </div>
+      
+      <div class="preview-pane">
+        <h3>预览内容</h3>
+        <p>第1行</p><p>第2行</p><p>第3行</p><p>第4行</p><p>第5行</p>
+        <p>第6行</p><p>第7行</p><p>第8行</p><p>第9行</p><p>第10行</p>
+        <p>第11行</p><p>第12行</p><p>第13行</p><p>第14行</p><p>第15行</p>
+        <p>第16行</p><p>第17行</p><p>第18行</p><p>第19行</p><p>第20行</p>
+        <p>第21行</p><p>第22行</p><p>第23行</p><p>第24行</p><p>第25行</p>
+        <p>第26行</p><p>第27行</p><p>第28行</p><p>第29行</p><p>第30行</p>
+        <p>第31行</p><p>第32行</p><p>第33行</p><p>第34行</p><p>第35行</p>
+        <p>第36行</p><p>第37行</p><p>第38行</p><p>第39行</p><p>第40行</p>
+        <p>第41行</p><p>第42行</p><p>第43行</p><p>第44行</p><p>第45行</p>
+        <p>第46行</p><p>第47行</p><p>第48行</p><p>第49行</p><p>第50行</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+console.log('App height:', document.querySelector('.app').offsetHeight);
+console.log('Toolbar height:', document.querySelector('.toolbar').offsetHeight);
+console.log('Main-content height:', document.querySelector('.main-content').offsetHeight);
+console.log('Editor-toolbar height:', document.querySelector('.editor-toolbar').offsetHeight);
+console.log('Container height:', document.querySelector('.editor-preview-container').offsetHeight);
+console.log('Editor-pane height:', document.querySelector('.editor-pane').offsetHeight);
+console.log('Preview-pane height:', document.querySelector('.preview-pane').offsetHeight);
+</script>
+</body>
+</html>

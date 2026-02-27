@@ -19,3 +19,8 @@ cd /vol4/1000/开发文件夹/mac
 
 http://192.168.2.2:18080/
 
+构建前端
+cd /vol4/1000/开发文件夹/mac && bash build-complete.sh 2>&1 | tail -5
+
+打包
+cd /vol4/1000/开发文件夹/mac && bash build-complete.sh 2>&1 | tail -5 && fnpack build
