@@ -614,6 +614,15 @@ function App() {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
       handleToolbarInsert('[', '](https://)', 'wrap')
     })
+
+    // 搜索和替换快捷键
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+      editor.trigger('keyboard', 'actions.find')
+    })
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
+      editor.trigger('keyboard', 'editor.action.startFindReplaceAction')
+    })
   }
 
   // MenuBar 处理函数
