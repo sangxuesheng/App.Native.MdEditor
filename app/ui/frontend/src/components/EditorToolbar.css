@@ -3,8 +3,9 @@
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: #1e1e1e;
-  border-bottom: 1px solid #333;
+  background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+  border-bottom: 1px solid #30363d;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   overflow-x: auto;
   overflow-y: visible;
   min-height: 53px;

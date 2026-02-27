@@ -140,12 +140,9 @@
 .main-content {
   flex: 1;
   display: flex;
+  flex-wrap: wrap;
   min-height: 0;
   overflow: hidden;
-}
-
-.main-content.layout-horizontal {
-  flex-direction: column;
 }
 
 .main-content.layout-vertical {
@@ -173,11 +170,6 @@
   border-right: 1px solid #21262d;
 }
 
-.main-content.layout-horizontal .editor-pane {
-  border-right: none;
-  border-bottom: 1px solid #21262d;
-}
-
 .preview-pane {
   overflow: auto;
   padding: 24px;
@@ -188,13 +180,6 @@
 .main-content.layout-editor-only .editor-pane,
 .main-content.layout-preview-only .preview-pane {
   flex: 1;
-}
-
-/* 水平布局时各占一半 */
-.main-content.layout-horizontal .editor-pane,
-.main-content.layout-horizontal .preview-pane {
-  flex: 1;
-  min-height: 0;
 }
 
 /* Markdown 样式增强 */
@@ -804,4 +789,77 @@
 
 .theme-md3 .icon-folder-closed-dot::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236750a4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
+}
+
+/* 编辑器工具栏横跨全宽 */
+.main-content > .editor-toolbar {
+  width: 100%;
+  flex-shrink: 0;
+  order: -1; /* 确保在最前面 */
+  border-bottom: 1px solid #21262d;
+}
+
+/* 调整 main-content 为 flex 容器并支持换行 */
+
+/* ==================== 编辑器工具栏横跨全宽 ==================== */
+
+/* 工具栏基础样式 */
+.main-content > .editor-toolbar {
+  width: 100%;
+  flex-basis: 100%;
+  flex-shrink: 0;
+  order: -1;
+  border-bottom: 1px solid #21262d;
+  z-index: 10;
+}
+
+/* 垂直布局：工具栏在顶部，下方是文件树+编辑区+预览区 */
+.main-content.layout-vertical {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.main-content.layout-vertical > .editor-toolbar {
+  width: 100%;
+  flex-basis: 100%;
+}
+
+/* 水平布局：工具栏在顶部，下方是编辑区和预览区上下排列 */
+/* 仅编辑器布局 */
+.main-content.layout-editor-only > .editor-toolbar {
+  width: 100%;
+  flex-basis: 100%;
+}
+
+/* 浅色主题 */
+.app.theme-light .main-content > .editor-toolbar {
+  border-bottom-color: #d0d7de;
+}
+
+/* MD3 主题 */
+.app.theme-md3 .main-content > .editor-toolbar {
+  border-bottom-color: #e6e0e9;
+}
+
+/* 确保编辑器和预览区在工具栏下方正确排列 */
+.main-content.layout-vertical > .file-tree,
+.main-content.layout-vertical > .resizer,
+.main-content.layout-vertical > .editor-pane,
+.main-content.layout-vertical > .preview-pane {
+  order: 1;
+}
+
+
+/* ==================== 行号右对齐 ==================== */
+.monaco-editor .line-numbers {
+  text-align: right !important;
+  padding-right: 1px !important;
+}
+/* 自定义折叠图标样式 */
+.monaco-editor .codicon-folding-expanded::before {
+  content: '⌄' !important;
+}
+
+.monaco-editor .codicon-folding-collapsed::before {
+  content: '›' !important;
 }

@@ -4,13 +4,9 @@ import './SettingsDialog.css';
 const SettingsDialog = ({ 
   onClose, 
   theme, 
-  autoSaveEnabled, 
-  onAutoSaveChange, 
   onThemeChange 
 }) => {
   const [settings, setSettings] = useState({
-    autoSave: autoSaveEnabled,
-    autoSaveInterval: 30,
     theme: theme === 'vs-dark' ? 'dark' : 'light',
     fontSize: 14,
     lineHeight: 24,
@@ -46,10 +42,6 @@ const SettingsDialog = ({
     localStorage.setItem('md-editor-settings', JSON.stringify(settings));
 
     // 应用设置
-    if (settings.autoSave !== autoSaveEnabled) {
-      onAutoSaveChange(settings.autoSave);
-    }
-
     if ((settings.theme === 'dark' ? 'vs-dark' : 'light') !== theme) {
       onThemeChange();
     }
@@ -60,8 +52,6 @@ const SettingsDialog = ({
 
   const handleReset = () => {
     const defaultSettings = {
-      autoSave: true,
-      autoSaveInterval: 30,
       theme: 'dark',
       fontSize: 14,
       lineHeight: 24,
@@ -103,44 +93,6 @@ const SettingsDialog = ({
                   <option value="light">浅色</option>
                 </select>
               </div>
-            </div>
-
-            {/* 自动保存设置 */}
-            <div className="settings-section">
-              <h3 className="section-title">自动保存</h3>
-              
-              <div className="setting-item">
-                <div className="setting-label">
-                  <label>启用自动保存</label>
-                  <p className="setting-description">自动保存编辑中的文件</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.autoSave}
-                    onChange={(e) => handleChange('autoSave', e.target.checked)}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
-
-              {settings.autoSave && (
-                <div className="setting-item">
-                  <div className="setting-label">
-                    <label>自动保存间隔</label>
-                    <p className="setting-description">自动保存的时间间隔（秒）</p>
-                  </div>
-                  <input
-                    type="number"
-                    min="10"
-                    max="300"
-                    value={settings.autoSaveInterval}
-                    onChange={(e) => handleChange('autoSaveInterval', parseInt(e.target.value))}
-                    className="form-input"
-                    style={{ width: '100px' }}
-                  />
-                </div>
-              )}
             </div>
 
             {/* 编辑器设置 */}

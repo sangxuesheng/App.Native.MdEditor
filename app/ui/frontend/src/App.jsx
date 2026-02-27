@@ -68,7 +68,7 @@ function App() {
   const [status, setStatus] = useState('就绪')
   const [editorTheme, setEditorTheme] = useState('light')
   const [layout, setLayout] = useState('vertical')
-  const [showFileTree, setShowFileTree] = useState(true)
+  const [showFileTree, setShowFileTree] = useState(false)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
@@ -83,7 +83,7 @@ function App() {
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
   const [pendingDraft, setPendingDraft] = useState(null)
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
+
   const [rootDirs, setRootDirs] = useState([])
   const [mermaidLoaded, setMermaidLoaded] = useState(false)
   const previewRef = useRef(null)
@@ -194,7 +194,7 @@ function App() {
 
   const autoSave = useAutoSave(content, currentPath, saveFile, {
     interval: 30000,
-    enabled: autoSaveEnabled && !!currentPath,
+    enabled: !!currentPath,
     onAutoSaveSuccess: (message) => {
       setStatus(message)
       setTimeout(() => setStatus('就绪'), 2000)
@@ -460,7 +460,7 @@ function App() {
   }, [renderMarkdown])
 
   useEffect(() => {
-    if (layout === 'preview-only' || layout === 'horizontal' || layout === 'vertical') {
+    if (layout === 'preview-only' || layout === 'vertical') {
       const timer = setTimeout(() => {
         renderMarkdown()
       }, 50)
@@ -556,6 +556,48 @@ function App() {
 
   const handleEditorMount = (editor) => {
     editorRef.current = editor
+    
+    // 注册自定义 Markdown 折叠提供器
+    monaco.languages.registerFoldingRangeProvider('markdown', {
+      provideFoldingRanges: (model) => {
+        const ranges = []
+        const lines = model.getLinesContent()
+        
+        // 查找标题并计算折叠范围
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i]
+          const headingMatch = line.match(/^(#{1,6})\s/)
+          
+          if (headingMatch) {
+            const level = headingMatch[1].length
+            let endLine = i
+            
+            // 找到下一个同级或更高级标题
+            for (let j = i + 1; j < lines.length; j++) {
+              const nextLine = lines[j]
+              const nextMatch = nextLine.match(/^(#{1,6})\s/)
+              
+              if (nextMatch && nextMatch[1].length <= level) {
+                endLine = j - 1
+                break
+              }
+              endLine = j
+            }
+            
+            // 只有当有内容可折叠时才添加折叠范围
+            if (endLine > i) {
+              ranges.push({
+                start: i + 1,
+                end: endLine + 1,
+                kind: monaco.languages.FoldingRangeKind.Region
+              })
+            }
+          }
+        }
+        
+        return ranges
+      }
+    })
     
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       autoSave.manualSave()
@@ -777,8 +819,6 @@ function App() {
         <SettingsDialog
           onClose={() => setShowSettingsDialog(false)}
           theme={editorTheme}
-          autoSaveEnabled={autoSaveEnabled}
-          onAutoSaveChange={setAutoSaveEnabled}
           onThemeChange={toggleEditorTheme}
         />
       )}
@@ -825,7 +865,7 @@ function App() {
           >
             <FolderArchive />
           </button>
-          <img src={markdownLogo} alt="Markdown" className="app-logo" />
+          <img src={markdownLogo} alt="Markdown" className="app-logo" style={{ filter: editorTheme === 'light' ? 'none' : editorTheme === 'md3' ? 'brightness(0) saturate(100%) invert(100%)' : 'brightness(0) saturate(100%) invert(64%) sepia(85%) saturate(2476%) hue-rotate(195deg) brightness(103%) contrast(101%)' }} />
           <MenuBar
             onNewFile={handleNewFile}
             onSave={() => autoSave.manualSave()}
@@ -873,14 +913,7 @@ function App() {
         </div>
         
         <div className="toolbar-right">
-          <button 
-            className={`btn-icon ${autoSaveEnabled ? 'active' : ''}`}
-            onClick={() => setAutoSaveEnabled(!autoSaveEnabled)} 
-            title={autoSaveEnabled ? '自动保存: 开启' : '自动保存: 关闭'}
-          >
-            {autoSaveEnabled ? '自动' : '手动'}
-          </button>
-          {autoSave.hasChanges && <span className="unsaved-indicator" title="有未保存的更改">●</span>}
+
           <button className="btn-primary" onClick={() => autoSave.manualSave()} disabled={!currentPath}>
             保存
           </button>
@@ -888,6 +921,12 @@ function App() {
       </header>
 
       <main className={`main-content layout-${layout} ${showFileTree ? 'with-filetree' : ''}`}>
+        {showToolbar && (layout === 'vertical' || layout === 'editor-only') && (
+          <EditorToolbar 
+            onInsert={handleToolbarInsert} 
+            disabled={!editorRef.current}
+          />
+        )}
         {showFileTree && (
           <>
             <FileTree 
@@ -904,15 +943,10 @@ function App() {
             <Resizer direction="vertical" onResize={handleFileTreeResize} />
           </>
         )}
-        {(layout === 'horizontal' || layout === 'vertical' || layout === 'editor-only') && (
+        {(layout === 'vertical' || layout === 'editor-only') && (
           <>
             <div className="editor-pane" style={(layout === 'vertical') ? { width: `${editorWidth}%`, flexShrink: 0 } : {}}>
-              {showToolbar && (
-                <EditorToolbar 
-                  onInsert={handleToolbarInsert} 
-                  disabled={!editorRef.current}
-                />
-              )}
+              
               <Editor
                 height="100%"
                 defaultLanguage="markdown"
@@ -929,17 +963,27 @@ function App() {
                   automaticLayout: true,
                   tabSize: 2,
                   fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                  fontLigatures: true
+                  fontLigatures: true,
+                  // 行号配置
+                  lineNumbers: 'on',
+                  lineNumbersMinChars: 2,
+                  // 代码折叠配置
+                  folding: true,
+                  showFoldingControls: 'always',
+                  foldingStrategy: 'auto',
+                  foldingHighlight: true,
+                  foldingMaximumRegions: 5000,
+                  unfoldOnClickAfterEndOfLine: true
                 }}
               />
             </div>
-            {(layout === 'vertical' || layout === 'horizontal') && (
-              <Resizer direction={layout === 'vertical' ? 'vertical' : 'horizontal'} onResize={handleEditorResize} />
+            {layout === 'vertical' && (
+              <Resizer direction="vertical" onResize={handleEditorResize} />
             )}
           </>
         )}
 
-        {(layout === 'horizontal' || layout === 'vertical' || layout === 'preview-only') && (
+        {(layout === 'vertical' || layout === 'preview-only') && (
           <div className="preview-pane" style={(layout === 'vertical') ? { flex: 1 } : {}}>
             <div 
               ref={previewRef}
@@ -974,7 +1018,7 @@ function App() {
           <button 
             className="statusbar-btn" 
             onClick={() => {
-              const layouts = ['vertical', 'horizontal', 'editor-only', 'preview-only']
+              const layouts = ['vertical', 'editor-only', 'preview-only']
               const currentIndex = layouts.indexOf(layout)
               const nextIndex = (currentIndex + 1) % layouts.length
               setLayout(layouts[nextIndex])
@@ -982,8 +1026,6 @@ function App() {
             title="切换布局"
           >
             {layout === 'vertical' ? (
-              <StretchVertical size={16} />
-            ) : layout === 'horizontal' ? (
               <Columns size={16} />
             ) : layout === 'editor-only' ? (
               <FileText size={16} />

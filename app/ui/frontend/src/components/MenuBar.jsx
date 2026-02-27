@@ -140,9 +140,7 @@ function MenuBar({
   onShowAbout,
   onShowHistory,
   disabled,
-  theme,
-  autoSaveEnabled,
-  onAutoSaveToggle
+  theme
 }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const menuRef = useRef(null)
@@ -189,11 +187,6 @@ function MenuBar({
         { label: '新建', icon: 'new', shortcut: 'Ctrl+N', action: onNewFile },
         { label: '保存', icon: 'save', shortcut: 'Ctrl+S', action: onSave, disabled },
         { label: '另存为', icon: 'save', shortcut: 'Ctrl+Shift+S', action: onSaveAs },
-        { divider: true },
-        { 
-          icon: 'autosave', label: autoSaveEnabled ? '自动保存: 开启' : '自动保存: 关闭', 
-          action: onAutoSaveToggle 
-        },
         { divider: true },
         { label: '最近文件', icon: 'recent', type: 'recent-files' },
         { label: '文件历史', icon: 'history', action: onShowHistory },
