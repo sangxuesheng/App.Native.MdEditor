@@ -18,6 +18,7 @@ import ExportDialog from './components/ExportDialog'
 import SettingsDialog from './components/SettingsDialog'
 import MarkdownHelpDialog from './components/MarkdownHelpDialog'
 import ShortcutsDialog from './components/ShortcutsDialog'
+import ImageManager from './components/ImageManager'
 import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
@@ -64,11 +65,11 @@ const loadMermaid = async () => {
 
 function App() {
   const [content, setContent] = useState('')
+  const [showImageManager, setShowImageManager] = useState(false)
   const [currentPath, setCurrentPath] = useState('')
   const [status, setStatus] = useState('就绪')
   const [editorTheme, setEditorTheme] = useState('light')
   const [layout, setLayout] = useState('vertical')
-  const [showImageManager, setShowImageManager] = useState(false);
   const [showFileTree, setShowFileTree] = useState(false)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
@@ -495,6 +496,21 @@ function App() {
   const handleImageInsert = (markdown) => {
     if (editorRef.current) {
       const editor = editorRef.current;
+
+  // 处理图片管理器插入
+  const handleImageInsert = (markdown) => {
+    if (editorRef.current) {
+      const editor = editorRef.current
+      const selection = editor.getSelection()
+      const op = {
+        range: selection,
+        text: markdown,
+        forceMoveMarkers: true
+      }
+      editor.executeEdits('insert-image', [op])
+      editor.focus()
+    }
+  }
       const selection = editor.getSelection();
       const id = { major: 1, minor: 1 };
       const op = {
@@ -1075,6 +1091,13 @@ function App() {
           </button>
         </div>
       </footer>
+
+      {showImageManager && (
+        <ImageManager
+          onInsert={handleImageInsert}
+          onClose={() => setShowImageManager(false)}
+        />
+      )}
     </div>
   )
 }
