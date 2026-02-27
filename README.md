@@ -4,61 +4,71 @@
 
 ## 🎯 项目状态
 
-**当前版本**: 1.0.0-beta  
-**开发阶段**: 阶段 6 - 核心编辑功能开发中
+**当前版本**: v1.12.6  
+**发布日期**: 2026-02-27  
+**开发阶段**: 功能完善与优化
 
-### 完成度总览
+## ✨ 核心功能
 
-```
-阶段 1: 项目初始化        ████████████████████ 100%
-阶段 2: fnpack 项目创建   ████████████████████ 100%
-阶段 3: 运行时依赖        ████████████████████ 100%
-阶段 4: 应用入口          ████████████████░░░░  80%
-阶段 5: 权限与安全        ████████████████████ 100%
-阶段 6: 核心编辑功能      ████████████░░░░░░░░  60%
-阶段 7: 文件操作增强      ████░░░░░░░░░░░░░░░░  20%
-阶段 8: 配置管理          ██████░░░░░░░░░░░░░░  30%
-阶段 9: 测试              ░░░░░░░░░░░░░░░░░░░░   0%
-阶段 10: 打包发布         ░░░░░░░░░░░░░░░░░░░░   0%
-```
+### 编辑器
+- ✅ **Monaco Editor** - 专业的代码编辑器
+- ✅ **语法高亮** - Markdown 语法高亮
+- ✅ **代码折叠** - 支持 Markdown 标题折叠
+- ✅ **行号显示** - 右对齐，3位宽度
+- ✅ **自动保存** - 每 2 秒自动保存
+- ✅ **滚动同步** - 编辑器和预览独立滚动
 
-## ✨ 功能特性
+### 文件操作
+- ✅ **打开文件** - 支持 .md 和 .txt 文件
+- ✅ **保存文件** - Ctrl/Cmd + S 快速保存
+- ✅ **另存为** - 保存到新位置
+- ✅ **导出功能** - 导出为 HTML/Markdown/TXT
+- ✅ **文件树** - 可折叠的文件浏览器
+- ✅ **收藏夹** - 快速访问常用文件
 
-### 已实现 ✅
+### 编辑工具
+- ✅ **标题** - H1/H2/H3 快速插入
+- ✅ **文本格式** - 加粗/斜体/删除线
+- ✅ **列表** - 有序列表/无序列表
+- ✅ **任务列表** - `- [ ]` 待办事项
+- ✅ **链接** - 插入超链接
+- ✅ **图片** - 插入图片
+- ✅ **代码块** - 插入代码块
+- ✅ **引用** - 插入引用
+- ✅ **表格** - 快速创建表格
+- ✅ **分隔线** - 插入分隔线
+- ✅ **图表** - Mermaid 流程图/时序图/甘特图等
 
-- **专业编辑器** - 基于 Monaco Editor，支持语法高亮、代码补全
-- **实时预览** - 即时渲染 Markdown，所见即所得
-- **GFM 支持** - 完整支持 GitHub Flavored Markdown
-- **任务列表** - `- [ ]` 待办事项和 `- [x]` 已完成
-- **表格渲染** - 美观的表格样式
-- **数学公式** - LaTeX 公式渲染（KaTeX）
-- **流程图** - Mermaid 图表支持
-- **多种布局** - 水平/垂直/单栏/预览模式
-- **主题切换** - 深色/浅色主题
-- **快捷键** - Ctrl/Cmd + S/B/I 等
-- **安全文件访问** - 路径校验，防止穿越攻击
-- **响应式设计** - 适配不同屏幕尺寸
+### Markdown 渲染
+- ✅ **GFM** - GitHub Flavored Markdown
+- ✅ **任务列表** - 可交互的任务列表
+- ✅ **表格** - 美观的表格渲染
+- ✅ **数学公式** - KaTeX 公式渲染
+- ✅ **流程图** - Mermaid 图表支持
+- ✅ **脚注** - 脚注支持
 
-### 开发中 🚧
+### 界面与主题
+- ✅ **垂直分屏** - 左右分屏编辑
+- ✅ **仅编辑器** - 专注写作模式
+- ✅ **仅预览** - 专注阅读模式
+- ✅ **主题切换** - 深色/浅色/MD3 主题
+- ✅ **响应式** - 适配不同屏幕尺寸
+- ✅ **字体调整** - 可调整编辑器字体大小
 
-- 文件树浏览器
-- 文件搜索功能
-- 自动保存机制
-
-### 计划中 📋
-
-- 新建文件/模板
-- 导出 HTML/PDF
-- 图片插入
-- 草稿恢复
-- 更多快捷键
+### 设置
+- ✅ **设置对话框** - 集中管理所有设置
+- ✅ **自动保存** - 可开关自动保存
+- ✅ **主题选择** - 三种主题可选
+- ✅ **字体大小** - 12-24px 可调
 
 ## 🚀 快速开始
 
-### 前置要求
+### 安装
 
-- Node.js 18+
-- npm 或 yarn
+```bash
+# 使用 appcenter-cli 安装
+appcenter-cli install App.Native.MdEditor2.fpk
+```
 
 ### 开发模式
 
@@ -67,26 +77,22 @@
 cd app/ui/frontend
 npm install
 
-# 2. 启动前端开发服务器
+# 2. 启动开发服务器
 npm run dev
 
 # 3. 在另一个终端启动后端
 node app/server/server.js
 ```
 
-访问 http://localhost:3000 进行开发。
-
 ### 生产构建
 
 ```bash
 # 使用构建脚本
-./build-frontend.sh
+./build-complete.sh
 
-# 启动服务
-node app/server/server.js
+# 打包 FPK
+fnpack build
 ```
-
-访问 http://localhost:18080 查看完整应用。
 
 ## 📁 项目结构
 
@@ -94,67 +100,50 @@ node app/server/server.js
 App.Native.MdEditor/
 ├── app/
 │   ├── server/
-│   │   └── server.js          # 后端服务
+│   │   └── server.js              # Node.js 后端服务
 │   └── ui/
-│       ├── frontend/           # React 前端
+│       ├── frontend/               # React 前端
 │       │   ├── src/
-│       │   │   ├── App.jsx    # 主组件
-│       │   │   ├── App.css    # 样式
-│       │   │   └── main.jsx   # 入口
+│       │   │   ├── App.jsx        # 主应用组件
+│       │   │   ├── App.css        # 全局样式
+│       │   │   ├── components/    # 组件目录
+│       │   │   │   ├── EditorToolbar.jsx
+│       │   │   │   ├── FileTree.jsx
+│       │   │   │   └── ...
+│       │   │   └── main.jsx       # 入口文件
 │       │   ├── package.json
 │       │   └── vite.config.js
-│       ├── config              # 应用入口配置
-│       └── images/             # 图标
-├── cmd/                        # 生命周期脚本
-│   ├── main                    # 主控制脚本
-│   ├── install_*               # 安装脚本
-│   ├── upgrade_*               # 升级脚本
-│   ├── uninstall_*             # 卸载脚本
-│   └── config_*                # 配置脚本
+│       ├── config                  # 应用入口配置
+│       └── images/                 # 图标资源
+├── cmd/                            # 生命周期脚本
+│   ├── main                        # 主控制脚本
+│   ├── install_*                   # 安装脚本
+│   ├── upgrade_*                   # 升级脚本
+│   └── uninstall_*                 # 卸载脚本
 ├── config/
-│   ├── privilege               # 权限配置
-│   └── resource                # 资源配置
-├── wizard/
-│   └── config                  # 配置向导
-├── manifest                    # 应用清单
-├── build-frontend.sh           # 构建脚本
-├── DEVELOPMENT.md              # 开发指南
-└── README.md                   # 本文件
+│   ├── privilege                   # 权限配置
+│   └── resource                    # 资源配置
+├── manifest                        # 应用清单
+├── build-complete.sh               # 完整构建脚本
+├── DEVELOPMENT_PLAN.md             # 开发计划
+└── README.md                       # 本文件
 ```
 
 ## 🛠️ 技术栈
 
 ### 前端
 - **React 18** - UI 框架
-- **Vite 5** - 构建工具
-- **Monaco Editor** - 代码编辑器
+- **Vite 5** - 构建工具和开发服务器
+- **Monaco Editor** - 代码编辑器（VS Code 同款）
 - **Markdown-it** - Markdown 解析器
-- **Mermaid** - 流程图渲染
+- **Mermaid** - 流程图和图表渲染
 - **KaTeX** - 数学公式渲染
+- **Lucide React** - 图标库
 
 ### 后端
-- **Node.js** - 运行时
+- **Node.js** - 运行时环境
 - **原生 HTTP 模块** - Web 服务器
-- **文件系统 API** - 文件操作
-
-## 📖 文档
-
-- [开发指南](DEVELOPMENT.md) - 详细的开发文档
-- [开发计划表](../开发计划表.md) - 完整的开发计划
-- [需求表](../需求表.md) - 功能需求说明
-
-## 🎨 界面预览
-
-### 深色主题
-- 基于 GitHub Dark 配色
-- 专业的代码编辑体验
-- 舒适的阅读体验
-
-### 布局模式
-- **水平布局** - 上下分屏
-- **垂直布局** - 左右分屏
-- **仅编辑器** - 专注写作
-- **仅预览** - 专注阅读
+- **文件系统 API** - 文件读写操作
 
 ## ⌨️ 快捷键
 
@@ -163,29 +152,30 @@ App.Native.MdEditor/
 | `Ctrl/Cmd + S` | 保存文件 |
 | `Ctrl/Cmd + B` | 加粗选中文本 |
 | `Ctrl/Cmd + I` | 斜体选中文本 |
+| `Ctrl/Cmd + T` | 切换主题 |
 
 ## 🔒 安全特性
 
-- **路径校验** - 严格的路径规范化
-- **授权目录** - 仅访问授权目录
-- **防穿越攻击** - 阻止 `../` 等路径穿越
-- **文件大小限制** - 防止超大文件攻击
-- **错误日志** - 完整的安全日志记录
+- ✅ **路径校验** - 严格的路径规范化
+- ✅ **授权目录** - 仅访问授权目录
+- ✅ **防穿越攻击** - 阻止 `../` 等路径穿越
+- ✅ **文件大小限制** - 防止超大文件攻击
+- ✅ **错误日志** - 完整的安全日志记录
 
 ## 📊 API 接口
 
 ### 健康检查
-```
+```http
 GET /health
 ```
 
 ### 读取文件
-```
+```http
 GET /api/file?path=/absolute/path/to/file.md
 ```
 
 ### 保存文件
-```
+```http
 POST /api/file
 Content-Type: application/json
 
@@ -195,6 +185,54 @@ Content-Type: application/json
 }
 ```
 
+### 文件树
+```http
+GET /api/files?path=/absolute/path/to/directory
+```
+
+## 📋 待完善功能
+
+查看 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) 了解详细的开发计划。
+
+### 高优先级
+- 🚧 搜索与替换（Ctrl+F / Ctrl+H）
+- 🚧 文件管理增强（新建/重命名/删除）
+- 🚧 图片上传和管理
+- 🚧 撤销/重做历史
+
+### 中优先级
+- 📋 导出 PDF/Word
+- 📋 模板系统
+- 📋 快捷键自定义
+- 📋 协作功能
+
+### 低优先级
+- 📋 插件系统
+- 📋 移动端适配
+- 📋 性能优化
+
+## 📝 版本历史
+
+### v1.12.6 (2026-02-27)
+- ✅ 修复编辑器和预览区域无法滚动的问题
+- ✅ 修复工具栏位置和高度异常
+- ✅ 重构布局系统，移除 flex-wrap
+- ✅ 优化 Monaco Editor 滚动条配置
+
+### v1.12.5 (2026-02-27)
+- ✅ 修复代码折叠图标不显示的问题
+- ✅ 优化行号显示（右对齐，3位宽度）
+- ✅ 添加 Markdown 标题折叠支持
+
+### v1.12.0 - v1.12.4
+- ✅ 文件树功能
+- ✅ 收藏夹功能
+- ✅ 导出功能
+- ✅ 设置对话框
+- ✅ 主题切换优化
+
+查看完整版本历史：[RELEASE_NOTES_v1.12.5.md](RELEASE_NOTES_v1.12.5.md)
+
 ## 🧪 测试
 
 ```bash
@@ -202,21 +240,21 @@ Content-Type: application/json
 npm test
 ```
 
-## 📝 待办事项
+## 📖 文档
 
-- [ ] 实现文件树组件
-- [ ] 添加文件搜索功能
-- [ ] 实现自动保存
-- [ ] 添加导出功能
-- [ ] 性能优化（大文件）
-- [ ] 编写单元测试
-- [ ] 编写集成测试
-- [ ] 真机测试
-- [ ] 用户文档
+- [开发计划](DEVELOPMENT_PLAN.md) - 详细的开发计划和路线图
+- [发布说明](RELEASE_NOTES_v1.12.5.md) - 版本更新说明
 
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
+
+### 贡献指南
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
 
 ## 📄 许可证
 
@@ -226,6 +264,17 @@ npm test
 
 飞牛 NAS Markdown 编辑器开发团队
 
+## 🙏 致谢
+
+- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - 强大的代码编辑器
+- [Markdown-it](https://github.com/markdown-it/markdown-it) - 优秀的 Markdown 解析器
+- [Mermaid](https://mermaid.js.org/) - 图表渲染引擎
+- [KaTeX](https://katex.org/) - 数学公式渲染
+- [React](https://react.dev/) - UI 框架
+- [Vite](https://vitejs.dev/) - 构建工具
+
 ---
 
-**注意**: 本项目目前处于开发阶段，部分功能尚未完成。请参考 [开发计划表](../开发计划表.md) 了解详细进度。
+**项目地址**: https://github.com/sangxuesheng/App.Native.MdEditor  
+**问题反馈**: https://github.com/sangxuesheng/App.Native.MdEditor/issues  
+**最后更新**: 2026-02-27
