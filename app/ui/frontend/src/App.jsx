@@ -68,6 +68,7 @@ function App() {
   const [status, setStatus] = useState('就绪')
   const [editorTheme, setEditorTheme] = useState('light')
   const [layout, setLayout] = useState('vertical')
+  const [showImageManager, setShowImageManager] = useState(false);
   const [showFileTree, setShowFileTree] = useState(false)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
@@ -490,6 +491,23 @@ function App() {
         }
         break
 
+  // 处理图片管理器插入
+  const handleImageInsert = (markdown) => {
+    if (editorRef.current) {
+      const editor = editorRef.current;
+      const selection = editor.getSelection();
+      const id = { major: 1, minor: 1 };
+      const op = {
+        range: selection,
+        text: markdown,
+        forceMoveMarkers: true
+      };
+      editor.executeEdits('insert-image', [op]);
+      editor.focus();
+    }
+  };
+
+
       case 'line':
         const lineContent = model.getLineContent(selection.startLineNumber)
         newText = `${before}${lineContent}`
@@ -897,7 +915,7 @@ function App() {
             onInsertBold={() => handleToolbarInsert('**', '**', 'wrap')}
             onInsertItalic={() => handleToolbarInsert('*', '*', 'wrap')}
             onInsertLink={() => handleToolbarInsert('[', '](https://)', 'wrap')}
-            onInsertImage={() => handleToolbarInsert('![', '](https://)', 'wrap')}
+            onInsertImage={() => setShowImageManager(true)}
             onInsertCode={handleInsertCode}
             onInsertTable={() => handleToolbarInsert("\n| 列1 | 列2 |\n|-----|-----|\n| 内容 | 内容 |\n", "", "insert")}
             onToggleFileTree={() => setShowFileTree(!showFileTree)}
