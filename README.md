@@ -4,8 +4,8 @@
 
 ## 🎯 项目状态
 
-**当前版本**: v1.12.6  
-**发布日期**: 2026-02-27  
+**当前版本**: v1.17.9  
+**发布日期**: 2026-03-01  
 **开发阶段**: 功能完善与优化
 
 ## ✨ 核心功能
@@ -277,4 +277,4 @@ npm test
 
 **项目地址**: https://github.com/sangxuesheng/App.Native.MdEditor  
 **问题反馈**: https://github.com/sangxuesheng/App.Native.MdEditor/issues  
-**最后更新**: 2026-02-27
+**最后更新**: 2026-03-01
