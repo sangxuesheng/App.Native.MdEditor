@@ -522,13 +522,8 @@ const server = http.createServer((req, res) => {
   // 文件保存：POST /api/file  // 图片列表：GET /api/image/list
   if (parsed.pathname === '/api/image/list' && req.method === 'GET') {
     try {
-      const roots = getAllowedRoots();
-      if (!roots.length) {
-        sendJson(res, 500, { ok: false, code: 'NO_STORAGE', message: '未配置存储目录' });
-        return;
-      }
-      
-      const imagesBaseDir = path.join(roots[0], 'images');
+      // 使用共享目录存储图片
+      const imagesBaseDir = path.join(__dirname, '../../shares/images');
       
       if (!fs.existsSync(imagesBaseDir)) {
         sendJson(res, 200, { ok: true, images: [] });
@@ -609,14 +604,8 @@ const server = http.createServer((req, res) => {
       }
       
       try {
-        const roots = getAllowedRoots();
-        if (!roots.length) {
-          sendJson(res, 500, { ok: false, code: 'NO_STORAGE', message: '未配置存储目录' });
-          return;
-        }
-        
-        // 构建完整路径
-        const imagePath = path.join(roots[0], imageUrl);
+        // 使用共享目录存储图片
+        const imagePath = path.join(__dirname, '../../shares', imageUrl);
         
         // 检查文件是否存在
         if (!fs.existsSync(imagePath)) {
@@ -682,14 +671,8 @@ const server = http.createServer((req, res) => {
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
         
-        // 使用第一个授权目录作为图片存储位置
-        const roots = getAllowedRoots();
-        if (!roots.length) {
-          sendJson(res, 500, { ok: false, code: 'NO_STORAGE', message: '未配置存储目录' });
-          return;
-        }
-        
-        const imagesDir = path.join(roots[0], 'images', year.toString(), month, day);
+        // 使用共享目录作为图片存储位置
+        const imagesDir = path.join(__dirname, '../../shares/images', year.toString(), month, day);
         
         // 确保目录存在
         if (!fs.existsSync(imagesDir)) {
@@ -810,14 +793,8 @@ const server = http.createServer((req, res) => {
   // 图片静态文件服务：/images/...
   if (parsed.pathname.startsWith('/images/')) {
     try {
-      const roots = getAllowedRoots();
-      if (!roots.length) {
-        res.writeHead(404);
-        res.end('Not Found');
-        return;
-      }
-      
-      const imagePath = path.join(roots[0], parsed.pathname);
+      // 使用共享目录提供图片服务
+      const imagePath = path.join(__dirname, '../../shares', parsed.pathname);
       
       if (fs.existsSync(imagePath) && fs.statSync(imagePath).isFile()) {
         const ext = path.extname(imagePath).toLowerCase();

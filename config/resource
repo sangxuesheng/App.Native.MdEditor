@@ -8,9 +8,15 @@
             "data"
           ]
         }
+      },
+      {
+        "name": "images",
+        "permission": {
+          "rw": [
+            "data"
+          ]
+        }
       }
     ]
   }
 }
-
-
