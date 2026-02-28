@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react'
-import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder } from 'lucide-react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
+import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw } from 'lucide-react'
 import './ImageManagerDialog.css'
 
 function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
@@ -9,7 +9,36 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
   const [dragActive, setDragActive] = useState(false)
   const [uploadedImages, setUploadedImages] = useState([])
   const [uploading, setUploading] = useState(false)
+  const [libraryImages, setLibraryImages] = useState([])
+  const [loadingLibrary, setLoadingLibrary] = useState(false)
   const fileInputRef = useRef(null)
+
+  // 加载图片库
+  const loadLibraryImages = useCallback(async () => {
+    setLoadingLibrary(true)
+    try {
+      const response = await fetch('/api/image/list')
+      const result = await response.json()
+      
+      if (result.ok) {
+        setLibraryImages(result.images || [])
+      } else {
+        console.error('加载图片库失败:', result.error)
+      }
+    } catch (error) {
+      console.error('加载图片库错误:', error)
+    } finally {
+      setLoadingLibrary(false)
+    }
+  }, [])
+
+  // 当切换到图片库标签页时加载图片
+  useEffect(() => {
+    if (isOpen && activeTab === 'library') {
+      loadLibraryImages()
+    }
+  }, [isOpen, activeTab, loadLibraryImages])
+
 
   // 处理文件上传
   const handleFileUpload = useCallback(async (files) => {
@@ -46,6 +75,10 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
       
       if (result.ok) {
         setUploadedImages(prev => [...result.images, ...prev])
+        // 如果当前在图片库标签页，刷新图片库
+        if (activeTab === 'library') {
+          loadLibraryImages()
+        }
         alert(`成功上传 ${result.images.length} 张图片`)
       } else {
         alert(`上传失败: ${result.error}`)
@@ -263,11 +296,52 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
           {/* 图片库标签页 */}
           {activeTab === 'library' && (
             <div className="library-tab">
-              <div className="empty-state">
-                <ImageIcon size={64} />
-                <h3>图片库为空</h3>
-                <p>上传图片后会显示在这里</p>
+              <div className="library-header">
+                <h4>图片库 ({libraryImages.length})</h4>
+                <button 
+                  className="refresh-button"
+                  onClick={loadLibraryImages}
+                  disabled={loadingLibrary}
+                  title="刷新图片库"
+                >
+                  <RefreshCw size={18} className={loadingLibrary ? 'spinning' : ''} />
+                  刷新
+                </button>
               </div>
+              
+              {loadingLibrary ? (
+                <div className="loading-state">
+                  <RefreshCw size={48} className="spinning" />
+                  <p>加载中...</p>
+                </div>
+              ) : libraryImages.length === 0 ? (
+                <div className="empty-state">
+                  <ImageIcon size={64} />
+                  <h3>图片库为空</h3>
+                  <p>上传图片后会显示在这里</p>
+                </div>
+              ) : (
+                <div className="image-grid">
+                  {libraryImages.map((image, index) => (
+                    <div key={index} className="image-item">
+                      <img src={image.url} alt={image.alt || '图片'} />
+                      <div className="image-info">
+                        <span className="image-filename" title={image.filename}>
+                          {image.filename}
+                        </span>
+                        <span className="image-size">
+                          {(image.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                      <div className="image-overlay">
+                        <button onClick={() => handleInsertUploaded(image)}>
+                          插入
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

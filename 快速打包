@@ -24,3 +24,18 @@ cd /vol4/1000/开发文件夹/mac && bash build-complete.sh 2>&1 | tail -5
 
 打包
 cd /vol4/1000/开发文件夹/mac && bash build-complete.sh 2>&1 | tail -5 && fnpack build
+
+
+
+
+mac电脑node安装信息
+This package has installed:
+	•	Node.js v24.13.0 to /usr/local/bin/node
+	•	npm v11.6.2 to /usr/local/bin/npm
+Make sure that /usr/local/bin is in your $PATH.
+
+
+This package has installed:
+	•	Node.js v22.22.0 to /usr/local/bin/node
+	•	npm v10.9.4 to /usr/local/bin/npm
+Make sure that /usr/local/bin is in your $PATH.
