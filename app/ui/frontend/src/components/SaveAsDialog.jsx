@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './SaveAsDialog.css';
 
-const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme }) => {
+const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSaveAs = true }) => {
   const [fileName, setFileName] = useState('');
   const [selectedDir, setSelectedDir] = useState('');
   const [directories, setDirectories] = useState([]);
@@ -108,7 +108,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme }) => {
     <div className={`dialog-overlay ${theme === 'light' ? 'theme-light' : 'theme-dark'}`} onClick={onClose}>
       <div className="dialog-content save-as-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
-          <h2>另存为</h2>
+          <h2>{isSaveAs ? '另存为' : '保存'}</h2>
           <button className="dialog-close" onClick={onClose}>×</button>
         </div>
 
@@ -181,7 +181,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme }) => {
                 onClick={handleSaveAs}
                 disabled={loading || !fileName.trim()}
               >
-                {loading ? '保存中...' : '另存为'}
+                {loading ? '保存中...' : (isSaveAs ? '另存为' : '保存')}
               </button>
             </>
           ) : (

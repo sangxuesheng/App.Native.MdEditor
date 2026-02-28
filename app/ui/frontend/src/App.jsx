@@ -19,8 +19,6 @@ import SettingsDialog from './components/SettingsDialog'
 import MarkdownHelpDialog from './components/MarkdownHelpDialog'
 import ShortcutsDialog from './components/ShortcutsDialog'
 import ImageManagerDialog from './components/ImageManagerDialog'
-import ImagePreviewDialog from './components/ImagePreviewDialog'
-import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
@@ -28,7 +26,6 @@ import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
-import { compressImage } from './utils/imageCompressor'
 import { FolderArchive, Sun, Moon, StretchVertical, Columns, FileText,Sparkle, Eye } from 'lucide-react'
 // 初始化 Markdown 渲染器
 const md = new MarkdownIt({
@@ -69,16 +66,16 @@ const loadMermaid = async () => {
 function App() {
   const [content, setContent] = useState('')
   const [showImageManager, setShowImageManager] = useState(false)
-  const [showTableInsert, setShowTableInsert] = useState(false)
-  const [previewImage, setPreviewImage] = useState(null)
   const [currentPath, setCurrentPath] = useState('')
   const [status, setStatus] = useState('就绪')
+  const [statusType, setStatusType] = useState('normal') // normal, success, error
   const [editorTheme, setEditorTheme] = useState('light')
   const [layout, setLayout] = useState('vertical')
   const [showFileTree, setShowFileTree] = useState(false)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
+  const [isSaveAsMode, setIsSaveAsMode] = useState(true)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [showMarkdownHelp, setShowMarkdownHelp] = useState(false)
@@ -186,7 +183,11 @@ function App() {
         saveFileHistory(path, content)
         
         setStatus(`已保存: ${path}`)
-        setTimeout(() => setStatus('就绪'), 2000)
+        setStatusType('success')
+        setTimeout(() => {
+          setStatus('就绪')
+          setStatusType('normal')
+        }, 2000)
         return true
       } else {
         setStatus(`保存失败: ${data.message || data.code}`)
@@ -256,10 +257,10 @@ function App() {
 - ✅ 导出功能（HTML/PDF/TXT）
 
 ## 快捷键
-- \`Ctrl/Cmd + S\`: 保存文件
-- \`Ctrl/Cmd + B\`: 加粗
-- \`Ctrl/Cmd + I\`: 斜体
-- \`Ctrl/Cmd + K\`: 插入链接
+- Ctrl/Cmd + S: 保存文件
+- Ctrl/Cmd + B: 加粗
+- Ctrl/Cmd + I: 斜体
+- Ctrl/Cmd + K: 插入链接
 
 ## 开始使用
 
@@ -361,7 +362,71 @@ function App() {
     setTimeout(() => setStatus('就绪'), 2000)
   }
 
+  const handleImageUpload = useCallback(async (file) => {
+    if (!file || !editorRef.current) return
+    
+    setStatus('正在压缩图片...')
+    
+    try {
+      // 压缩图片
+      try {
+        file = await compressImage(file)
+        setStatus('正在上传图片...')
+      } catch (error) {
+        console.error('图片压缩失败:', error)
+        setStatus('正在上传图片...')
+      }
+      
+      // 上传图片
+      const formData = new FormData()
+      formData.append('images', file)
+      
+      const response = await fetch('/api/image/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      const result = await response.json()
+      
+      if (result.ok && result.images && result.images.length > 0) {
+        const image = result.images[0]
+        const markdown = `![图片](${image.url})`
+        
+        // 插入到编辑器
+        const editor = editorRef.current
+        const selection = editor.getSelection()
+        editor.executeEdits('paste-image', [{
+          range: selection,
+          text: markdown,
+          forceMoveMarkers: true
+        }])
+        
+        setStatus(`图片上传成功: ${image.filename}`)
+        setTimeout(() => setStatus('就绪'), 2000)
+      } else {
+        setStatus('图片上传失败')
+        setTimeout(() => setStatus('就绪'), 2000)
+      }
+    } catch (error) {
+      console.error('上传图片错误:', error)
+      setStatus('图片上传失败')
+      setTimeout(() => setStatus('就绪'), 2000)
+    }
+  }, [])
+
+  const handleSaveClick = () => {
+    if (currentPath) {
+      // 如果有路径，直接保存
+      autoSave.manualSave()
+    } else {
+      // 如果没有路径，打开保存对话框（不是另存为）
+      setIsSaveAsMode(false)
+      setShowSaveAsDialog(true)
+    }
+  }
+
   const handleSaveAs = () => {
+    setIsSaveAsMode(true)
     setShowSaveAsDialog(true)
   }
 
@@ -415,20 +480,6 @@ function App() {
     )
 
     previewRef.current.innerHTML = html
-
-    // 为预览区的图片添加点击事件
-    const images = previewRef.current.querySelectorAll('img')
-    images.forEach(img => {
-      img.style.cursor = 'pointer'
-      img.onclick = () => {
-        setPreviewImage({
-          url: img.src,
-          filename: img.alt || '图片',
-          size: 0,
-          uploadTime: null
-        })
-      }
-    })
 
     // 只有在有 Mermaid 图表时才加载 Mermaid
     if (mermaidBlocks.length > 0) {
@@ -488,32 +539,6 @@ function App() {
       return () => clearTimeout(timer)
     }
   }, [layout, renderMarkdown])
-
-  const handleTableInsert = (markdown) => {
-    if (!editorRef.current) return
-    
-    const editor = editorRef.current
-    const selection = editor.getSelection()
-    const position = selection.getStartPosition()
-    
-    // 在当前行前插入空行，然后插入表格
-    const lineContent = editor.getModel().getLineContent(position.lineNumber)
-    const prefix = lineContent.trim() ? '\n\n' : ''
-    
-    editor.executeEdits('insert-table', [{
-      range: selection,
-      text: prefix + markdown + '\n',
-      forceMoveMarkers: true
-    }])
-    
-    // 移动光标到表格后
-    const newPosition = {
-      lineNumber: position.lineNumber + (prefix ? 2 : 0) + markdown.split('\n').length,
-      column: 1
-    }
-    editor.setPosition(newPosition)
-    editor.focus()
-  }
 
   const handleToolbarInsert = (before, after, mode) => {
     if (!editorRef.current) return
@@ -617,176 +642,69 @@ function App() {
     }
   }
 
-  // 图片上传处理函数
-  const handleImageUpload = useCallback(async (file) => {
-    if (!file || !editorRef.current) return
-    
-    setStatus('正在压缩图片...')
-    
-    try {
-      // 压缩图片
-      try {
-        file = await compressImage(file)
-        setStatus('正在上传图片...')
-      } catch (error) {
-        console.error('图片压缩失败:', error)
-        setStatus('正在上传图片...')
-      }
-      
-      // 上传图片
-      const formData = new FormData()
-      formData.append('images', file)
-      
-      const response = await fetch('/api/image/upload', {
-        method: 'POST',
-        body: formData
-      })
-      
-      const result = await response.json()
-      
-      if (result.ok && result.images && result.images.length > 0) {
-        const image = result.images[0]
-        const markdown = `![图片](${image.url})`
-        
-        // 插入到编辑器
-        const editor = editorRef.current
-        const selection = editor.getSelection()
-        editor.executeEdits('paste-image', [{
-          range: selection,
-          text: markdown,
-          forceMoveMarkers: true
-        }])
-        
-        setStatus(`图片上传成功: ${image.filename}`)
-        setTimeout(() => setStatus('就绪'), 2000)
-      } else {
-        setStatus('图片上传失败')
-        setTimeout(() => setStatus('就绪'), 2000)
-      }
-    } catch (error) {
-      console.error('上传图片错误:', error)
-      setStatus('图片上传失败')
-      setTimeout(() => setStatus('就绪'), 2000)
-    }
-  }, [])
-
   const handleEditorMount = (editor) => {
     editorRef.current = editor
     
-    // 使用 document 级别监听粘贴事件（Monaco Editor 会拦截编辑器内的粘贴）
-    const handleDocumentPaste = async (e) => {
-      // 检查焦点是否在编辑器内
-      const activeElement = document.activeElement
-      const editorDom = editor.getDomNode()
-      
-      if (!editorDom || !editorDom.contains(activeElement)) {
-        console.log('焦点不在编辑器内，忽略粘贴')
-        return
-      }
-      
-      console.log('检测到粘贴事件，焦点在编辑器内')
-      
-      const items = e.clipboardData?.items
-      if (!items) {
-        console.log('没有剪贴板项目')
-        return
-      }
-      
-      console.log('剪贴板项目数量:', items.length)
-      
-      // 查找图片项
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i]
-        console.log(`项目 ${i} 类型:`, item.type)
+    // 监听粘贴事件，处理图片粘贴
+    const domNode = editor.getDomNode()
+    if (domNode) {
+      domNode.addEventListener('paste', async (e) => {
+        const items = e.clipboardData?.items
+        if (!items) return
         
-        if (item.type.startsWith('image/')) {
-          console.log('发现图片，阻止默认粘贴行为')
-          e.preventDefault()
-          e.stopPropagation()
-          
-          const file = item.getAsFile()
-          if (file) {
-            console.log('获取到图片文件:', file.name, file.size, 'bytes')
-            await handleImageUpload(file)
-          } else {
-            console.log('无法获取图片文件')
-          }
-          return
-        }
-      }
-      console.log('没有发现图片项')
-    }
-    
-    // 在 document 上监听，捕获阶段
-    document.addEventListener('paste', handleDocumentPaste, true)
-    console.log('已在 document 上添加粘贴监听器（捕获阶段）')
-    
-    // 保存清理函数
-    editor._pasteCleanup = () => {
-      document.removeEventListener('paste', handleDocumentPaste, true)
-      console.log('已移除粘贴监听器')
-    }
-    
-    // 添加拖拽上传功能
-    const editorDom = editor.getDomNode()
-    if (editorDom) {
-      const handleDragOver = (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        // 添加拖拽样式提示
-        editorDom.style.opacity = '0.7'
-      }
-      
-      const handleDragLeave = (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        editorDom.style.opacity = '1'
-      }
-      
-      const handleDrop = async (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        editorDom.style.opacity = '1'
-        
-        console.log('检测到文件拖拽')
-        
-        const files = e.dataTransfer?.files
-        if (!files || files.length === 0) {
-          console.log('没有文件')
-          return
-        }
-        
-        console.log('拖拽文件数量:', files.length)
-        
-        // 处理所有图片文件
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i]
-          console.log(`文件 ${i + 1}:`, file.name, file.type, file.size)
-          
-          if (file.type.startsWith('image/')) {
-            console.log('发现图片文件，开始上传')
-            await handleImageUpload(file)
-          } else {
-            console.log('跳过非图片文件')
+        // 查找图片项
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i]
+          if (item.type.startsWith('image/')) {
+            e.preventDefault()
+            e.stopPropagation()
+            
+            const file = item.getAsFile()
+            if (!file) continue
+            
+            // 显示上传提示
+            setStatus('正在上传图片...')
+            
+            try {
+              // 上传图片
+              const formData = new FormData()
+              formData.append('images', file)
+              
+              const response = await fetch('/api/image/upload', {
+                method: 'POST',
+                body: formData
+              })
+              
+              const result = await response.json()
+              
+              if (result.ok && result.images && result.images.length > 0) {
+                const image = result.images[0]
+                const markdown = `![图片](\${image.url})`
+                
+                // 插入到编辑器
+                const selection = editor.getSelection()
+                editor.executeEdits('paste-image', [{
+                  range: selection,
+                  text: markdown,
+                  forceMoveMarkers: true
+                }])
+                
+                setStatus(`图片上传成功: \${image.filename}`)
+                setTimeout(() => setStatus('就绪'), 2000)
+              } else {
+                setStatus('图片上传失败')
+                setTimeout(() => setStatus('就绪'), 2000)
+              }
+            } catch (error) {
+              console.error('上传图片错误:', error)
+              setStatus('图片上传失败')
+              setTimeout(() => setStatus('就绪'), 2000)
+            }
+            
+            break
           }
         }
-      }
-      
-      editorDom.addEventListener('dragover', handleDragOver)
-      editorDom.addEventListener('dragleave', handleDragLeave)
-      editorDom.addEventListener('drop', handleDrop)
-      
-      console.log('已添加拖拽上传监听器')
-      
-      // 保存清理函数
-      const oldCleanup = editor._pasteCleanup
-      editor._pasteCleanup = () => {
-        oldCleanup()
-        editorDom.removeEventListener('dragover', handleDragOver)
-        editorDom.removeEventListener('dragleave', handleDragLeave)
-        editorDom.removeEventListener('drop', handleDrop)
-        console.log('已移除拖拽监听器')
-      }
+      })
     }
     
     // 注册自定义 Markdown 折叠提供器
@@ -1039,14 +957,6 @@ function App() {
     loadFile(path)
   }
 
-  // 清理粘贴监听器
-  useEffect(() => {
-    return () => {
-      if (editorRef.current && editorRef.current._pasteCleanup) {
-        editorRef.current._pasteCleanup()
-      }
-    }
-  }, [])
 
   return (
     <div className={`app ${editorTheme === 'light' ? 'theme-light' : editorTheme === 'md3' ? 'theme-md3' : 'theme-dark'}`}>
@@ -1165,7 +1075,6 @@ function App() {
             onInsertImage={() => setShowImageManager(true)}
             onInsertCode={handleInsertCode}
             onInsertTable={() => handleToolbarInsert("\n| 列1 | 列2 |\n|-----|-----|\n| 内容 | 内容 |\n", "", "insert")}
-            onOpenTableInsert={() => setShowTableInsert(true)}
             onToggleFileTree={() => setShowFileTree(!showFileTree)}
             onToggleTheme={toggleEditorTheme}
             onSettings={handleSettings}
@@ -1189,7 +1098,7 @@ function App() {
         
         <div className="toolbar-right">
 
-          <button className="btn-primary" onClick={() => autoSave.manualSave()} disabled={!currentPath}>
+          <button className="btn-primary" onClick={handleSaveClick} disabled={false}>
             保存
           </button>
         </div>
@@ -1202,7 +1111,7 @@ function App() {
             onImageUpload={handleImageUpload}
             onOpenImageManager={() => setShowImageManager(true)}
             onOpenTableInsert={() => setShowTableInsert(true)}
-            disabled={!editorRef.current}
+            disabled={false}
           />
         )}
         <div className="editor-preview-container">
@@ -1299,7 +1208,7 @@ function App() {
               <Moon size={16} />
             )}
           </button>
-          <span className="status-text">{status}</span>
+          <span className={`status-text status-${statusType}`}>{status}</span>
         </div>
         <div className="statusbar-right">
           <span className="status-info">
@@ -1332,22 +1241,6 @@ function App() {
           isOpen={showImageManager}
           onClose={() => setShowImageManager(false)}
           onInsertImage={handleImageInsert}
-          theme={editorTheme}
-        />
-      )}
-
-      {previewImage && (
-        <ImagePreviewDialog
-          image={previewImage}
-          onClose={() => setPreviewImage(null)}
-          theme={editorTheme}
-        />
-      )}
-
-      {showTableInsert && (
-        <TableInsertDialog
-          onClose={() => setShowTableInsert(false)}
-          onInsert={handleTableInsert}
           theme={editorTheme}
         />
       )}
