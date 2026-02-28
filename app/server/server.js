@@ -545,7 +545,7 @@ const server = http.createServer((req, res) => {
           for (const entry of entries) {
             const fullPath = path.join(dir, entry.name);
             const relPath = path.relative(imagesBaseDir, fullPath);
-            const urlPath = baseUrl + '/' + relPath.replace(/\/g, '/');
+            const urlPath = baseUrl + '/' + relPath.replace(/\\\\/g, '/');
             
             if (entry.isDirectory()) {
               scanDirectory(fullPath, baseUrl);
