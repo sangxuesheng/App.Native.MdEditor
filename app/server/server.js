@@ -523,7 +523,7 @@ const server = http.createServer((req, res) => {
   if (parsed.pathname === '/api/image/list' && req.method === 'GET') {
     try {
       // 使用共享目录存储图片
-      const imagesBaseDir = path.join(__dirname, '../../shares/mdeditor/images');
+      const imagesBaseDir = '/var/apps/App.Native.MdEditor2/shares/mdeditor/images';
       
       if (!fs.existsSync(imagesBaseDir)) {
         sendJson(res, 200, { ok: true, images: [] });
@@ -605,7 +605,7 @@ const server = http.createServer((req, res) => {
       
       try {
         // 使用共享目录存储图片
-        const imagePath = path.join(__dirname, '../../shares', imageUrl);
+        const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares', imageUrl);
         
         // 检查文件是否存在
         if (!fs.existsSync(imagePath)) {
@@ -672,7 +672,7 @@ const server = http.createServer((req, res) => {
         const day = String(today.getDate()).padStart(2, '0');
         
         // 使用共享目录作为图片存储位置
-        const imagesDir = path.join(__dirname, '../../shares/mdeditor/images', year.toString(), month, day);
+        const imagesDir = path.join('/var/apps/App.Native.MdEditor2/shares/mdeditor/images', year.toString(), month, day);
         
         // 确保目录存在
         if (!fs.existsSync(imagesDir)) {
@@ -794,7 +794,7 @@ const server = http.createServer((req, res) => {
   if (parsed.pathname.startsWith('/images/')) {
     try {
       // 使用共享目录提供图片服务
-      const imagePath = path.join(__dirname, '../../shares', parsed.pathname);
+      const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares', parsed.pathname);
       
       if (fs.existsSync(imagePath) && fs.statSync(imagePath).isFile()) {
         const ext = path.extname(imagePath).toLowerCase();
