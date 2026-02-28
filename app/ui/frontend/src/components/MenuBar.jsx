@@ -124,6 +124,7 @@ function MenuBar({
   onInsertImage,
   onInsertCode,
   onInsertTable,
+  onOpenTableInsert,
   onToggleFileTree,
   onToggleTheme,
   onSettings,
@@ -245,7 +246,7 @@ function MenuBar({
       items: [
         { label: '链接', icon: 'link', shortcut: 'Ctrl+K', action: onInsertLink },
         { label: '图片', icon: 'image', action: onInsertImage },
-        { label: '表格', icon: 'table', action: onInsertTable },
+        { label: '表格', icon: 'table', action: onOpenTableInsert },
         { label: '分隔线', icon: 'hr', action: () => onInsertCode('hr') },
         { divider: true },
         { label: '代码块', icon: 'code', action: () => onInsertCode('codeblock') },

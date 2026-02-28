@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import './EditorToolbar.css'
 
-function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, disabled }) {
+function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTableInsert, disabled }) {
   const [showChartMenu, setShowChartMenu] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
   const chartMenuRef = useRef(null)
@@ -216,7 +216,7 @@ ${'```'}`
       <div className="toolbar-divider"></div>
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={insertQuote} disabled={disabled} title="引用"><Quote size={iconSize} /></button>
-        <button className="toolbar-btn" onClick={insertTable} disabled={disabled} title="插入表格"><Table size={iconSize} /></button>
+        <button className="toolbar-btn" onClick={onOpenTableInsert} disabled={disabled} title="插入表格"><Table size={iconSize} /></button>
         <button className="toolbar-btn" onClick={insertHorizontalRule} disabled={disabled} title="分隔线"><Minus size={iconSize} /></button>
       </div>
       <div className="toolbar-divider"></div>

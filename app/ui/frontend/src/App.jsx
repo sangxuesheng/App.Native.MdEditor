@@ -20,6 +20,7 @@ import MarkdownHelpDialog from './components/MarkdownHelpDialog'
 import ShortcutsDialog from './components/ShortcutsDialog'
 import ImageManagerDialog from './components/ImageManagerDialog'
 import ImagePreviewDialog from './components/ImagePreviewDialog'
+import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
@@ -68,6 +69,7 @@ const loadMermaid = async () => {
 function App() {
   const [content, setContent] = useState('')
   const [showImageManager, setShowImageManager] = useState(false)
+  const [showTableInsert, setShowTableInsert] = useState(false)
   const [previewImage, setPreviewImage] = useState(null)
   const [currentPath, setCurrentPath] = useState('')
   const [status, setStatus] = useState('就绪')
@@ -486,6 +488,32 @@ function App() {
       return () => clearTimeout(timer)
     }
   }, [layout, renderMarkdown])
+
+  const handleTableInsert = (markdown) => {
+    if (!editorRef.current) return
+    
+    const editor = editorRef.current
+    const selection = editor.getSelection()
+    const position = selection.getStartPosition()
+    
+    // 在当前行前插入空行，然后插入表格
+    const lineContent = editor.getModel().getLineContent(position.lineNumber)
+    const prefix = lineContent.trim() ? '\n\n' : ''
+    
+    editor.executeEdits('insert-table', [{
+      range: selection,
+      text: prefix + markdown + '\n',
+      forceMoveMarkers: true
+    }])
+    
+    // 移动光标到表格后
+    const newPosition = {
+      lineNumber: position.lineNumber + (prefix ? 2 : 0) + markdown.split('\n').length,
+      column: 1
+    }
+    editor.setPosition(newPosition)
+    editor.focus()
+  }
 
   const handleToolbarInsert = (before, after, mode) => {
     if (!editorRef.current) return
@@ -1137,6 +1165,7 @@ function App() {
             onInsertImage={() => setShowImageManager(true)}
             onInsertCode={handleInsertCode}
             onInsertTable={() => handleToolbarInsert("\n| 列1 | 列2 |\n|-----|-----|\n| 内容 | 内容 |\n", "", "insert")}
+            onOpenTableInsert={() => setShowTableInsert(true)}
             onToggleFileTree={() => setShowFileTree(!showFileTree)}
             onToggleTheme={toggleEditorTheme}
             onSettings={handleSettings}
@@ -1172,6 +1201,7 @@ function App() {
             onInsert={handleToolbarInsert}
             onImageUpload={handleImageUpload}
             onOpenImageManager={() => setShowImageManager(true)}
+            onOpenTableInsert={() => setShowTableInsert(true)}
             disabled={!editorRef.current}
           />
         )}
@@ -1310,6 +1340,14 @@ function App() {
         <ImagePreviewDialog
           image={previewImage}
           onClose={() => setPreviewImage(null)}
+          theme={editorTheme}
+        />
+      )}
+
+      {showTableInsert && (
+        <TableInsertDialog
+          onClose={() => setShowTableInsert(false)}
+          onInsert={handleTableInsert}
           theme={editorTheme}
         />
       )}
