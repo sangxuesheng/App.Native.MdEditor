@@ -523,7 +523,7 @@ const server = http.createServer((req, res) => {
   if (parsed.pathname === '/api/image/list' && req.method === 'GET') {
     try {
       // 使用共享目录存储图片
-      const imagesBaseDir = path.join(__dirname, '../../shares/images');
+      const imagesBaseDir = path.join(__dirname, '../../shares/mdeditor/images');
       
       if (!fs.existsSync(imagesBaseDir)) {
         sendJson(res, 200, { ok: true, images: [] });
@@ -672,7 +672,7 @@ const server = http.createServer((req, res) => {
         const day = String(today.getDate()).padStart(2, '0');
         
         // 使用共享目录作为图片存储位置
-        const imagesDir = path.join(__dirname, '../../shares/images', year.toString(), month, day);
+        const imagesDir = path.join(__dirname, '../../shares/mdeditor/images', year.toString(), month, day);
         
         // 确保目录存在
         if (!fs.existsSync(imagesDir)) {
