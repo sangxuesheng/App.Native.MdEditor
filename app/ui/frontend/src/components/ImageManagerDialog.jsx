@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2 } from 'lucide-react'
 import './ImageManagerDialog.css'
+import { compressImage } from '../utils/imageCompressor'
 
 function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
   const [activeTab, setActiveTab] = useState('upload') // upload, link, library, settings
@@ -48,7 +49,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
     const formData = new FormData()
     
     for (let i = 0; i < files.length; i++) {
-      const file = files[i]
+      let file = files[i]
       
       // 验证文件类型
       if (!file.type.startsWith('image/')) {
@@ -60,6 +61,14 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
       if (file.size > 10 * 1024 * 1024) {
         alert(`文件 ${file.name} 超过 10MB 限制`)
         continue
+      }
+
+      // 压缩图片
+      try {
+        file = await compressImage(file)
+      } catch (error) {
+        console.error('图片压缩失败:', error)
+        // 压缩失败，使用原文件
       }
 
       formData.append('images', file)

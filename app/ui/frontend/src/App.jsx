@@ -26,6 +26,7 @@ import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
+import { compressImage } from './utils/imageCompressor'
 import { FolderArchive, Sun, Moon, StretchVertical, Columns, FileText,Sparkle, Eye } from 'lucide-react'
 // 初始化 Markdown 渲染器
 const md = new MarkdownIt({
@@ -589,13 +590,22 @@ function App() {
             e.preventDefault()
             e.stopPropagation()
             
-            const file = item.getAsFile()
+            let file = item.getAsFile()
             if (!file) continue
             
             // 显示上传提示
-            setStatus('正在上传图片...')
+            setStatus('正在压缩图片...')
             
             try {
+              // 压缩图片
+              try {
+                file = await compressImage(file)
+                setStatus('正在上传图片...')
+              } catch (error) {
+                console.error('图片压缩失败:', error)
+                setStatus('正在上传图片...')
+              }
+              
               // 上传图片
               const formData = new FormData()
               formData.append('images', file)
