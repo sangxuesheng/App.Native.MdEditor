@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Link2,
   Image,
+  Upload,
   Code2,
   FileCode,
   Quote,
@@ -21,11 +22,27 @@ import {
 } from 'lucide-react'
 import './EditorToolbar.css'
 
-function EditorToolbar({ onInsert, disabled }) {
+function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, disabled }) {
   const [showChartMenu, setShowChartMenu] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
   const chartMenuRef = useRef(null)
   const chartButtonRef = useRef(null)
+  const fileInputRef = useRef(null)
+  
+  const handleUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+  
+  const handleFileChange = async (e) => {
+    const files = e.target.files
+    if (files && files.length > 0 && onImageUpload) {
+      for (let i = 0; i < files.length; i++) {
+        await onImageUpload(files[i])
+      }
+      // 清空 input，允许重复选择同一文件
+      e.target.value = ''
+    }
+  }
   
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -191,7 +208,8 @@ ${'```'}`
       <div className="toolbar-divider"></div>
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={insertLink} disabled={disabled} title="插入链接"><Link2 size={iconSize} /></button>
-        <button className="toolbar-btn" onClick={insertImage} disabled={disabled} title="插入图片"><Image size={iconSize} /></button>
+        <button className="toolbar-btn" onClick={onOpenImageManager} disabled={disabled} title="图片管理"><Image size={iconSize} /></button>
+        <button className="toolbar-btn" onClick={handleUploadClick} disabled={disabled} title="上传图片 (支持多选)"><Upload size={iconSize} /></button>
         <button className="toolbar-btn" onClick={insertCodeBlock} disabled={disabled} title="代码块"><FileCode size={iconSize} /></button>
         <button className="toolbar-btn" onClick={insertInlineCode} disabled={disabled} title="行内代码"><Code2 size={iconSize} /></button>
       </div>
@@ -238,6 +256,16 @@ ${'```'}`
           <div className="chart-dropdown-footer">图表将在预览面板中渲染</div>
         </div>
       )}
+      
+      {/* 隐藏的文件输入框 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
     </div>
   )
 }

@@ -35,7 +35,8 @@ import {
   HelpCircle,
   Keyboard,
   Info,
-  X
+  X,
+  Settings
 } from 'lucide-react'
 
 /**
@@ -93,6 +94,7 @@ const MenuItemIcon = ({ type }) => {
     'keyboard': <Keyboard style={iconStyle} />,
     'about': <Info style={iconStyle} />,
     'clear': <X style={iconStyle} />,
+    'settings': <Settings style={iconStyle} />,
   };
   
   return icons[type] || null;
@@ -263,7 +265,9 @@ function MenuBar({
         { divider: true },
         { label: '放大', icon: 'zoom-in', shortcut: 'Ctrl++', action: onZoomIn },
         { label: '缩小', icon: 'zoom-out', shortcut: 'Ctrl+-', action: onZoomOut },
-        { label: '重置缩放', icon: 'zoom-reset', shortcut: 'Ctrl+0', action: onZoomReset }
+        { label: '重置缩放', icon: 'zoom-reset', shortcut: 'Ctrl+0', action: onZoomReset },
+        { divider: true },
+        { label: '设置', icon: 'settings', action: onSettings }
       ]
     },
     {

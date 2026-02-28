@@ -79,7 +79,7 @@ function ImagePreviewDialog({ image, onClose, theme }) {
             </div>
             <div className="info-item">
               <span className="info-label">上传时间：</span>
-              <span className="info-value">{formatDate(image.uploadTime)}</span>
+              <span className="info-value">{formatDate(image.uploadTime || image.mtime)}</span>
             </div>
             <div className="info-item">
               <span className="info-label">图片路径：</span>

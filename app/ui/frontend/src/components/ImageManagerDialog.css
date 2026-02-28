@@ -904,3 +904,87 @@
 .image-item.selection-mode .delete-image-btn {
   display: none;
 }
+
+.batch-manage-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #2196f3;
+  color: white;
+}
+
+.batch-manage-button:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.batch-manage-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 批量管理按钮区域 - 固定在左下角 */
+.library-batch-actions {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.image-manager-dialog.dark .library-batch-actions {
+  background: rgba(30, 30, 30, 0.95);
+}
+
+.image-manager-dialog.md3 .library-batch-actions {
+  background: rgba(45, 45, 45, 0.95);
+}
+
+/* 图片库标签页需要相对定位 */
+.library-tab {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 调整图片网格，为底部按钮留出空间 */
+.library-tab .image-grid {
+  padding-bottom: 80px;
+}
+
+/* 底部按钮区域布局 */
+.image-manager-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.image-manager-dialog.dark .image-manager-footer {
+  border-top-color: #333;
+}
+
+.footer-left-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 移除之前的固定定位样式 */
+.library-batch-actions {
+  display: none;
+}

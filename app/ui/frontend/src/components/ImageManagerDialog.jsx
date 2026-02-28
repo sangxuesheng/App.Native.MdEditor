@@ -413,59 +413,15 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
             <div className="library-tab">
               <div className="library-header">
                 <h4>图片库 ({libraryImages.length})</h4>
-                <div className="library-actions">
-                  {selectionMode && (
-                    <>
-                      <button 
-                        className="select-all-button"
-                        onClick={toggleSelectAll}
-                        title={selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
-                      >
-                        {selectedImages.length === libraryImages.length ? <CheckSquare size={18} /> : <Square size={18} />}
-                        {selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
-                      </button>
-                      <button 
-                        className="batch-delete-button"
-                        onClick={handleBatchDelete}
-                        disabled={selectedImages.length === 0}
-                        title="删除选中"
-                      >
-                        <Trash2 size={18} />
-                        删除选中 ({selectedImages.length})
-                      </button>
-                      <button 
-                        className="cancel-selection-button"
-                        onClick={() => {
-                          setSelectionMode(false)
-                          setSelectedImages([])
-                        }}
-                        title="取消选择"
-                      >
-                        取消
-                      </button>
-                    </>
-                  )}
-                  {!selectionMode && (
-                    <button 
-                      className="selection-mode-button"
-                      onClick={() => setSelectionMode(true)}
-                      disabled={libraryImages.length === 0}
-                      title="批量管理"
-                    >
-                      <CheckSquare size={18} />
-                      批量管理
-                    </button>
-                  )}
-                  <button 
-                    className="refresh-button"
-                    onClick={loadLibraryImages}
-                    disabled={loadingLibrary}
-                    title="刷新图片库"
-                  >
-                    <RefreshCw size={18} className={loadingLibrary ? 'spinning' : ''} />
-                    刷新
-                  </button>
-                </div>
+                <button 
+                  className="refresh-button"
+                  onClick={loadLibraryImages}
+                  disabled={loadingLibrary}
+                  title="刷新图片库"
+                >
+                  <RefreshCw size={18} className={loadingLibrary ? 'spinning' : ''} />
+                  刷新
+                </button>
               </div>
               
               {loadingLibrary ? (
@@ -563,8 +519,52 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
           )}
         </div>
 
-        {/* 底部关闭按钮 */}
+        {/* 底部按钮 */}
         <div className="image-manager-footer">
+          {activeTab === 'library' && libraryImages.length > 0 && (
+            <div className="footer-left-actions">
+              {!selectionMode ? (
+                <button 
+                  className="selection-mode-button"
+                  onClick={() => setSelectionMode(true)}
+                  title="批量管理"
+                >
+                  <CheckSquare size={18} />
+                  批量管理
+                </button>
+              ) : (
+                <>
+                  <button 
+                    className="select-all-button"
+                    onClick={toggleSelectAll}
+                    title={selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
+                  >
+                    {selectedImages.length === libraryImages.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                    {selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
+                  </button>
+                  <button 
+                    className="batch-delete-button"
+                    onClick={handleBatchDelete}
+                    disabled={selectedImages.length === 0}
+                    title="删除选中"
+                  >
+                    <Trash2 size={18} />
+                    删除选中 ({selectedImages.length})
+                  </button>
+                  <button 
+                    className="cancel-selection-button"
+                    onClick={() => {
+                      setSelectionMode(false)
+                      setSelectedImages([])
+                    }}
+                    title="取消选择"
+                  >
+                    取消
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           <button className="close-footer-button" onClick={onClose}>
             关闭
           </button>
