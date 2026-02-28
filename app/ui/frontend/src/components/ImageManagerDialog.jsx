@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw } from 'lucide-react'
+import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2 } from 'lucide-react'
 import './ImageManagerDialog.css'
 
 function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
@@ -134,6 +134,37 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
     onInsertImage(`![${alt}](${imageUrl})`)
     onClose()
   }
+
+  // 删除图片
+  const handleDeleteImage = useCallback(async (image) => {
+    if (!confirm(`确定要删除图片 "${image.filename}" 吗？`)) {
+      return
+    }
+    
+    try {
+      const response = await fetch('/api/image/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: image.url })
+      })
+      
+      const result = await response.json()
+      
+      if (result.ok) {
+        // 刷新图片库
+        loadLibraryImages()
+        alert('图片已删除')
+      } else {
+        alert(`删除失败: ${result.message}`)
+      }
+    } catch (error) {
+      console.error('删除图片错误:', error)
+      alert('删除失败，请重试')
+    }
+  }, [loadLibraryImages])
+
 
   // 插入已上传的图片
   const handleInsertUploaded = (image) => {
@@ -325,6 +356,16 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
                   {libraryImages.map((image, index) => (
                     <div key={index} className="image-item">
                       <img src={image.url} alt={image.alt || '图片'} />
+                      <button 
+                        className="delete-image-btn"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteImage(image)
+                        }}
+                        title="删除图片"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                       <div className="image-info">
                         <span className="image-filename" title={image.filename}>
                           {image.filename}

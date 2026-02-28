@@ -9,6 +9,10 @@ cd /vol4/1000/开发文件夹/mac
 
    cd app/ui/frontend   export PATH=/var/apps/nodejs_v22/target/bin:$PATH   npm run build
 
+
+
+   
+
 快速安装更新：
 
 cd /vol4/1000/开发文件夹/mac 
@@ -23,8 +27,7 @@ http://192.168.2.2:18080/
 cd /vol4/1000/开发文件夹/mac && bash build-complete.sh 2>&1 | tail -5
 
 打包
-cd /vol4/1000/开发文件夹/mac && bash build-complete.sh 2>&1 | tail -5 && fnpack build
-
+cd /vol4/1000/开发文件夹/mac && ls -la build*.sh
 
 
 
