@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2 } from 'lucide-react'
 import './ImageManagerDialog.css'
 import { compressImage } from '../utils/imageCompressor'
+import ImagePreviewDialog from './ImagePreviewDialog'
 
 function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
   const [activeTab, setActiveTab] = useState('upload') // upload, link, library, settings
@@ -12,6 +13,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
   const [uploading, setUploading] = useState(false)
   const [libraryImages, setLibraryImages] = useState([])
   const [loadingLibrary, setLoadingLibrary] = useState(false)
+  const [previewImage, setPreviewImage] = useState(null)
   const fileInputRef = useRef(null)
 
   // 加载图片库
@@ -364,7 +366,12 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
                 <div className="image-grid">
                   {libraryImages.map((image, index) => (
                     <div key={index} className="image-item">
-                      <img src={image.url} alt={image.alt || '图片'} />
+                      <img 
+                        src={image.url} 
+                        alt={image.alt || '图片'} 
+                        onClick={() => setPreviewImage(image)}
+                        style={{ cursor: 'pointer' }}
+                      />
                       <button 
                         className="delete-image-btn"
                         onClick={(e) => {
