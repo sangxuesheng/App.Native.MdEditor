@@ -863,3 +863,192 @@
 .monaco-editor .codicon-folding-collapsed::before {
   content: '›' !important;
 }
+/* ==================== Monaco Editor 查找/替换窗口优化 ==================== */
+
+/* 隐藏 Escape 提示文字，让关闭按钮更明显 */
+.monaco-editor .find-widget .button.codicon-find-close::after {
+  content: '' !important;
+}
+
+/* 增大关闭按钮的点击区域 */
+.monaco-editor .find-widget .button.codicon-find-close {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  transition: background-color 0.2s !important;
+}
+
+/* 关闭按钮悬停效果 */
+.monaco-editor .find-widget .button.codicon-find-close:hover {
+  background-color: rgba(255, 0, 0, 0.1) !important;
+}
+
+/* 让关闭图标更明显 */
+.monaco-editor .find-widget .button.codicon-find-close::before {
+  font-size: 16px !important;
+  font-weight: bold !important;
+  color: #666 !important;
+}
+
+.monaco-editor .find-widget .button.codicon-find-close:hover::before {
+  color: #ff0000 !important;
+}
+
+/* 浅色主题 */
+.app.theme-light .monaco-editor .find-widget .button.codicon-find-close::before {
+  color: #424242 !important;
+}
+
+.app.theme-light .monaco-editor .find-widget .button.codicon-find-close:hover::before {
+  color: #d32f2f !important;
+}
+
+/* MD3 主题 */
+.app.theme-md3 .monaco-editor .find-widget .button.codicon-find-close::before {
+  color: #49454f !important;
+}
+
+.app.theme-md3 .monaco-editor .find-widget .button.codicon-find-close:hover::before {
+  color: #ba1a1a !important;
+}
+
+/* 确保查找窗口的关闭按钮始终可见 */
+.monaco-editor .find-widget {
+  z-index: 1000 !important;
+}
+
+/* 移除 Escape 键提示 */
+.monaco-editor .find-widget .monaco-keybinding-key {
+  display: none !important;
+}
+
+/* 或者如果上面的不起作用，尝试这个 */
+.monaco-editor .find-widget .keybinding {
+  display: none !important;
+}
+
+/* ==================== 强制隐藏查找窗口的 Escape 提示 ==================== */
+
+/* 隐藏所有键盘快捷键提示 */
+
+/* ==================== 优化查找窗口关闭按钮 ==================== */
+
+/* 只隐藏快捷键提示文本，保留关闭图标 */
+.monaco-editor .find-widget .monaco-keybinding,
+.monaco-editor .find-widget .monaco-keybinding-key {
+  display: none !important;
+}
+
+/* 增强关闭按钮的可点击性 */
+.monaco-editor .find-widget .button.codicon-find-close {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  transition: background-color 0.2s !important;
+}
+
+/* 关闭按钮悬停效果 */
+.monaco-editor .find-widget .button.codicon-find-close:hover {
+  background-color: rgba(255, 0, 0, 0.15) !important;
+}
+
+/* 确保关闭图标清晰可见 */
+.monaco-editor .find-widget .button.codicon-find-close::before {
+  display: block !important;
+  font-size: 16px !important;
+  color: #666 !important;
+}
+
+.monaco-editor .find-widget .button.codicon-find-close:hover::before {
+  color: #ff0000 !important;
+}
+
+/* 浅色主题 */
+.app.theme-light .monaco-editor .find-widget .button.codicon-find-close::before {
+  color: #424242 !important;
+}
+
+.app.theme-light .monaco-editor .find-widget .button.codicon-find-close:hover::before {
+  color: #d32f2f !important;
+}
+
+/* MD3 主题 */
+.app.theme-md3 .monaco-editor .find-widget .button.codicon-find-close::before {
+  color: #49454f !important;
+}
+
+.app.theme-md3 .monaco-editor .find-widget .button.codicon-find-close:hover::before {
+  color: #ba1a1a !important;
+}
+
+/* ==================== 完全隐藏 Escape 提示 ==================== */
+
+/* 隐藏所有可能的快捷键显示 */
+.monaco-editor .find-widget .monaco-keybinding,
+.monaco-editor .find-widget .monaco-keybinding-key,
+.monaco-editor .find-widget .keybinding,
+.monaco-editor .find-widget .monaco-keybinding > *,
+.monaco-editor .find-widget .button .monaco-keybinding,
+.monaco-editor .find-widget .codicon-find-close + .monaco-keybinding,
+.monaco-editor .find-widget [class*="keybinding"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
+/* 确保关闭按钮内没有额外的文本 */
+.monaco-editor .find-widget .button.codicon-find-close > * {
+  display: none !important;
+}
+
+/* 只显示关闭图标本身 */
+.monaco-editor .find-widget .button.codicon-find-close::before {
+  display: block !important;
+}
+
+/* ==================== 隐藏查找窗口右侧的 (Escape) 按钮 ==================== */
+
+/* 隐藏关闭按钮（带 Escape 文字的按钮） */
+.monaco-editor .find-widget .button.codicon-find-close,
+.monaco-editor .find-widget .button[title*="Escape"],
+.monaco-editor .find-widget .button[aria-label*="Escape"] {
+  font-size: 0 !important;
+  color: transparent !important;
+}
+
+/* 只显示关闭图标，隐藏文字 */
+.monaco-editor .find-widget .button.codicon-find-close::before {
+  font-size: 16px !important;
+  color: #666 !important;
+}
+
+/* 隐藏按钮内的所有文本节点 */
+.monaco-editor .find-widget .button.codicon-find-close {
+  overflow: hidden !important;
+  text-indent: -9999px !important;
+  white-space: nowrap !important;
+}
+
+/* 确保图标正常显示 */
+.monaco-editor .find-widget .button.codicon-find-close::before {
+  text-indent: 0 !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+

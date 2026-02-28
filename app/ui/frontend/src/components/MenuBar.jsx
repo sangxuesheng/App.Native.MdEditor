@@ -9,9 +9,6 @@ import {
   Sparkles,
   Undo,
   Redo,
-  Copy,
-  Scissors,
-  Clipboard,
   Search,
   Replace,
   WrapText,
@@ -61,9 +58,6 @@ const MenuItemIcon = ({ type }) => {
     // 编辑菜单
     'undo': <Undo style={iconStyle} />,
     'redo': <Redo style={iconStyle} />,
-    'copy': <Copy style={iconStyle} />,
-    'cut': <Scissors style={iconStyle} />,
-    'paste': <Clipboard style={iconStyle} />,
     'find': <Search style={iconStyle} />,
     'replace': <Replace style={iconStyle} />,
     'format': <WrapText style={iconStyle} />,
@@ -199,8 +193,7 @@ function MenuBar({
             { label: 'HTML 格式', icon: 'export', action: () => onExport('html') },
             { label: 'HTML 格式（无样式）', icon: 'export', action: () => onExport('html-plain') },
             { label: 'HTML 格式（兼容样式）', icon: 'export', action: () => onExport('html-compat') },
-            { label: 'MD 格式', icon: 'export', action: () => onExport('md') },
-            { label: '复制选中内容', icon: 'copy', shortcut: 'Ctrl+C', action: () => onExport('copy') }
+            { label: 'MD 格式', icon: 'export', action: () => onExport('md') }
           ]
         }
       ]
@@ -210,10 +203,6 @@ function MenuBar({
       items: [
         { label: '撤销', icon: 'undo', shortcut: 'Ctrl+Z', action: onUndo },
         { label: '重做', icon: 'redo', shortcut: 'Ctrl+Y', action: onRedo },
-        { divider: true },
-        { label: '复制', icon: 'copy', shortcut: 'Ctrl+C', action: onCopy },
-        { label: '剪切', icon: 'cut', shortcut: 'Ctrl+X', action: onCut },
-        { label: '粘贴', icon: 'paste', shortcut: 'Ctrl+V', action: onPaste },
         { divider: true },
         { label: '格式化文档', icon: 'format', shortcut: 'Shift+Alt+F', action: onFormatDocument },
         { divider: true },

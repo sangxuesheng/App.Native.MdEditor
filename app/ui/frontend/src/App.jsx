@@ -508,6 +508,7 @@ function App() {
           lineNumber: selection.startLineNumber,
           column: before.length + 1
         })
+        editor.focus()
         return
 
       case 'heading':
@@ -527,6 +528,7 @@ function App() {
           lineNumber: selection.startLineNumber,
           column: newText.length + 1
         })
+        editor.focus()
         return
 
       case 'insert':
