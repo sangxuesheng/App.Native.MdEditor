@@ -777,3 +777,130 @@
   transform: scale(0.95);
 }
 
+
+/* 批量操作样式 */
+.library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.library-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.selection-mode-button,
+.select-all-button,
+.batch-delete-button,
+.cancel-selection-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.selection-mode-button {
+  background: #2196f3;
+  color: white;
+}
+
+.selection-mode-button:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.selection-mode-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.select-all-button {
+  background: #4caf50;
+  color: white;
+}
+
+.select-all-button:hover {
+  background: #45a049;
+}
+
+.batch-delete-button {
+  background: #f44336;
+  color: white;
+}
+
+.batch-delete-button:hover:not(:disabled) {
+  background: #d32f2f;
+}
+
+.batch-delete-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.cancel-selection-button {
+  background: #757575;
+  color: white;
+}
+
+.cancel-selection-button:hover {
+  background: #616161;
+}
+
+/* 选择模式下的图片项 */
+.image-item.selection-mode {
+  position: relative;
+}
+
+.image-item.selected {
+  border: 3px solid #2196f3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+.image-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  background: white;
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+}
+
+.image-checkbox:hover {
+  transform: scale(1.1);
+}
+
+.image-item.selected .image-checkbox {
+  background: #2196f3;
+  color: white;
+}
+
+/* 深色主题 */
+.image-manager-dialog.dark .image-checkbox {
+  background: #333;
+  color: white;
+}
+
+.image-manager-dialog.dark .image-item.selected .image-checkbox {
+  background: #2196f3;
+}
+
+/* 选择模式下隐藏悬停效果 */
+.image-item.selection-mode .image-overlay {
+  display: none;
+}
+
+.image-item.selection-mode .delete-image-btn {
+  display: none;
+}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2 } from 'lucide-react'
+import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2, CheckSquare, Square } from 'lucide-react'
 import './ImageManagerDialog.css'
 import { compressImage } from '../utils/imageCompressor'
 import ImagePreviewDialog from './ImagePreviewDialog'
@@ -14,6 +14,8 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
   const [libraryImages, setLibraryImages] = useState([])
   const [loadingLibrary, setLoadingLibrary] = useState(false)
   const [previewImage, setPreviewImage] = useState(null)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedImages, setSelectedImages] = useState([])
   const fileInputRef = useRef(null)
 
   // 加载图片库
@@ -176,6 +178,77 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
     }
   }, [loadLibraryImages])
 
+  // 批量删除图片
+  const handleBatchDelete = useCallback(async () => {
+    if (selectedImages.length === 0) {
+      alert('请先选择要删除的图片')
+      return
+    }
+    
+    if (!confirm(`确定要删除选中的 ${selectedImages.length} 张图片吗？`)) {
+      return
+    }
+    
+    try {
+      let successCount = 0
+      let failCount = 0
+      
+      for (const image of selectedImages) {
+        try {
+          const response = await fetch('/api/image/delete', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url: image.url })
+          })
+          
+          const result = await response.json()
+          if (result.ok) {
+            successCount++
+          } else {
+            failCount++
+          }
+        } catch (error) {
+          console.error('删除图片错误:', error)
+          failCount++
+        }
+      }
+      
+      // 刷新图片库
+      loadLibraryImages()
+      
+      // 清空选择
+      setSelectedImages([])
+      setSelectionMode(false)
+      
+      alert(`删除完成！成功: ${successCount}，失败: ${failCount}`)
+    } catch (error) {
+      console.error('批量删除错误:', error)
+      alert('批量删除失败，请重试')
+    }
+  }, [selectedImages, loadLibraryImages])
+
+  // 切换图片选择
+  const toggleImageSelection = useCallback((image) => {
+    setSelectedImages(prev => {
+      const isSelected = prev.some(img => img.url === image.url)
+      if (isSelected) {
+        return prev.filter(img => img.url !== image.url)
+      } else {
+        return [...prev, image]
+      }
+    })
+  }, [])
+
+  // 全选/取消全选
+  const toggleSelectAll = useCallback(() => {
+    if (selectedImages.length === libraryImages.length) {
+      setSelectedImages([])
+    } else {
+      setSelectedImages([...libraryImages])
+    }
+  }, [selectedImages, libraryImages])
 
   // 插入已上传的图片
   const handleInsertUploaded = (image) => {
@@ -340,15 +413,59 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
             <div className="library-tab">
               <div className="library-header">
                 <h4>图片库 ({libraryImages.length})</h4>
-                <button 
-                  className="refresh-button"
-                  onClick={loadLibraryImages}
-                  disabled={loadingLibrary}
-                  title="刷新图片库"
-                >
-                  <RefreshCw size={18} className={loadingLibrary ? 'spinning' : ''} />
-                  刷新
-                </button>
+                <div className="library-actions">
+                  {selectionMode && (
+                    <>
+                      <button 
+                        className="select-all-button"
+                        onClick={toggleSelectAll}
+                        title={selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
+                      >
+                        {selectedImages.length === libraryImages.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                        {selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
+                      </button>
+                      <button 
+                        className="batch-delete-button"
+                        onClick={handleBatchDelete}
+                        disabled={selectedImages.length === 0}
+                        title="删除选中"
+                      >
+                        <Trash2 size={18} />
+                        删除选中 ({selectedImages.length})
+                      </button>
+                      <button 
+                        className="cancel-selection-button"
+                        onClick={() => {
+                          setSelectionMode(false)
+                          setSelectedImages([])
+                        }}
+                        title="取消选择"
+                      >
+                        取消
+                      </button>
+                    </>
+                  )}
+                  {!selectionMode && (
+                    <button 
+                      className="selection-mode-button"
+                      onClick={() => setSelectionMode(true)}
+                      disabled={libraryImages.length === 0}
+                      title="批量管理"
+                    >
+                      <CheckSquare size={18} />
+                      批量管理
+                    </button>
+                  )}
+                  <button 
+                    className="refresh-button"
+                    onClick={loadLibraryImages}
+                    disabled={loadingLibrary}
+                    title="刷新图片库"
+                  >
+                    <RefreshCw size={18} className={loadingLibrary ? 'spinning' : ''} />
+                    刷新
+                  </button>
+                </div>
               </div>
               
               {loadingLibrary ? (
@@ -364,39 +481,63 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme }) {
                 </div>
               ) : (
                 <div className="image-grid">
-                  {libraryImages.map((image, index) => (
-                    <div key={index} className="image-item">
-                      <img 
-                        src={image.url} 
-                        alt={image.alt || '图片'} 
-                        onClick={() => setPreviewImage(image)}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <button 
-                        className="delete-image-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteImage(image)
-                        }}
-                        title="删除图片"
+                  {libraryImages.map((image, index) => {
+                    const isSelected = selectedImages.some(img => img.url === image.url)
+                    return (
+                      <div 
+                        key={index} 
+                        className={`image-item ${selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`}
                       >
-                        <Trash2 size={16} />
-                      </button>
-                      <div className="image-info">
-                        <span className="image-filename" title={image.filename}>
-                          {image.filename}
-                        </span>
-                        <span className="image-size">
-                          {(image.size / 1024).toFixed(1)} KB
-                        </span>
+                        {selectionMode && (
+                          <div 
+                            className="image-checkbox"
+                            onClick={() => toggleImageSelection(image)}
+                          >
+                            {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+                          </div>
+                        )}
+                        <img 
+                          src={image.url} 
+                          alt={image.alt || '图片'} 
+                          onClick={() => {
+                            if (selectionMode) {
+                              toggleImageSelection(image)
+                            } else {
+                              setPreviewImage(image)
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        {!selectionMode && (
+                          <button 
+                            className="delete-image-btn"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteImage(image)
+                            }}
+                            title="删除图片"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                        <div className="image-info">
+                          <span className="image-filename" title={image.filename}>
+                            {image.filename}
+                          </span>
+                          <span className="image-size">
+                            {(image.size / 1024).toFixed(1)} KB
+                          </span>
+                        </div>
+                        {!selectionMode && (
+                          <div className="image-overlay">
+                            <button onClick={() => handleInsertUploaded(image)}>
+                              插入
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div className="image-overlay">
-                        <button onClick={() => handleInsertUploaded(image)}>
-                          插入
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
