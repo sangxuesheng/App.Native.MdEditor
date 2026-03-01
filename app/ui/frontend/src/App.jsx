@@ -3,9 +3,10 @@ import Editor from '@monaco-editor/react'
 import MarkdownIt from 'markdown-it'
 import taskLists from 'markdown-it-task-lists'
 import footnote from 'markdown-it-footnote'
-import katex from 'markdown-it-katex'
+import mathjax3 from 'markdown-it-mathjax3'
 import 'github-markdown-css/github-markdown-dark.css'
 import 'github-markdown-css/github-markdown-light.css'
+// MathJax 通过 CDN 加载，无需导入 CSS
 import FileTree from './components/FileTree'
 import Resizer from './components/Resizer'
 import markdownLogo from './assets/markdown.svg'
@@ -37,17 +38,7 @@ const md = new MarkdownIt({
 })
   .use(taskLists, { enabled: true })
   .use(footnote)
-  .use(katex, {
-    throwOnError: false,
-    errorColor: '#cc0000',
-    displayMode: false,
-    output: 'html',
-    strict: false,
-    trust: true,
-    macros: {
-      "\\RR": "\\mathbb{R}"
-    }
-  })
+  .use(mathjax3)
 
 // Mermaid 懒加载 - 使用预加载的 CDN
 let mermaidModule = null
@@ -564,6 +555,15 @@ function App() {
         console.error('Mermaid render error:', err)
         setStatus('Mermaid 渲染失败')
         setTimeout(() => setStatus('就绪'), 2000)
+      }
+    }
+
+    // 触发 MathJax 渲染
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      try {
+        await window.MathJax.typesetPromise([previewRef.current])
+      } catch (err) {
+        console.error('MathJax render error:', err)
       }
     }
   }, [content, mermaidLoaded])

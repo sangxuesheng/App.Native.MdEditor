@@ -18,6 +18,7 @@ export default defineConfig({
     }
   },
   build: {
+    target: 'esnext', // 支持 top-level await
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
@@ -29,21 +30,13 @@ export default defineConfig({
         manualChunks: {
           // React 核心库
           'react-vendor': ['react', 'react-dom'],
-          // Monaco Editor
-          'monaco-editor': ['@monaco-editor/react', 'monaco-editor'],
           // Markdown 相关
           'markdown-vendor': [
             'markdown-it',
             'markdown-it-task-lists',
             'markdown-it-footnote',
-            'markdown-it-katex'
-          ],
-          // Mermaid（最大的依赖）
-          'mermaid': ['mermaid'],
-          // KaTeX
-          'katex': ['katex'],
-          // GitHub Markdown CSS
-          'github-markdown-css': ['github-markdown-css']
+            'markdown-it-mathjax3'
+          ]
         },
         // 优化 chunk 文件名
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -67,7 +60,7 @@ export default defineConfig({
       'markdown-it',
       'markdown-it-task-lists',
       'markdown-it-footnote',
-      'markdown-it-katex'
+      'markdown-it-mathjax3'
     ],
     exclude: ['mermaid'] // Mermaid 太大，不预构建
   }
