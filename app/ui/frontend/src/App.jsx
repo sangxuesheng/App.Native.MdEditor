@@ -417,29 +417,12 @@ function App() {
   }, [])
 
   // 插入表格
-  const insertTable = useCallback((rows, cols, headers, cells) => {
+  const insertTable = useCallback((markdown) => {
     if (!editorRef.current) return
 
     const editor = editorRef.current
     const selection = editor.getSelection()
     const position = selection.getStartPosition()
-
-    // 生成表格 Markdown
-    let tableMarkdown = '\n'
-    
-    // 表头
-    tableMarkdown += '| ' + headers.join(' | ') + ' |\n'
-    
-    // 分隔线
-    tableMarkdown += '| ' + headers.map(() => '---').join(' | ') + ' |\n'
-    
-    // 表格内容
-    for (let i = 0; i < rows - 1; i++) {
-      const rowCells = cells.slice(i * cols, (i + 1) * cols)
-      tableMarkdown += '| ' + rowCells.join(' | ') + ' |\n'
-    }
-    
-    tableMarkdown += '\n'
 
     // 插入表格
     editor.executeEdits('insert-table', [{
@@ -449,12 +432,13 @@ function App() {
         endLineNumber: position.lineNumber,
         endColumn: position.column
       },
-      text: tableMarkdown
+      text: '\n' + markdown + '\n'
     }])
 
     // 移动光标到表格后
+    const lines = markdown.split('\n').length
     const newPosition = {
-      lineNumber: position.lineNumber + rows + 2,
+      lineNumber: position.lineNumber + lines + 2,
       column: 1
     }
     editor.setPosition(newPosition)
