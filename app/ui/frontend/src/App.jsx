@@ -41,7 +41,12 @@ const md = new MarkdownIt({
     throwOnError: false,
     errorColor: '#cc0000',
     displayMode: false,
-    output: 'html'
+    output: 'html',
+    strict: false,
+    trust: true,
+    macros: {
+      "\\RR": "\\mathbb{R}"
+    }
   })
 
 // Mermaid 懒加载 - 使用预加载的 CDN
