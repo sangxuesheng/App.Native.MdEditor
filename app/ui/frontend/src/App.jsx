@@ -246,28 +246,225 @@ function App() {
       setCurrentPath(path)
       loadFile(path)
     } else {
-      setContent(`# 欢迎使用 Markdown 编辑器
+      setContent(`# Markdown 编辑器功能展示
+这是一个完整的 Markdown 功能展示文档，包含了各种常用的格式和元素。
 
-这是一个功能强大的 Markdown 编辑器，支持：
+## 文本格式
+### 基础文本样式
+- **粗体文本**
+- *斜体文本*
+- ***粗斜体文本***
+- ~~删除线文本~~
+- \`行内代码\`
 
-## 核心功能
-- ✅ 实时预览
-- ✅ 语法高亮
-- ✅ GFM 支持（表格、任务列表等）
-- ✅ LaTeX 数学公式
-- ✅ Mermaid 流程图
-- ✅ 多种布局模式
-- ✅ 新建文件（支持模板）
-- ✅ 另存为
-- ✅ 导出功能（HTML/PDF/TXT）
+### 标题层级
+# 一级标题
+## 二级标题
+### 三级标题
+#### 四级标题
+##### 五级标题
+###### 六级标题
 
-## 快捷键
-- Ctrl/Cmd + S: 保存文件
-- Ctrl/Cmd + B: 加粗
-- Ctrl/Cmd + I: 斜体
-- Ctrl/Cmd + K: 插入链接
+## 列表
+### 无序列表
+- 第一项
+- 第二项
+  - 嵌套项目 1
+  - 嵌套项目 2
+- 第三项
 
-## 开始使用
+### 有序列表
+1. 第一步
+2. 第二步
+   1. 子步骤 A
+   2. 子步骤 B
+3. 第三步
+
+### 任务列表
+- [x] 已完成的任务
+- [ ] 待完成的任务
+- [ ] 另一个待完成的任务
+
+## 链接和图片
+### 链接
+[这是一个链接](https://example.com)
+
+[带标题的链接](https://example.com "链接标题")
+
+### 图片
+![示例图片](https://mp.leti.ltd/show.png "图片描述")
+
+## 引用
+> 这是一个引用块
+>
+> 可以包含多行内容
+>
+> > 这是嵌套引用
+
+## 代码块
+### JavaScript 代码
+\`\`\`javascript
+function greet(name) {
+    console.log(\`Hello, \${name}!\`);
+    return \`Welcome to Markdown Editor\`;
+}
+
+const message = greet('用户');
+\`\`\`
+
+### Python 代码
+\`\`\`python
+def calculate_fibonacci(n):
+    if n <= 1:
+        return n
+    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)
+
+# 计算前10个斐波那契数
+for i in range(10):
+    print(f"F({i}) = {calculate_fibonacci(i)}")
+\`\`\`
+
+### CSS 代码
+\`\`\`css
+.markdown-editor {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+}
+
+.code-block {
+    background-color: #f4f4f4;
+    border-radius: 4px;
+    padding: 1rem;
+    overflow-x: auto;
+}
+\`\`\`
+
+## 表格
+| 功能     | 描述             | 状态      |
+| -------- | ---------------- | --------- |
+| 实时预览 | 边写边看效果     | ✅ 已实现 |
+| 语法高亮 | 代码块高亮显示   | ✅ 已实现 |
+| 导出功能 | 支持多种格式导出 | ✅ 已实现 |
+| 主题切换 | 多种主题可选     | 🚧 开发中 |
+| 插件系统 | 扩展功能支持     | 📋 计划中 |
+
+## 数学公式
+### 行内公式
+这是一个行内公式：\$E = mc^2\$
+
+### 块级公式
+\$\$
+\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+\$\$
+
+\$\$
+\\begin{align}
+\\nabla \\times \\vec{\\mathbf{B}} -\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{E}}}{\\partial t} &= \\frac{4\\pi}{c}\\vec{\\mathbf{j}} \\\\
+\\nabla \\cdot \\vec{\\mathbf{E}} &= 4 \\pi \\rho \\\\
+\\nabla \\times \\vec{\\mathbf{E}}\\, +\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{B}}}{\\partial t} &= \\vec{\\mathbf{0}} \\\\
+\\nabla \\cdot \\vec{\\mathbf{B}} &= 0
+\\end{align}
+\$\$
+
+## 流程图 (Mermaid)
+\`\`\`mermaid
+graph TD
+    A[开始] --> B{是否登录?}
+    B -->|是| C[显示主界面]
+    B -->|否| D[显示登录页面]
+    D --> E[用户输入凭据]
+    E --> F{验证成功?}
+    F -->|是| C
+    F -->|否| G[显示错误信息]
+    G --> D
+    C --> H[结束]
+\`\`\`
+
+## 时序图
+\`\`\`mermaid
+sequenceDiagram
+    participant U as 用户
+    participant E as 编辑器
+    participant P as 预览器
+    participant S as 服务器
+
+    U->>E: 输入 Markdown 文本
+    E->>P: 实时渲染
+    P->>U: 显示预览
+    U->>E: 点击导出
+    E->>S: 发送导出请求
+    S->>E: 返回导出文件
+    E->>U: 下载文件
+\`\`\`
+
+## 分隔线
+---
+
+## 特殊符号和 Emoji
+### 常用符号
+- © 版权符号
+- ® 注册商标
+- ™ 商标符号
+- § 章节符号
+- ¶ 段落符号
+
+### Emoji 表情
+- 😀 开心
+- 🚀 火箭
+- 💡 想法
+- ⭐ 星星
+- 🎉 庆祝
+- 📝 笔记
+- 💻 电脑
+- 🔧 工具
+
+## 脚注
+这是一个带脚注的文本[^1]，还有另一个脚注[^2]。
+
+[^1]: 这是第一个脚注的内容
+[^2]: 这是第二个脚注的内容，可以包含更多详细信息
+
+## 高亮文本
+==这是高亮文本==
+
+## 键盘按键
+按 <kbd>Ctrl</kbd> + <kbd>S</kbd> 保存文档
+
+按 <kbd>Ctrl</kbd> + <kbd>C</kbd> 复制内容
+
+## 缩写
+HTML 是 *HyperText Markup Language* 的缩写
+
+CSS 是 *Cascading Style Sheets* 的缩写
+
+## 定义列表
+Markdown
+:   一种轻量级标记语言
+
+HTML
+:   超文本标记语言
+:   用于创建网页的标准标记语言
+
+## 总结
+这个 Markdown 文档展示了编辑器支持的各种功能：
+1. **文本格式化** - 粗体、斜体、删除线等
+2. **结构化内容** - 标题、列表、表格
+3. **媒体内容** - 链接、图片
+4. **代码展示** - 语法高亮的代码块
+5. **数学公式** - LaTeX 格式的数学表达式
+6. **图表绘制** - Mermaid 流程图和时序图
+7. **交互元素** - 任务列表、脚注
+8. **特殊格式** - 引用、分隔线、高亮
+
+---
+
+*最后更新时间：2025 年 1 月*
+
+**版权声明**：本文档仅用于功能展示，欢迎自由使用和修改。
+
+---
+
 
 点击工具栏的"新建"按钮创建新文件，或从左侧文件树打开现有文件。
 
