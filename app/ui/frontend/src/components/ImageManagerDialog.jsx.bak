@@ -151,7 +151,9 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
 
   // 删除图片
   const handleDeleteImage = useCallback(async (image) => {
-    // 直接删除，不再显示系统确认框
+    if (!confirm(`确定要删除图片 "${image.filename}" 吗？`)) {
+      return
+    }
     
     try {
       const response = await fetch('/api/image/delete', {
@@ -184,7 +186,9 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
       return
     }
     
-    // 直接删除，不再显示系统确认框
+    if (!confirm(`确定要删除选中的 ${selectedImages.length} 张图片吗？`)) {
+      return
+    }
     
     try {
       let successCount = 0

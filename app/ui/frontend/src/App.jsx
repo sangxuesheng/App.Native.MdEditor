@@ -1278,6 +1278,14 @@ function App() {
           onClose={() => setShowImageManager(false)}
           onInsertImage={handleImageInsert}
           theme={editorTheme}
+          onNotify={(message, type) => {
+            setStatus(message)
+            setStatusType(type || 'normal')
+            setTimeout(() => {
+              setStatus('就绪')
+              setStatusType('normal')
+            }, 2000)
+          }}
         />
       )}
 
