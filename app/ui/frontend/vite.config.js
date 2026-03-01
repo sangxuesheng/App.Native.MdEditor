@@ -59,9 +59,8 @@ export default defineConfig({
       '@monaco-editor/react',
       'markdown-it',
       'markdown-it-task-lists',
-      'markdown-it-footnote',
-      'markdown-it-mathjax3'
+      'markdown-it-footnote'
     ],
-    exclude: ['mermaid'] // Mermaid 太大，不预构建
+    exclude: ['mermaid', 'markdown-it-mathjax3'] // 排除使用 top-level await 的包
   }
 })

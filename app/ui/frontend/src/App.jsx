@@ -4,6 +4,7 @@ import MarkdownIt from 'markdown-it'
 import taskLists from 'markdown-it-task-lists'
 import footnote from 'markdown-it-footnote'
 import mathjax3 from 'markdown-it-mathjax3'
+import mark from 'markdown-it-mark'
 import 'github-markdown-css/github-markdown-dark.css'
 import 'github-markdown-css/github-markdown-light.css'
 // MathJax 通过 CDN 加载，无需导入 CSS
@@ -39,6 +40,7 @@ const md = new MarkdownIt({
   .use(taskLists, { enabled: true })
   .use(footnote)
   .use(mathjax3)
+  .use(mark)
 
 // Mermaid 懒加载 - 使用预加载的 CDN
 let mermaidModule = null
