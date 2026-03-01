@@ -19,6 +19,7 @@ import SettingsDialog from './components/SettingsDialog'
 import MarkdownHelpDialog from './components/MarkdownHelpDialog'
 import ShortcutsDialog from './components/ShortcutsDialog'
 import ImageManagerDialog from './components/ImageManagerDialog'
+import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
 import { useAutoSave } from './hooks/useAutoSave'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
@@ -69,6 +70,7 @@ function App() {
   const [currentPath, setCurrentPath] = useState('')
   const [status, setStatus] = useState('就绪')
   const [statusType, setStatusType] = useState('normal') // normal, success, error
+  const [showTableDialog, setShowTableDialog] = useState(false)
   const [editorTheme, setEditorTheme] = useState('light')
   const [layout, setLayout] = useState('vertical')
   const [showFileTree, setShowFileTree] = useState(false)
@@ -1074,7 +1076,7 @@ function App() {
             onInsertLink={() => handleToolbarInsert('[', '](https://)', 'wrap')}
             onInsertImage={() => setShowImageManager(true)}
             onInsertCode={handleInsertCode}
-            onInsertTable={() => handleToolbarInsert("\n| 列1 | 列2 |\n|-----|-----|\n| 内容 | 内容 |\n", "", "insert")}
+            onInsertTable={() => setShowTableDialog(true)}
             onToggleFileTree={() => setShowFileTree(!showFileTree)}
             onToggleTheme={toggleEditorTheme}
             onSettings={handleSettings}
@@ -1110,7 +1112,7 @@ function App() {
             onInsert={handleToolbarInsert}
             onImageUpload={handleImageUpload}
             onOpenImageManager={() => setShowImageManager(true)}
-            onOpenTableInsert={() => setShowTableInsert(true)}
+            onOpenTableInsert={() => setShowTableDialog(true)}
             disabled={false}
           />
         )}
@@ -1241,6 +1243,15 @@ function App() {
           isOpen={showImageManager}
           onClose={() => setShowImageManager(false)}
           onInsertImage={handleImageInsert}
+          theme={editorTheme}
+        />
+      )}
+
+      {showTableDialog && (
+        <TableInsertDialog
+          isOpen={showTableDialog}
+          onClose={() => setShowTableDialog(false)}
+          onInsert={insertTable}
           theme={editorTheme}
         />
       )}
