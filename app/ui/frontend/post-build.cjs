@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 构建后处理脚本
- * 在 dist/index.html 中添加 Mermaid 预加载脚本
+ * 重写 dist/index.html，添加 MathJax 和 Mermaid 预加载
  */
 
 const fs = require('fs');
@@ -16,24 +16,58 @@ if (!fs.existsSync(indexPath)) {
 
 let html = fs.readFileSync(indexPath, 'utf8');
 
-// 检查是否已经有 Mermaid 预加载脚本
-if (html.includes('window.mermaid = mermaid')) {
-  console.log('✅ Mermaid 预加载脚本已存在');
-  process.exit(0);
+// 提取 Vite 生成的资源引用
+const scriptMatch = html.match(/<script type="module" crossorigin src="([^"]+)"><\/script>/);
+const cssMatch = html.match(/<link rel="stylesheet" crossorigin href="([^"]+)">/);
+const preloadMatches = html.matchAll(/<link rel="modulepreload" crossorigin href="([^"]+)">/g);
+
+if (!scriptMatch || !cssMatch) {
+  console.error('❌ 无法找到 Vite 生成的资源引用');
+  process.exit(1);
 }
 
-// 在 MathJax 脚本后添加 Mermaid 预加载
-const mermaidScript = `    <!-- Mermaid 预加载 -->
+const mainScript = scriptMatch[1];
+const mainCss = cssMatch[1];
+const preloads = Array.from(preloadMatches).map(m => m[1]);
+
+// 重写 HTML
+const newHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Markdown 编辑器</title>
+    <!-- MathJax 配置 -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+          displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+          processEscapes: true,
+          processEnvironments: true
+        },
+        options: {
+          skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+        }
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Mermaid 预加载 -->
     <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
       window.mermaid = mermaid;
     </script>
+    <!-- Vite 生成的资源 -->
+    <script type="module" crossorigin src="${mainScript}"></script>
+${preloads.map(p => `    <link rel="modulepreload" crossorigin href="${p}">`).join('\n')}
+    <link rel="stylesheet" crossorigin href="${mainCss}">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
 `;
 
-html = html.replace(
-  /(<script id="MathJax-script"[^>]*><\/script>)/,
-  `$1\n${mermaidScript}`
-);
-
-fs.writeFileSync(indexPath, html, 'utf8');
-console.log('✅ 已添加 Mermaid 预加载脚本到 dist/index.html');
+fs.writeFileSync(indexPath, newHtml, 'utf8');
+console.log('✅ 已重写 dist/index.html，添加 MathJax 和 Mermaid 预加载');
