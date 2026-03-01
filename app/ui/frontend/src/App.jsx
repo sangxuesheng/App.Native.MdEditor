@@ -37,7 +37,12 @@ const md = new MarkdownIt({
 })
   .use(taskLists, { enabled: true })
   .use(footnote)
-  .use(katex)
+  .use(katex, {
+    throwOnError: false,
+    errorColor: '#cc0000',
+    displayMode: false,
+    output: 'html'
+  })
 
 // Mermaid 懒加载 - 使用预加载的 CDN
 let mermaidModule = null
