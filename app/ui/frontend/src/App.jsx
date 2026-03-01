@@ -416,6 +416,51 @@ function App() {
     }
   }, [])
 
+  // 插入表格
+  const insertTable = useCallback((rows, cols, headers, cells) => {
+    if (!editorRef.current) return
+
+    const editor = editorRef.current
+    const selection = editor.getSelection()
+    const position = selection.getStartPosition()
+
+    // 生成表格 Markdown
+    let tableMarkdown = '\n'
+    
+    // 表头
+    tableMarkdown += '| ' + headers.join(' | ') + ' |\n'
+    
+    // 分隔线
+    tableMarkdown += '| ' + headers.map(() => '---').join(' | ') + ' |\n'
+    
+    // 表格内容
+    for (let i = 0; i < rows - 1; i++) {
+      const rowCells = cells.slice(i * cols, (i + 1) * cols)
+      tableMarkdown += '| ' + rowCells.join(' | ') + ' |\n'
+    }
+    
+    tableMarkdown += '\n'
+
+    // 插入表格
+    editor.executeEdits('insert-table', [{
+      range: {
+        startLineNumber: position.lineNumber,
+        startColumn: position.column,
+        endLineNumber: position.lineNumber,
+        endColumn: position.column
+      },
+      text: tableMarkdown
+    }])
+
+    // 移动光标到表格后
+    const newPosition = {
+      lineNumber: position.lineNumber + rows + 2,
+      column: 1
+    }
+    editor.setPosition(newPosition)
+    editor.focus()
+  }, [])
+
   const handleSaveClick = () => {
     if (currentPath) {
       // 如果有路径，直接保存
@@ -1077,6 +1122,7 @@ function App() {
             onInsertImage={() => setShowImageManager(true)}
             onInsertCode={handleInsertCode}
             onInsertTable={() => setShowTableDialog(true)}
+            onOpenTableInsert={() => setShowTableDialog(true)}
             onToggleFileTree={() => setShowFileTree(!showFileTree)}
             onToggleTheme={toggleEditorTheme}
             onSettings={handleSettings}
