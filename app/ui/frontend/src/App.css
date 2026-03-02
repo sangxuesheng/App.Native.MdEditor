@@ -311,7 +311,17 @@ html, body {
   background: #161b22;
   border-radius: 6px;
   padding: 16px;
-  margin: 16px 0;
+  margin: 16px auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
 }
 
 /* 底部状态栏 */
