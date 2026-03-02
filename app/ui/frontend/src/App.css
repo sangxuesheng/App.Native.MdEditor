@@ -185,6 +185,32 @@ html, body {
   overflow: visible;
   flex: 1;
   min-height: 0;
+  position: relative;
+  transition: opacity 0.2s ease;
+}
+
+/* 拖拽上传图片样式 */
+.editor-pane.drag-over {
+  opacity: 0.7;
+  background: rgba(88, 166, 255, 0.1);
+  border: 2px dashed #58a6ff;
+}
+
+.editor-pane.drag-over::after {
+  content: '拖放图片到此处上传';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  color: #58a6ff;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 1000;
+  background: rgba(13, 17, 23, 0.9);
+  padding: 20px 40px;
+  border-radius: 8px;
+  border: 2px solid #58a6ff;
 }
 
 .preview-pane {
@@ -1149,4 +1175,28 @@ mark {
 /* 确保内容底部没有多余空白 */
 .markdown-body > *:last-child {
   margin-bottom: 0 !important;
+}
+
+/* 浅色主题拖拽样式 */
+.app.theme-light .editor-pane.drag-over {
+  background: rgba(9, 105, 218, 0.1);
+  border-color: #0969da;
+}
+
+.app.theme-light .editor-pane.drag-over::after {
+  color: #0969da;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #0969da;
+}
+
+/* MD3 主题拖拽样式 */
+.app.theme-md3 .editor-pane.drag-over {
+  background: rgba(103, 80, 164, 0.1);
+  border-color: #6750a4;
+}
+
+.app.theme-md3 .editor-pane.drag-over::after {
+  color: #6750a4;
+  background: rgba(254, 247, 255, 0.95);
+  border-color: #6750a4;
 }
