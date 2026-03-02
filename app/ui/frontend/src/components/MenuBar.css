@@ -29,7 +29,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   padding: 4px 0;
   margin-top: 2px;
-  z-index: 1001;
+  z-index: 10000;
   animation: menuFadeIn 0.15s ease-out;
 }
 
@@ -109,7 +109,7 @@
   padding: 4px 0;
   margin-left: 4px;
   display: none;
-  z-index: 1002;
+  z-index: 10001;
   animation: menuFadeIn 0.15s ease-out;
 }
 
