@@ -31,6 +31,17 @@ cd /vol4/1000/开发文件夹/mac && ls -la build*.sh
 
 cd /vol4/1000/开发文件夹/mac && fnpack build && ls -lh App.Native.MdEditor2.fpk
 
+
+
+
+NAS上node信息
+
+export PATH=/var/apps/nodejs_v22/target/bin:$PATH
+export PATH=/var/apps/python312/target/bin:$PATH
+
+ln -s /var/apps/nodejs_v22/target/bin/node /usr/local/bin/node
+ln -s /var/apps/python312/target/bin/python3 /usr/local/bin/python
+
 mac电脑node安装信息
 This package has installed:
 	•	Node.js v24.13.0 to /usr/local/bin/node

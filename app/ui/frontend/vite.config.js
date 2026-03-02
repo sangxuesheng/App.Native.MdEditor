@@ -28,11 +28,15 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
           'markdown-vendor': [
-            'markdown-it',
-            'markdown-it-task-lists',
-            'markdown-it-footnote',
-            'markdown-it-katex',
-            'markdown-it-mark'
+            'unified',
+            'remark-parse',
+            'remark-math',
+            'remark-gfm',
+            'remark-rehype',
+            'rehype-katex',
+            'rehype-stringify',
+            'rehype-raw',
+            'rehype-highlight'
           ]
         },
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -49,11 +53,15 @@ export default defineConfig({
       'react',
       'react-dom',
       '@monaco-editor/react',
-      'markdown-it',
-      'markdown-it-task-lists',
-      'markdown-it-footnote',
-      'markdown-it-katex',
-      'markdown-it-mark'
+      'unified',
+      'remark-parse',
+      'remark-math',
+      'remark-gfm',
+      'remark-rehype',
+      'rehype-katex',
+      'rehype-stringify',
+      'rehype-raw',
+      'rehype-highlight'
     ],
     exclude: ['mermaid']
   }

@@ -136,13 +136,13 @@
 }
 
 /* 主内容区 */
-/* 主内容区 */
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* 编辑器和预览区的容器 */
@@ -152,18 +152,6 @@
   flex-direction: row;
   min-height: 0;
   overflow: hidden;
-}
-
-.main-content.layout-vertical {
-  flex-direction: column;
-}
-
-.main-content.layout-editor-only {
-  flex-direction: column;
-}
-
-.main-content.layout-preview-only {
-  flex-direction: column;
 }
 
 .editor-pane,
@@ -730,18 +718,14 @@
 }
 
 /* 修复工具栏下拉菜单被遮挡的问题 */
-.editor-pane {
-  position: relative;
-  z-index: 1;
-}
-
 .editor-toolbar {
   position: relative;
-  z-index: 100;
+  z-index: 10;
 }
 
 .chart-dropdown {
   position: fixed !important;
+  z-index: 1000;
 }
 
 /* 切换文件树按钮 */
@@ -836,36 +820,14 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236750a4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
 }
 
-/* 编辑器工具栏横跨全宽 */
-.main-content > .editor-toolbar {
-  flex: 0 0 auto;
-  border-bottom: 1px solid #21262d;
-}
-
-/* 调整 main-content 为 flex 容器并支持换行 */
-
 /* ==================== 编辑器工具栏横跨全宽 ==================== */
 
 /* 工具栏基础样式 */
 .main-content > .editor-toolbar {
   flex: 0 0 auto;
+  width: 100%;
   border-bottom: 1px solid #21262d;
   z-index: 10;
-}
-
-/* 垂直布局：工具栏在顶部，下方是文件树+编辑区+预览区 */
-.main-content.layout-vertical {
-  flex-direction: column;
-}
-
-.main-content.layout-vertical > .editor-toolbar {
-  flex: 0 0 auto;
-}
-
-/* 水平布局：工具栏在顶部，下方是编辑区和预览区上下排列 */
-/* 仅编辑器布局 */
-.main-content.layout-editor-only > .editor-toolbar {
-  flex: 0 0 auto;
 }
 
 /* 浅色主题 */
@@ -877,9 +839,6 @@
 .app.theme-md3 .main-content > .editor-toolbar {
   border-bottom-color: #e6e0e9;
 }
-
-/* 确保编辑器和预览区在工具栏下方正确排列 */
-/* 不再需要 order，因为使用了正常的 flex-direction: column */
 
 
 /* ==================== 行号右对齐 ==================== */
@@ -1105,4 +1064,71 @@ mark {
 .app.theme-md3 mark {
   background-color: #fff59d;
   color: #000000;
+}
+
+/* ==================== 注脚样式优化 ==================== */
+
+/* 注脚区域 */
+.markdown-body .footnotes {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #30363d;
+  font-size: 0.9em;
+}
+
+.app.theme-light .markdown-body .footnotes {
+  border-top-color: #d0d7de;
+}
+
+.app.theme-md3 .markdown-body .footnotes {
+  border-top-color: #e6e0e9;
+}
+
+/* 注脚返回链接 - 强制使用文本样式而非 emoji */
+.markdown-body .data-footnote-backref,
+.markdown-body a[data-footnote-backref] {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-style: normal !important;
+  text-decoration: none !important;
+  margin-left: 0.25em;
+  font-size: 1em !important;
+  /* 防止被渲染为 emoji */
+  font-variant-emoji: text !important;
+  -webkit-font-feature-settings: "liga" 0 !important;
+  font-feature-settings: "liga" 0 !important;
+}
+
+.markdown-body .data-footnote-backref:hover,
+.markdown-body a[data-footnote-backref]:hover {
+  text-decoration: underline !important;
+}
+
+/* 注脚列表 */
+.markdown-body .footnotes ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.markdown-body .footnotes li {
+  margin: 0.5em 0;
+}
+
+/* 注脚引用上标 */
+.markdown-body sup {
+  line-height: 0;
+}
+
+.markdown-body sup a {
+  font-weight: normal;
+}
+
+/* 修复注脚区域的空白问题 */
+.markdown-body section.footnotes {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* 确保内容底部没有多余空白 */
+.markdown-body > *:last-child {
+  margin-bottom: 0 !important;
 }

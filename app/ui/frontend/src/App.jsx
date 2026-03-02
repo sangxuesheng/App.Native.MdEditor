@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import Editor from '@monaco-editor/react'
-import MarkdownIt from 'markdown-it'
-import taskLists from 'markdown-it-task-lists'
-import footnote from 'markdown-it-footnote'
-import katex from 'markdown-it-katex'
-import mark from 'markdown-it-mark'
+import { unified } from 'unified'
+import remarkParse from 'remark-parse'
+import remarkMath from 'remark-math'
+import remarkGfm from 'remark-gfm'
+import remarkRehype from 'remark-rehype'
+import rehypeKatex from 'rehype-katex'
+import rehypeStringify from 'rehype-stringify'
+import rehypeRaw from 'rehype-raw'
+import rehypeHighlight from 'rehype-highlight'
+import 'katex/dist/katex.min.css'
 import 'github-markdown-css/github-markdown-dark.css'
 import 'github-markdown-css/github-markdown-light.css'
 
@@ -30,17 +35,19 @@ import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentF
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
 import { FolderArchive, Sun, Moon, StretchVertical, Columns, FileText,Sparkle, Eye } from 'lucide-react'
-// 初始化 Markdown 渲染器
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  typographer: true,
-  breaks: true
-})
-  .use(taskLists, { enabled: true })
-  .use(footnote)
-  .use(katex)
-  .use(mark)
+
+// 初始化 unified 处理器
+const createMarkdownProcessor = () => {
+  return unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkMath)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeRaw)
+    .use(rehypeKatex)
+    .use(rehypeHighlight)
+    .use(rehypeStringify)
+}
 
 // Mermaid 懒加载 - 使用预加载的 CDN
 let mermaidModule = null
@@ -680,81 +687,90 @@ HTML
   const renderMarkdown = useCallback(async () => {
     if (!previewRef.current) return
 
-    let html = md.render(content)
-    
-    const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
-    let match
-    let mermaidIndex = 0
-    const mermaidBlocks = []
-    
-    while ((match = mermaidRegex.exec(content)) !== null) {
-      const code = match[1]
-      const id = `mermaid-${mermaidIndex++}`
-      mermaidBlocks.push({ id, code })
-    }
-
-    console.log('Mermaid blocks found in content:', mermaidBlocks.length)
-    
-    // 一次性替换所有 Mermaid 代码块，使用 HTML 中的代码内容
-    let blockIndex = 0
-    html = html.replace(
-      /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
-      (match, htmlCode) => {
-        const id = `mermaid-${blockIndex}`
-        blockIndex++
-        // 解码 HTML 实体
-        const textarea = document.createElement('textarea')
-        textarea.innerHTML = htmlCode
-        const decodedCode = textarea.value
-        return `<div class="mermaid" id="${id}" data-code="${encodeURIComponent(decodedCode)}">${decodedCode}</div>`
+    try {
+      // 使用 unified 处理器渲染 Markdown
+      const processor = createMarkdownProcessor()
+      const file = await processor.process(content)
+      let html = String(file)
+      
+      // 提取 Mermaid 代码块
+      const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
+      let match
+      let mermaidIndex = 0
+      const mermaidBlocks = []
+      
+      while ((match = mermaidRegex.exec(content)) !== null) {
+        const code = match[1]
+        const id = `mermaid-${mermaidIndex++}`
+        mermaidBlocks.push({ id, code })
       }
-    )
 
-    previewRef.current.innerHTML = html
-
-    // 只有在有 Mermaid 图表时才加载 Mermaid
-    if (mermaidBlocks.length > 0) {
-      try {
-        if (!mermaidLoaded) {
-          setStatus('正在加载 Mermaid...')
+      console.log('Mermaid blocks found in content:', mermaidBlocks.length)
+      
+      // 一次性替换所有 Mermaid 代码块
+      let blockIndex = 0
+      html = html.replace(
+        /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
+        (match, htmlCode) => {
+          const id = `mermaid-${blockIndex}`
+          blockIndex++
+          // 解码 HTML 实体
+          const textarea = document.createElement('textarea')
+          textarea.innerHTML = htmlCode
+          const decodedCode = textarea.value
+          return `<div class="mermaid" id="${id}" data-code="${encodeURIComponent(decodedCode)}">${decodedCode}</div>`
         }
-        const mermaid = await loadMermaid()
-        setMermaidLoaded(true)
-        
-        // 等待 DOM 更新完成
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        const mermaidNodes = previewRef.current.querySelectorAll('.mermaid')
-        console.log('Mermaid nodes found:', mermaidNodes.length)
-        
-        // 逐个渲染 Mermaid 图表
-        for (let i = 0; i < mermaidNodes.length; i++) {
-          const node = mermaidNodes[i]
-          const encodedCode = node.getAttribute('data-code')
-          const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
-          const id = node.id || `mermaid-${i}`
-          
-          console.log(`Rendering node ${i}:`, code.substring(0, 50))
-          
-          try {
-            const { svg } = await mermaid.render(id + '-svg', code)
-            node.innerHTML = svg
-          } catch (err) {
-            console.error(`Failed to render mermaid ${i}:`, err)
-            node.innerHTML = `<pre style="color: red;">Mermaid 渲染失败: ${err.message}</pre>`
+      )
+
+      previewRef.current.innerHTML = html
+
+      // 只有在有 Mermaid 图表时才加载 Mermaid
+      if (mermaidBlocks.length > 0) {
+        try {
+          if (!mermaidLoaded) {
+            setStatus('正在加载 Mermaid...')
           }
+          const mermaid = await loadMermaid()
+          setMermaidLoaded(true)
+          
+          // 等待 DOM 更新完成
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          const mermaidNodes = previewRef.current.querySelectorAll('.mermaid')
+          console.log('Mermaid nodes found:', mermaidNodes.length)
+          
+          // 逐个渲染 Mermaid 图表
+          for (let i = 0; i < mermaidNodes.length; i++) {
+            const node = mermaidNodes[i]
+            const encodedCode = node.getAttribute('data-code')
+            const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
+            const id = node.id || `mermaid-${i}`
+            
+            console.log(`Rendering node ${i}:`, code.substring(0, 50))
+            
+            try {
+              const { svg } = await mermaid.render(id + '-svg', code)
+              node.innerHTML = svg
+            } catch (err) {
+              console.error(`Failed to render mermaid ${i}:`, err)
+              node.innerHTML = `<pre style="color: red;">Mermaid 渲染失败: ${err.message}</pre>`
+            }
+          }
+          
+          console.log('Mermaid rendering completed')
+          
+          if (!mermaidLoaded) {
+            setStatus('就绪')
+          }
+        } catch (err) {
+          console.error('Mermaid render error:', err)
+          setStatus('Mermaid 渲染失败')
+          setTimeout(() => setStatus('就绪'), 2000)
         }
-        
-        console.log('Mermaid rendering completed')
-        
-        if (!mermaidLoaded) {
-          setStatus('就绪')
-        }
-      } catch (err) {
-        console.error('Mermaid render error:', err)
-        setStatus('Mermaid 渲染失败')
-        setTimeout(() => setStatus('就绪'), 2000)
       }
+    } catch (err) {
+      console.error('Markdown render error:', err)
+      previewRef.current.innerHTML = `<pre style="color: red;">Markdown 渲染失败: ${err.message}</pre>`
     }
 
   }, [content, mermaidLoaded])
