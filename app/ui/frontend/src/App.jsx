@@ -702,9 +702,12 @@ HTML
     if (!previewRef.current) return
 
     try {
+      // 预处理：将 ==高亮== 转换为 <mark>高亮</mark>
+      let processedContent = content.replace(/==([^=\n]+)==/g, '<mark>$1</mark>')
+      
       // 使用 unified 处理器渲染 Markdown
       const processor = createMarkdownProcessor()
-      const file = await processor.process(content)
+      const file = await processor.process(processedContent)
       let html = String(file)
 
       
@@ -779,7 +782,19 @@ HTML
               node.innerHTML = svg
             } catch (err) {
               console.error(`Failed to render mermaid ${i}:`, err)
-              node.innerHTML = `<pre style="color: red;">Mermaid 渲染失败: ${err.message}</pre>`
+              
+              // 检查是否是中文导致的错误
+              const hasChinese = /[\u4e00-\u9fa5]/.test(code)
+              let errorMsg = `Mermaid 渲染失败: ${err.message}`
+              
+              if (hasChinese && (code.includes('erDiagram') || code.includes('classDiagram'))) {
+                errorMsg += '\n\n💡 提示：erDiagram 和 classDiagram 对中文支持有限，建议：\n'
+                errorMsg += '1. 使用英文或拼音命名实体\n'
+                errorMsg += '2. 使用引号包裹中文标签，如: "用户"\n'
+                errorMsg += '3. 或改用 flowchart/graph 类型'
+              }
+              
+              node.innerHTML = `<pre style="color: #f85149; background: #161b22; padding: 16px; border-radius: 6px; border: 1px solid #30363d; white-space: pre-wrap;">${errorMsg}\n\n原始代码：\n${code}</pre>`
             }
           }
           
@@ -918,6 +933,30 @@ HTML
 
   const handleEditorMount = (editor) => {
     editorRef.current = editor
+    
+    // 定义自定义主题 - 修改标题颜色
+    monaco.editor.defineTheme('light', {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: 'keyword.md', foreground: '0165FF', fontStyle: 'bold' },
+        { token: 'string.md', foreground: '0165FF', fontStyle: 'bold' },
+      ],
+      colors: {
+        'editor.foreground': '#24292f',
+        'editor.background': '#FFFFFF',
+      }
+    })
+    
+    monaco.editor.defineTheme('vs-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {}
+    })
+    
+    // 应用主题
+    monaco.editor.setTheme(editorTheme)
     
     // 监听粘贴事件，处理图片粘贴
     const domNode = editor.getDomNode()
@@ -1474,7 +1513,7 @@ HTML
             disabled={!currentPath}
             theme={editorTheme}
           />
-          {currentPath && <span className="file-path">{currentPath}</span>}
+        
         </div>
         
         <div className="toolbar-right">

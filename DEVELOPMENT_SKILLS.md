@@ -64,6 +64,85 @@ html, body {
 2. 复制 markdown.svg
 3. 修改 index.html 的 link 标签
 
+### 8. UI 圆角和边框优化
+**实现要点**:
+- 使用 border-radius: 12px 创建圆角
+- 添加 1px 边框增强视觉层次
+- 使用 gap 和 padding 控制间距
+- 确保三个主题下样式统一
+
+**关键代码**:
+```css
+.editor-pane,
+.preview-pane {
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.editor-preview-container {
+  gap: 8px;
+  padding: 0 8px 8px 8px;
+}
+```
+
+### 9. 菜单按钮统一设计
+**实现要点**:
+- 所有主题添加边框
+- 使用 CSS 变量管理主题色
+- 圆角从 4px 增加到 6px
+- 优化悬停效果
+
+**关键代码**:
+```css
+.menu-button {
+  border: 1px solid var(--menu-button-border);
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+```
+
+### 10. Monaco Editor 自定义主题
+**实现要点**:
+- 在 handleEditorMount 中定义主题
+- 修改标题颜色和样式
+- 使用 token 规则自定义语法高亮
+
+**关键代码**:
+```javascript
+monaco.editor.defineTheme('light', {
+  base: 'vs',
+  inherit: true,
+  rules: [
+    { token: 'keyword.md', foreground: '0165FF', fontStyle: 'bold' },
+  ],
+  colors: {
+    'editor.background': '#FFFFFF',
+  }
+})
+```
+
+### 11. 动画列表组件
+**实现要点**:
+- 创建可复用的 AnimatedList 组件
+- 使用 CSS transition 和 animation
+- 控制延迟时间实现渐进效果
+- 淡入 + 滑动组合动画
+
+**关键代码**:
+```css
+.animated-list-item {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.animated-list-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+```
+
 ## 开发流程
 
 ### 标准流程
@@ -133,9 +212,51 @@ npm run dev
 - KaTeX
 - highlight.js
 
+### 11. 高亮文本功能
+**实现要点**:
+- 使用预处理转换 `==文本==` 为 `<mark>文本</mark>`
+- 在 Markdown 渲染前进行转换
+- 支持嵌套样式（粗体、斜体、代码等）
+
+**关键代码**:
+```javascript
+// 预处理：将 ==高亮== 转换为 <mark>高亮</mark>
+let processedContent = content.replace(/==([^=\n]+)==/g, '<mark>$1</mark>')
+```
+
+```css
+mark {
+  background-color: #ffff00;
+  color: #000000;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+```
+
 ---
 最后更新：2025-03-03  
-版本：v1.20.4
+版本：v1.20.5.4
+
+## 最新更新 (v1.20.5)
+
+### UI 优化
+- ✅ 圆角边框设计（12px）
+- ✅ 菜单按钮统一边框
+- ✅ 颜色调整（#FFFFFF 背景，#0165FF 标题）
+- ✅ 动画列表组件
+- ✅ 三主题统一设计
+
+### 技术要点
+1. **圆角实现**: border-radius + overflow: hidden
+2. **间距控制**: gap 和 padding 组合
+3. **主题变量**: CSS 变量统一管理
+4. **Monaco 主题**: defineTheme 自定义
+5. **动画效果**: CSS transition + animation
+
+### 文件清单
+- UI优化说明.md - 详细说明文档
+- UI优化测试清单.md - 完整测试清单
+- UI优化快速参考.txt - 快速查阅卡片
 问 http://localhost:3011/
 ```
 

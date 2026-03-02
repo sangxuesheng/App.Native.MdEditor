@@ -4,7 +4,6 @@ import FileSearchBox from './FileSearchBox';
 import ContextMenu from './ContextMenu';
 import RenameDialog from './RenameDialog';
 import NewFolderDialog from './NewFolderDialog';
-import AnimatedList from './AnimatedList';
 import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
 import { useDebounce } from '../hooks/useDebounce';
 import { toggleFavorite, isFavorite, updateFavoritePath } from '../utils/favoritesManager';
@@ -564,9 +563,7 @@ const FileTree = forwardRef(({
           </div>
         )}
         
-        <AnimatedList delay={30}>
-          {filteredTree.map(node => renderNode(node))}
-        </AnimatedList>
+        {filteredTree.map(node => renderNode(node))}
       </div>
       
       {/* 右键菜单 */}

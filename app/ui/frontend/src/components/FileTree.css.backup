@@ -28,6 +28,9 @@
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .file-tree-content {
@@ -89,6 +92,7 @@
   font-size: 12px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
+  color: var(--icon-color);
 }
 
 .tree-node-icon.expanded {
@@ -100,6 +104,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 400;
+}
+
+.tree-node-content.active .tree-node-name {
+  font-weight: 500;
 }
 
 .tree-node-favorite {
@@ -128,22 +137,38 @@
   border-radius: 2px;
 }
 
+/* 子节点容器 - 添加展开/折叠动画 */
 .tree-node-children {
-  animation: expandFolder 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease;
 }
 
-@keyframes expandFolder {
-  from {
-    opacity: 0;
-    transform: scaleY(0.8) translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: scaleY(1) translateY(0);
-  }
+.tree-node-children.expanded {
+  max-height: 10000px;
+  opacity: 1;
 }
 
+/* 为子节点添加缩进和连接线效果 */
+.tree-node-children .tree-node-content {
+  padding-left: 28px;
+  position: relative;
+}
+
+.tree-node-children .tree-node-content::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-color);
+  opacity: 0.3;
+}
+
+/* 滚动条样式 */
 .file-tree-content::-webkit-scrollbar {
   width: 8px;
 }
@@ -161,6 +186,13 @@
   background: var(--text-secondary);
 }
 
+/* ==================== MD3 主题 ==================== */
+.theme-md3 .file-tree {
+  background: #f6edff;
+  border-color: #e6e0e9;
+}
+
+/* 深色主题 */
 .theme-dark .file-tree,
 .app:not(.theme-light):not(.theme-md3) .file-tree {
   --bg-secondary: #0d1117;
@@ -174,6 +206,7 @@
   --error-color: #f85149;
 }
 
+/* 浅色主题 */
 .theme-light .file-tree {
   --bg-secondary: #FFFFFF;
   --border-color: #d0d7de;
@@ -184,11 +217,6 @@
   --active-bg: #0969da;
   --active-color: #ffffff;
   --error-color: #d1242f;
-}
-
-.theme-md3 .file-tree {
-  background: #f6edff;
-  border-color: #e6e0e9;
 }
 
 .theme-md3 .file-tree-header {
@@ -203,6 +231,8 @@
 
 .theme-md3 .tree-node-content {
   color: #1d1b20;
+  border-radius: 8px;
+  margin: 2px 4px;
 }
 
 .theme-md3 .tree-node-content:hover {
@@ -226,8 +256,13 @@
   font-weight: 600;
 }
 
+.theme-md3 .file-tree-content::-webkit-scrollbar-track {
+  background: #f6edff;
+}
+
 .theme-md3 .file-tree-content::-webkit-scrollbar-thumb {
   background: #d0bcff;
+  border-radius: 4px;
 }
 
 .theme-md3 .file-tree-content::-webkit-scrollbar-thumb:hover {

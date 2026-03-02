@@ -5,18 +5,19 @@
 
 .menu-button {
   background: transparent;
-  border: none;
+  border: 1px solid var(--menu-button-border);
   color: var(--text-color);
   padding: 4px 12px;
   cursor: pointer;
   font-size: 13px;
-  border-radius: 4px;
-  transition: background-color 0.15s;
+  border-radius: 6px;
+  transition: all 0.15s;
 }
 
 .menu-button:hover,
 .menu-button.active {
   background: var(--menu-hover-bg);
+  border-color: var(--menu-button-border-hover);
 }
 
 .menu-dropdown {
@@ -126,16 +127,32 @@
   --menu-item-hover-bg: #2a2d2e;
   --border-color: #3e3e42;
   --text-color: #cccccc;
+  --menu-button-border: #3e3e42;
+  --menu-button-border-hover: #0e639c;
 }
 
 /* 浅色主题 */
 .theme-light {
   --menubar-bg: #f3f3f3;
-  --menu-hover-bg: #e8e8e8;
-  --dropdown-bg: #ffffff;
-  --menu-item-hover-bg: #e8e8e8;
+  --menu-hover-bg: #f6f8fa;
+  --dropdown-bg: #FFFFFF;
+  --menu-item-hover-bg: #f6f8fa;
   --border-color: #d4d4d4;
-  --text-color: #333333;
+  --text-color: #24292f;
+  --menu-button-border: #d0d7de;
+  --menu-button-border-hover: #0969da;
+}
+
+.theme-light .menu-button {
+  color: #24292f;
+  font-weight: 500;
+}
+
+.theme-light .menu-button:hover,
+.theme-light .menu-button.active {
+  background: #f6f8fa;
+  border-color: #0969da;
+  color: #0969da;
 }
 
 /* MD3 主题 */
@@ -146,6 +163,8 @@
   --menu-item-hover-bg: #eaddff;
   --border-color: #e6e0e9;
   --text-color: #1d1b20;
+  --menu-button-border: rgba(255, 255, 255, 0.2);
+  --menu-button-border-hover: rgba(255, 255, 255, 0.4);
 }
 
 /* 最近文件样式 */

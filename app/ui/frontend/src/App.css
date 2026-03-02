@@ -81,6 +81,7 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: none; /* 隐藏顶部文件路径，底部状态栏已显示 */
 }
 
 .btn-icon {
@@ -170,23 +171,108 @@ html, body {
   flex-direction: row;
   min-height: 0;
   overflow: hidden;
+  gap: 8px;
+  padding: 0 8px 8px 8px;
 }
 
 .editor-pane,
 .preview-pane {
   min-height: 0;
   background: #0d1117;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #21262d;
 }
 
 .editor-pane {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #21262d;
-  overflow: visible;
+  overflow: hidden;
   flex: 1;
   min-height: 0;
   position: relative;
   transition: opacity 0.2s ease;
+}
+
+/* Monaco Editor 容器圆角适配 */
+.editor-pane > section {
+  border-radius: 12px;
+  overflow: hidden;
+  height: 100%;
+}
+
+.editor-pane .monaco-editor {
+  border-radius: 12px;
+}
+
+.editor-pane .monaco-editor .overflow-guard {
+  border-radius: 12px;
+}
+
+/* Monaco Editor 滚动条样式统一 */
+.editor-pane .monaco-scrollable-element > .scrollbar {
+  background: transparent !important;
+}
+
+.editor-pane .monaco-scrollable-element > .scrollbar > .slider {
+  border-radius: 5px !important;
+  background: rgba(121, 121, 121, 0.4) !important;
+  min-height: 30px !important;
+}
+
+.editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(121, 121, 121, 0.7) !important;
+}
+
+/* 预览区滚动条样式 */
+.preview-pane::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.preview-pane::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 12px;
+}
+
+.preview-pane::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 30px;
+}
+
+.preview-pane::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+  background-clip: padding-box;
+}
+
+.editor-pane .monaco-scrollable-element > .scrollbar > .slider {
+  border-radius: 5px !important;
+  background: rgba(121, 121, 121, 0.4) !important;
+}
+
+.editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(100, 100, 100, 0.7) !important;
+}
+
+/* 浅色主题下的 Monaco Editor 滚动条 */
+.app.theme-light .editor-pane .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+
+.app.theme-light .editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* MD3 主题下的 Monaco Editor 滚动条 */
+.app.theme-md3 .editor-pane .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(103, 80, 164, 0.3) !important;
+}
+
+.app.theme-md3 .editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(103, 80, 164, 0.5) !important;
 }
 
 /* 拖拽上传图片样式 */
@@ -194,6 +280,7 @@ html, body {
   opacity: 0.7;
   background: rgba(88, 166, 255, 0.1);
   border: 2px dashed #58a6ff;
+  border-radius: 12px;
 }
 
 .editor-pane.drag-over::after {
@@ -209,7 +296,7 @@ html, body {
   z-index: 1000;
   background: rgba(13, 17, 23, 0.9);
   padding: 20px 40px;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 2px solid #58a6ff;
 }
 
@@ -397,6 +484,25 @@ html, body {
   background: #484f58;
 }
 
+/* 预览区滚动条样式统一 */
+.preview-pane::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.preview-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.preview-pane::-webkit-scrollbar-thumb {
+  background: rgba(121, 121, 121, 0.4);
+  border-radius: 5px;
+}
+
+.preview-pane::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.7);
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .toolbar {
@@ -426,12 +532,12 @@ html, body {
 
 /* ==================== 浅色主题 ==================== */
 .app.theme-light {
-  background: #ffffff;
+  background: #FFFFFF;
   color: #24292f;
 }
 
 .app.theme-light .toolbar {
-  background: linear-gradient(135deg, #f6f8fa 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #f6f8fa 0%, #FFFFFF 100%);
   border-bottom-color: #d0d7de;
 }
 
@@ -462,12 +568,29 @@ html, body {
 
 .app.theme-light .editor-pane,
 .app.theme-light .preview-pane {
-  background: #ffffff;
+  background: #FFFFFF;
   border-color: #d0d7de;
 }
 
 .app.theme-light .preview-pane {
-  background: #ffffff;
+  background: #FFFFFF;
+}
+
+/* 浅色主题滚动条 */
+.app.theme-light .preview-pane::-webkit-scrollbar-thumb {
+  background: #d0d7de;
+}
+
+.app.theme-light .preview-pane::-webkit-scrollbar-thumb:hover {
+  background: #afb8c1;
+}
+
+.app.theme-light .editor-pane .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(100, 100, 100, 0.4) !important;
+}
+
+.app.theme-light .editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(100, 100, 100, 0.7) !important;
 }
 
 .app.theme-light .markdown-body {
@@ -499,7 +622,7 @@ html, body {
 }
 
 .app.theme-light .markdown-body table tr:nth-child(even) {
-  background: #ffffff !important;
+  background: #FFFFFF !important;
 }
 
 .app.theme-light .markdown-body blockquote {
@@ -522,7 +645,7 @@ html, body {
 }
 
 .app.theme-light ::-webkit-scrollbar-track {
-  background: #ffffff;
+  background: #FFFFFF;
 }
 
 .app.theme-light ::-webkit-scrollbar-thumb {
@@ -531,6 +654,20 @@ html, body {
 
 .app.theme-light ::-webkit-scrollbar-thumb:hover {
   background: #afb8c1;
+}
+
+/* 浅色主题预览区滚动条 */
+.app.theme-light .preview-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app.theme-light .preview-pane::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+}
+
+.app.theme-light .preview-pane::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
 }
 
 /* ==================== Material Design 3 主题 ==================== */
@@ -606,6 +743,23 @@ html, body {
 
 .app.theme-md3 .preview-pane {
   background: linear-gradient(180deg, #fef7ff 0%, #f6edff 100%);
+}
+
+/* MD3 主题滚动条 */
+.app.theme-md3 .preview-pane::-webkit-scrollbar-thumb {
+  background: #d0bcff;
+}
+
+.app.theme-md3 .preview-pane::-webkit-scrollbar-thumb:hover {
+  background: #b69df8;
+}
+
+.app.theme-md3 .editor-pane .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(103, 80, 164, 0.3) !important;
+}
+
+.app.theme-md3 .editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(103, 80, 164, 0.5) !important;
 }
 
 .app.theme-md3 .markdown-body {
@@ -704,6 +858,20 @@ html, body {
 
 .app.theme-md3 ::-webkit-scrollbar-thumb:hover {
   background: #b69df8;
+}
+
+/* MD3 主题预览区滚动条 */
+.app.theme-md3 .preview-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app.theme-md3 .preview-pane::-webkit-scrollbar-thumb {
+  background: rgba(103, 80, 164, 0.3);
+  border-radius: 5px;
+}
+
+.app.theme-md3 .preview-pane::-webkit-scrollbar-thumb:hover {
+  background: rgba(103, 80, 164, 0.5);
 }
 
 /* MD3 特殊效果 */

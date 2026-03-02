@@ -110,16 +110,16 @@ sequenceDiagram
 ${'```'}`,
       class: `${'```'}mermaid
 classDiagram
-    class 动物 {
+    class "动物" {
         +String 名称
         +int 年龄
         +吃()
         +睡()
     }
-    class 狗 {
+    class "狗" {
         +吠叫()
     }
-    动物 <|-- 狗
+    "动物" <|-- "狗"
 ${'```'}`,
       state: `${'```'}mermaid
 stateDiagram-v2
@@ -158,13 +158,32 @@ journey
 ${'```'}`,
       er: `${'```'}mermaid
 erDiagram
-    用户 ||--o{ 订单 : 创建
-    订单 ||--|{ 订单项 : 包含
-    商品 ||--o{ 订单项 : 属于
-    用户 {
-        int id
-        string 姓名
-        string 邮箱
+    "用户" ||--o{ "订单" : "创建"
+    "订单" ||--|{ "订单项" : "包含"
+    "商品" ||--o{ "订单项" : "属于"
+
+    "用户" {
+        int id "用户ID（主键）"
+        string name "姓名"
+        string email "邮箱"
+    }
+    "订单" {
+        int id "订单ID（主键）"
+        int user_id "关联用户ID（外键）"
+        datetime create_time "创建时间"
+    }
+    "订单项" {
+        int id "订单项ID（主键）"
+        int order_id "关联订单ID（外键）"
+        int product_id "关联商品ID（外键）"
+        int quantity "购买数量"
+        decimal price "商品单价"
+    }
+    "商品" {
+        int id "商品ID（主键）"
+        string name "商品名称"
+        decimal price "售价"
+        int stock "库存"
     }
 ${'```'}`
     }
