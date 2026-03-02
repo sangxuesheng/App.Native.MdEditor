@@ -11,7 +11,9 @@ cd /vol4/1000/开发文件夹/mac
 
    cd /vol4/1000/开发文件夹/mac && bash build-complete.sh 2>&1 | tail -10
 
-   
+   fnpack build
+
+   cd /vol4/1000/开发文件夹/mac && bash build-complete.sh 2>&1 | tail -10 && fnpack build
 
 快速安装更新：
 

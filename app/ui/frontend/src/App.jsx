@@ -316,7 +316,7 @@ function App() {
     
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [handleNewFile, handleSaveAs, toggleEditorTheme, handleMenuFormatDocument, handleToolbarInsert, setShowFileTree])
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
