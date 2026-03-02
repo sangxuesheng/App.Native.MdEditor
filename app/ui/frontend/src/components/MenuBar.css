@@ -1,5 +1,6 @@
 .menu-item {
   position: relative;
+  z-index: 10001;
 }
 
 .menu-button {

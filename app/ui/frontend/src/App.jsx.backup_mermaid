@@ -706,7 +706,6 @@ HTML
       const processor = createMarkdownProcessor()
       const file = await processor.process(content)
       let html = String(file)
-
       
       // 提取 Mermaid 代码块
       const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
@@ -723,20 +722,9 @@ HTML
       console.log('Mermaid blocks found in content:', mermaidBlocks.length)
       
       // 一次性替换所有 Mermaid 代码块
-      console.log('查找 language-mermaid 代码块...')
-      const mermaidMatches = html.match(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g)
-      console.log('找到的 language-mermaid 块:', mermaidMatches ? mermaidMatches.length : 0)
-      
-      // 查找所有 pre code 块
-      const allCodeBlocks = html.match(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/g)
-      console.log('所有代码块数量:', allCodeBlocks ? allCodeBlocks.length : 0)
-      if (allCodeBlocks && allCodeBlocks.length > 0) {
-        console.log('前3个代码块:', allCodeBlocks.slice(0, 3).map(b => b.substring(0, 100)))
-      }
-      
       let blockIndex = 0
       html = html.replace(
-        /<pre><code class="hljs language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
+        /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
         (match, htmlCode) => {
           const id = `mermaid-${blockIndex}`
           blockIndex++

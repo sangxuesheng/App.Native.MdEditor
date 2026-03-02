@@ -7,7 +7,7 @@ cd /vol4/1000/开发文件夹/mac
 
 修改前端代码后重新构建：
 
-   cd app/ui/frontend   export PATH=/var/apps/nodejs_v22/target/bin:$PATH   npm run build
+   cd /vol4/1000/开发文件夹/mac/app/ui/frontend   export PATH=/var/apps/nodejs_v22/target/bin:$PATH   npm run build
 
 
 
