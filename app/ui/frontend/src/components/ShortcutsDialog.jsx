@@ -44,7 +44,7 @@ function ShortcutsDialog({ onClose, theme }) {
       category: '视图控制',
       items: [
         { keys: 'Ctrl+T', description: '切换主题' },
-        { keys: 'Ctrl+B', description: '切换文件树' },
+        { keys: 'Ctrl+\\', description: '切换文件树' },
       ]
     },
     {

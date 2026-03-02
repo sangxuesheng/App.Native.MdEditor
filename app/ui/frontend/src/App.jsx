@@ -260,6 +260,64 @@ function App() {
     loadRootDirs()
   }, [])
 
+  // 全局快捷键处理
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // 检查是否在输入框中
+      const isInputFocused = document.activeElement.tagName === 'INPUT' || 
+                            document.activeElement.tagName === 'TEXTAREA'
+      
+      // Ctrl+N - 新建文件
+      if (e.ctrlKey && e.key === 'n' && !e.shiftKey && !isInputFocused) {
+        e.preventDefault()
+        handleNewFile()
+        return
+      }
+      
+      // Ctrl+Shift+S - 另存为
+      if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+        e.preventDefault()
+        handleSaveAs()
+        return
+      }
+      
+      // Ctrl+T - 切换主题
+      if (e.ctrlKey && e.key === 't' && !isInputFocused) {
+        e.preventDefault()
+        toggleEditorTheme()
+        return
+      }
+      
+      // Ctrl+\ - 切换文件树
+      if (e.ctrlKey && e.key === '\\') {
+        e.preventDefault()
+        setShowFileTree(prev => !prev)
+        return
+      }
+      
+      // Shift+Alt+F - 格式化文档
+      if (e.shiftKey && e.altKey && e.key === 'F') {
+        e.preventDefault()
+        if (editorRef.current) {
+          handleMenuFormatDocument()
+        }
+        return
+      }
+      
+      // Ctrl+1-6 - 插入标题
+      if (e.ctrlKey && /^[1-6]$/.test(e.key) && editorRef.current) {
+        e.preventDefault()
+        const level = parseInt(e.key)
+        const prefix = '#'.repeat(level) + ' '
+        handleToolbarInsert(prefix, '', 'heading')
+        return
+      }
+    }
+    
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [handleNewFile, handleSaveAs, toggleEditorTheme, handleMenuFormatDocument, handleToolbarInsert, setShowFileTree])
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const path = params.get('path')
@@ -313,7 +371,7 @@ function App() {
 [带标题的链接](https://example.com "链接标题")
 
 ### 图片
-![示例图片](https://mp.leti.ltd/show.png "图片描述")
+![示例图片](https://pic1.imgdb.cn/item/69a61149dcdb109d1d43dafd.png"图片描述")
 
 ## 引用
 > 这是一个引用块
