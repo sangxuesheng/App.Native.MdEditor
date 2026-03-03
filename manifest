@@ -1,7 +1,7 @@
 appname=App.Native.MdEditor2
-version=1.20.9
+version=1.20.10
 display_name=Markdown 编辑器 v2
-desc=飞牛 NAS 专用 Markdown 编辑器。v1.20.7 更新：完善全局快捷键绑定（Ctrl+N新建、Ctrl+T切换主题、Ctrl+\切换文件树、Ctrl+1-6插入标题等）。包含v1.20.5.4的所有优化。
+desc=飞牛 NAS 专用 Markdown 编辑器。v1.20.10 更新：移除跟随系统主题功能，简化为三种手动选择主题（浅色、深色、MD3紫色）。包含v1.20.9的所有优化。
 platform=x86
 source=thirdparty
 maintainer=YourName
