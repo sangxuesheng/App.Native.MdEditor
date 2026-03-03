@@ -1,5 +1,5 @@
 appname=App.Native.MdEditor2
-version=1.20.8
+version=1.20.9
 display_name=Markdown 编辑器 v2
 desc=飞牛 NAS 专用 Markdown 编辑器。v1.20.7 更新：完善全局快捷键绑定（Ctrl+N新建、Ctrl+T切换主题、Ctrl+\切换文件树、Ctrl+1-6插入标题等）。包含v1.20.5.4的所有优化。
 platform=x86

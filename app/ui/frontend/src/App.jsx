@@ -138,6 +138,14 @@ function App() {
     localStorage.setItem('md-editor-editor-width', editorWidth.toString())
   }, [editorWidth])
 
+  // 初始化主题
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('md-editor-theme')
+    if (savedTheme && ['light', 'vs-dark', 'md3'].includes(savedTheme)) {
+      setEditorTheme(savedTheme)
+    }
+  }, [])
+
   // 处理文件树宽度调整
   const handleFileTreeResize = useCallback((delta) => {
     setFileTreeWidth(prev => {
@@ -170,7 +178,10 @@ function App() {
     } else {
       newTheme = 'light'
     }
+    
+    // 保存主题设置
     setEditorTheme(newTheme)
+    localStorage.setItem('md-editor-theme', newTheme)
     
     // 如果 Mermaid 已加载，更新主题
     if (mermaidLoaded && mermaidModule) {

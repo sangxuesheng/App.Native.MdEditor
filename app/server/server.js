@@ -69,6 +69,46 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 获取系统主题：GET /api/system/theme
+  if (parsed.pathname === '/api/system/theme' && req.method === 'GET') {
+    // 飞牛NAS的主题设置存储在浏览器的 localStorage 中
+    // 我们需要读取 Chrome/Chromium 的 localStorage 数据库
+    // 路径通常是: ~/.config/chromium/Default/Local Storage/leveldb/
+    // 或: ~/.config/google-chrome/Default/Local Storage/leveldb/
+    
+    const { exec } = require('child_process');
+    
+    // 尝试通过命令行工具读取 localStorage
+    // 使用 sqlite3 或直接读取 LevelDB
+    const command = `
+      # 尝试从多个可能的位置读取
+      for db in ~/.config/chromium/Default/Local\ Storage/leveldb/*.ldb ~/.config/google-chrome/Default/Local\ Storage/leveldb/*.ldb; do
+        if [ -f "$db" ]; then
+          strings "$db" | grep -o 'fnos-theme-mode.*[0-9]\\+' | head -1
+        fi
+      done
+    `;
+    
+    exec(command, (error, stdout, stderr) => {
+      let themeMode = '10'; // 默认浅色
+      
+      if (!error && stdout) {
+        // 从输出中提取主题模式值
+        const match = stdout.match(/fnos-theme-mode.*?(\d+)/);
+        if (match && match[1]) {
+          themeMode = match[1];
+        }
+      }
+      
+      sendJson(res, 200, { 
+        ok: true, 
+        themeMode: themeMode,
+        source: stdout ? 'localStorage' : 'default'
+      });
+    });
+    return;
+  }
+
   // 文件读取：GET /api/file?path=/abs/path/to/file.md
   if (parsed.pathname === '/api/file' && req.method === 'GET') {
     const requestedPath = parsed.query.path;

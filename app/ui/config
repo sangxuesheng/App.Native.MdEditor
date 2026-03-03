@@ -2,7 +2,7 @@
   ".url": {
     "App.Native.MdEditor2.Application": {
       "title": "Markdown 编辑器 v2",
-      "icon": "images/icon-{0}.png",
+      "icon": "images/icon-256.png",
       "type": "iframe",
       "protocol": "http",
       "port": "18080",
@@ -11,7 +11,7 @@
     },
     "App.Native.MdEditor2.OpenFile": {
       "title": "用 Markdown 编辑器打开",
-      "icon": "images/icon-{0}.png",
+      "icon": "images/icon-256.png",
       "type": "iframe",
       "protocol": "http",
       "port": "18080",

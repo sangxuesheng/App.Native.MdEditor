@@ -3,11 +3,11 @@ import './SettingsDialog.css';
 
 const SettingsDialog = ({ 
   onClose, 
-  theme, 
+  theme,
   onThemeChange 
 }) => {
   const [settings, setSettings] = useState({
-    theme: theme === 'vs-dark' ? 'dark' : 'light',
+    theme: theme,
     fontSize: 14,
     lineHeight: 24,
     tabSize: 2,
@@ -29,12 +29,13 @@ const SettingsDialog = ({
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
-        setSettings(prev => ({ ...prev, ...parsed }));
+        // 使用传入的 theme 而不是保存的值
+        setSettings(prev => ({ ...prev, ...parsed, theme: theme }));
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
     }
-  }, []);
+  }, [theme]);
 
   const handleChange = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -45,8 +46,10 @@ const SettingsDialog = ({
     // 保存到 localStorage
     localStorage.setItem('md-editor-settings', JSON.stringify(settings));
 
-    // 应用设置
-    if ((settings.theme === 'dark' ? 'vs-dark' : 'light') !== theme) {
+    // 应用主题设置
+    if (settings.theme !== theme) {
+      // 直接设置主题
+      localStorage.setItem('md-editor-theme', settings.theme);
       onThemeChange();
     }
 
@@ -56,7 +59,7 @@ const SettingsDialog = ({
 
   const handleReset = () => {
     const defaultSettings = {
-      theme: 'dark',
+      theme: 'light',
       fontSize: 14,
       lineHeight: 24,
       tabSize: 2,
@@ -97,8 +100,9 @@ const SettingsDialog = ({
                   onChange={(e) => handleChange('theme', e.target.value)}
                   className="form-select"
                 >
-                  <option value="dark">深色</option>
                   <option value="light">浅色</option>
+                  <option value="vs-dark">深色</option>
+                  <option value="md3">MD3 紫色</option>
                 </select>
               </div>
             </div>
