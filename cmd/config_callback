@@ -1,9 +1,28 @@
 #!/bin/bash
 
 # 配置回调脚本（config_callback）
-# - 后续会根据 wizard/config 的结果更新应用配置文件
+# 当用户修改授权目录时，系统会调用此脚本
 
 echo "App.Native.MdEditor config_callback running..."
+echo "TRIM_DATA_ACCESSIBLE_PATHS: $TRIM_DATA_ACCESSIBLE_PATHS"
+
+# 记录日志
+LOG_FILE="${TRIM_PKGVAR}/config_callback.log"
+echo "$(date): Config callback triggered" >> "$LOG_FILE"
+echo "$(date): TRIM_DATA_ACCESSIBLE_PATHS=$TRIM_DATA_ACCESSIBLE_PATHS" >> "$LOG_FILE"
+
+# 通知应用进程：重启应用以加载新的授权目录
+# 根据文档要求，需要通知应用进程重新读取环境变量
+# 最简单的方式是重启应用
+
+echo "$(date): 授权目录已变更，正在重启应用..." >> "$LOG_FILE"
+
+# 调用 main 脚本重启应用
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+"${SCRIPT_DIR}/main" stop
+sleep 2
+"${SCRIPT_DIR}/main" start
+
+echo "$(date): 应用已重启" >> "$LOG_FILE"
+
 exit 0
-
-
