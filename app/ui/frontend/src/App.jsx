@@ -149,6 +149,17 @@ function App() {
     }
   }, [])
 
+  // 当主题变化时，应用到 Monaco Editor
+  useEffect(() => {
+    if (editorRef.current && monaco) {
+      try {
+        monaco.editor.setTheme(editorTheme)
+      } catch (error) {
+        console.error('Failed to set Monaco theme:', error)
+      }
+    }
+  }, [editorTheme])
+
   // 处理文件树宽度调整
   const handleFileTreeResize = useCallback((delta) => {
     setFileTreeWidth(prev => {
@@ -1186,6 +1197,25 @@ HTML
       inherit: true,
       rules: [],
       colors: {}
+    })
+    
+    // 定义 MD3 紫色主题
+    monaco.editor.defineTheme('md3', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'keyword.md', foreground: 'bb86fc', fontStyle: 'bold' },
+        { token: 'string.md', foreground: 'bb86fc', fontStyle: 'bold' },
+      ],
+      colors: {
+        'editor.background': '#1a1a1a',
+        'editor.foreground': '#e0e0e0',
+        'editorLineNumber.foreground': '#666666',
+        'editorLineNumber.activeForeground': '#bb86fc',
+        'editor.selectionBackground': '#3d3d3d',
+        'editor.inactiveSelectionBackground': '#2d2d2d',
+        'editorCursor.foreground': '#bb86fc',
+      }
     })
     
     // 应用主题
