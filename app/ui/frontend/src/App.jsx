@@ -944,6 +944,73 @@ HTML
     }
   }, [layout, renderMarkdown])
 
+  // 处理脚注链接点击，防止页面滚动
+  useEffect(() => {
+    const handleFootnoteClick = (e) => {
+      const target = e.target.closest('a[href^="#"]')
+      if (!target) return
+      
+      const href = target.getAttribute('href')
+      if (!href || href === '#') return
+      
+      // 检查是否是脚注相关的链接
+      const isFootnoteLink = href.includes('fn') || href.includes('fnref') || 
+                            target.hasAttribute('data-footnote-ref') || 
+                            target.hasAttribute('data-footnote-backref')
+      
+      if (isFootnoteLink) {
+        e.preventDefault()
+        e.stopPropagation()
+        
+        // 查找目标元素
+        const targetId = href.substring(1)
+        const targetElement = previewRef.current?.querySelector(`#${targetId}`)
+        
+        if (targetElement) {
+          // 获取预览容器 - previewRef.current 的父元素就是 .preview-pane
+          const previewPane = previewRef.current.parentElement
+          if (!previewPane) {
+            console.log('找不到 preview-pane')
+            return
+          }
+          
+          // 计算目标元素相对于 markdown-body 的位置
+          const targetRect = targetElement.getBoundingClientRect()
+          const previewRect = previewPane.getBoundingClientRect()
+          
+          // 计算需要滚动的距离（将目标元素滚动到预览区中心）
+          const scrollTop = previewPane.scrollTop
+          const targetOffset = targetRect.top - previewRect.top + scrollTop
+          const centerOffset = previewPane.clientHeight / 2 - targetRect.height / 2
+          
+          console.log('脚注滚动:', {
+            targetId,
+            scrollTop,
+            targetOffset,
+            centerOffset,
+            finalScroll: targetOffset - centerOffset
+          })
+          
+          // 只在预览区内滚动，不影响页面
+          previewPane.scrollTo({
+            top: targetOffset - centerOffset,
+            behavior: 'smooth'
+          })
+        } else {
+          console.log('找不到目标元素:', href)
+        }
+      }
+    }
+    
+    const previewElement = previewRef.current
+    if (previewElement) {
+      previewElement.addEventListener('click', handleFootnoteClick, true)
+      return () => {
+        previewElement.removeEventListener('click', handleFootnoteClick, true)
+      }
+    }
+  }, [previewRef])
+
   const handleToolbarInsert = (before, after, mode) => {
     if (!editorRef.current) return
 
