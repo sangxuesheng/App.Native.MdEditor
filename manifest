@@ -1,7 +1,7 @@
 appname=App.Native.MdEditor2
-version=1.20.12
+version=1.21.0
 display_name=Markdown 编辑器 v2
-desc=飞牛 NAS 专用 Markdown 编辑器。v1.20.12 更新：增强错误提示系统（统一错误处理、友好错误信息、详细日志记录）。包含v1.20.11的所有优化。
+desc=飞牛 NAS 专用 Markdown 编辑器。v1.21.0 更新：支持拖拽上传图片（多图上传、鼠标位置插入、视觉反馈）+ 改进粘贴和拖拽上传的错误处理。包含v1.20.12的所有优化。
 platform=x86
 source=thirdparty
 maintainer=YourName

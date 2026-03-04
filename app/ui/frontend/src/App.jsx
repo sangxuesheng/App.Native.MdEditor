@@ -1230,12 +1230,23 @@ HTML
                 showToast(`图片上传成功: ${image.filename}`, 'success')
                 setStatus('就绪')
               } else {
+                const errorMsg = getUserFriendlyMessage(
+                  new Error(result.message || '上传失败'),
+                  { operation: '粘贴上传图片' }
+                )
                 showToast('图片上传失败', 'error')
+                logError(new Error(result.message || '上传失败'), {
+                  operation: '粘贴上传图片',
+                  responseData: result
+                })
                 setStatus('就绪')
               }
             } catch (error) {
-              console.error('上传图片错误:', error)
-              showToast('图片上传失败', 'error')
+              const formattedError = handleError(error, {
+                operation: '粘贴上传图片',
+                fileType: file.type
+              })
+              showToast(`图片上传失败: ${formattedError.message}`, 'error')
               setStatus('就绪')
             }
             
@@ -1338,13 +1349,26 @@ HTML
             setStatus('就绪')
             setStatusType('normal')
           } else {
+            const errorMsg = getUserFriendlyMessage(
+              new Error(result.message || '上传失败'),
+              { operation: '拖拽上传图片', fileCount: imageFiles.length }
+            )
             showToast('图片上传失败', 'error')
+            logError(new Error(result.message || '上传失败'), {
+              operation: '拖拽上传图片',
+              fileCount: imageFiles.length,
+              responseData: result
+            })
             setStatus('就绪')
             setStatusType('normal')
           }
         } catch (error) {
-          console.error('上传图片错误:', error)
-          showToast('图片上传失败', 'error')
+          const formattedError = handleError(error, {
+            operation: '拖拽上传图片',
+            fileCount: imageFiles.length,
+            fileNames: imageFiles.map(f => f.name)
+          })
+          showToast(`图片上传失败: ${formattedError.message}`, 'error')
           setStatus('就绪')
           setStatusType('normal')
         }
