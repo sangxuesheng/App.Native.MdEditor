@@ -1,8 +1,17 @@
 /* 另存为对话框 */
+.dialog-content.save-as-dialog {
+  width: 600px !important;
+  height: 500px !important;
+  max-width: 90vw !important;
+  max-height: 85vh !important;
+  display: flex;
+  flex-direction: column;
+}
+
 .save-as-dialog {
-  width: 700px !important;
+  width: 600px !important;
   max-width: 90vw;
-  height: 600px !important;
+  height: 500px !important;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
