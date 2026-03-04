@@ -1,9 +1,9 @@
 /* 另存为对话框 */
 .save-as-dialog {
-  width: 900px;
+  width: 700px !important;
   max-width: 90vw;
-  height: 80vh;
-  max-height: 800px;
+  height: 600px !important;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
 }
