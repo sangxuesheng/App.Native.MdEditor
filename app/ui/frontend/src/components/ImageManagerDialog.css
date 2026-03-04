@@ -609,8 +609,9 @@
 .library-tab {
   min-height: 300px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
 }
 
 .empty-state {
@@ -861,7 +862,7 @@
 .delete-image-btn {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
   width: 32px;
   height: 32px;
   display: flex;

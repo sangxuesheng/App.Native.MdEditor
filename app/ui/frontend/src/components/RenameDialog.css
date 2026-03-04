@@ -3,6 +3,23 @@
   max-width: 450px;
 }
 
+.properties-dialog {
+  width: 90%;
+  max-width: 400px;
+}
+
+.properties-dialog .dialog-body {
+  padding: 20px 24px;
+}
+
+.properties-dialog .dialog-header {
+  padding: 16px 24px;
+}
+
+.properties-dialog .dialog-footer {
+  padding: 12px 24px;
+}
+
 .form-group {
   margin-bottom: 16px;
 }
@@ -48,6 +65,39 @@
   padding: 8px 12px;
   background: var(--hint-bg);
   border-radius: 4px;
+}
+
+/* 属性列表样式 */
+.properties-list {
+  width: 100%;
+}
+
+.property-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.property-item:last-child {
+  border-bottom: none;
+}
+
+.property-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.property-value {
+  font-size: 13px;
+  color: var(--text-color);
+  flex: 1;
+  margin-left: 16px;
+  word-break: break-all;
+  text-align: right;
 }
 
 /* 深色主题 */

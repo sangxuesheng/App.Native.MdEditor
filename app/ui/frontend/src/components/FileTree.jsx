@@ -4,6 +4,7 @@ import FileSearchBox from './FileSearchBox';
 import ContextMenu from './ContextMenu';
 import RenameDialog from './RenameDialog';
 import NewFolderDialog from './NewFolderDialog';
+import FilePropertiesDialog from './FilePropertiesDialog';
 import AnimatedList from './AnimatedList';
 import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
 import { useDebounce } from '../hooks/useDebounce';
@@ -38,6 +39,10 @@ const FileTree = forwardRef(({
   // 新建文件夹对话框状态
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [newFolderParent, setNewFolderParent] = useState(null);
+
+  // 文件属性对话框状态
+  const [showPropertiesDialog, setShowPropertiesDialog] = useState(false);
+  const [propertiesNode, setPropertiesNode] = useState(null);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -449,17 +454,8 @@ const FileTree = forwardRef(({
 
   // 显示属性
   const handleShowProperties = (node) => {
-    const props = [
-      `名称: ${node.name}`,
-      `路径: ${node.path}`,
-      `类型: ${node.type === 'directory' ? '文件夹' : '文件'}`
-    ];
-    
-    if (node.size !== undefined) {
-      props.push(`大小: ${formatFileSize(node.size)}`);
-    }
-    
-    alert(props.join('\n'));
+    setPropertiesNode(node);
+    setShowPropertiesDialog(true);
   };
 
   // 格式化文件大小
@@ -600,6 +596,17 @@ const FileTree = forwardRef(({
           onCancel={() => {
             setShowNewFolderDialog(false);
             setNewFolderParent(null);
+          }}
+        />
+      )}
+
+      {/* 文件属性对话框 */}
+      {showPropertiesDialog && propertiesNode && (
+        <FilePropertiesDialog
+          node={propertiesNode}
+          onClose={() => {
+            setShowPropertiesDialog(false);
+            setPropertiesNode(null);
           }}
         />
       )}
