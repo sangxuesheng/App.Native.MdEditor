@@ -1,7 +1,7 @@
 appname=App.Native.MdEditor2
 version=1.21.3
 display_name=Markdown 编辑器 v2
-desc=飞牛 NAS 专用 Markdown 编辑器。v1.21.3 更新：修复MD3主题编辑器背景色，添加完整的MD3紫色主题定义。包含v1.21.2的所有功能。
+desc=飞牛 NAS 专用 Markdown 编辑器。v1.21.3 更新：修复MD3主题编辑器背景色问题（统一为浅色紫色主题，解决切换/刷新时颜色不一致）。包含v1.21.2的所有功能。
 platform=x86
 source=thirdparty
 maintainer=YourName

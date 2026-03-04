@@ -1201,20 +1201,20 @@ HTML
     
     // 定义 MD3 紫色主题
     monaco.editor.defineTheme('md3', {
-      base: 'vs-dark',
+      base: 'vs',
       inherit: true,
       rules: [
-        { token: 'keyword.md', foreground: 'bb86fc', fontStyle: 'bold' },
-        { token: 'string.md', foreground: 'bb86fc', fontStyle: 'bold' },
+        { token: 'keyword.md', foreground: '6750a4', fontStyle: 'bold' },
+        { token: 'string.md', foreground: '6750a4', fontStyle: 'bold' },
       ],
       colors: {
-        'editor.background': '#1a1a1a',
-        'editor.foreground': '#e0e0e0',
-        'editorLineNumber.foreground': '#666666',
-        'editorLineNumber.activeForeground': '#bb86fc',
-        'editor.selectionBackground': '#3d3d3d',
-        'editor.inactiveSelectionBackground': '#2d2d2d',
-        'editorCursor.foreground': '#bb86fc',
+        'editor.background': '#fef7ff',
+        'editor.foreground': '#1c1b1f',
+        'editorLineNumber.foreground': '#79747e',
+        'editorLineNumber.activeForeground': '#6750a4',
+        'editor.selectionBackground': '#e8def8',
+        'editor.inactiveSelectionBackground': '#f3edf7',
+        'editorCursor.foreground': '#6750a4',
       }
     })
     
