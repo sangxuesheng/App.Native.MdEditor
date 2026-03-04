@@ -48,6 +48,13 @@
   }
 }
 
+.dialog-content.new-file-dialog {
+  width: 600px !important;
+  height: 500px !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+}
+
 .new-file-dialog {
   width: 600px !important;
   height: 500px !important;
