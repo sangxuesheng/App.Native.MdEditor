@@ -1,11 +1,15 @@
 /* 另存为对话框 */
 .save-as-dialog {
-  width: 600px;
+  width: 800px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 当前文件信息 */
 .current-file-info {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   padding: 12px;
   background: #161b22;
   border: 1px solid #30363d;
@@ -15,6 +19,11 @@
 .theme-light .current-file-info {
   background: #f6f8fa;
   border-color: #d0d7de;
+}
+
+.theme-md3 .current-file-info {
+  background: #2b2930;
+  border-color: #49454f;
 }
 
 .current-file-info label {
@@ -31,6 +40,10 @@
   color: #57606a;
 }
 
+.theme-md3 .current-file-info label {
+  color: #938f99;
+}
+
 .current-file-path {
   font-size: 13px;
   color: #c9d1d9;
@@ -42,9 +55,115 @@
   color: #24292f;
 }
 
+.theme-md3 .current-file-path {
+  color: #e6e1e5;
+}
+
+/* 文件浏览器容器 */
+.file-browser-container {
+  margin-bottom: 16px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1e1e1e;
+}
+
+.theme-light .file-browser-container {
+  background: #ffffff;
+  border-color: #d0d7de;
+}
+
+.theme-md3 .file-browser-container {
+  background: #1c1b1f;
+  border-color: #49454f;
+}
+
+/* 表单组 */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e6edf3;
+}
+
+.theme-light .form-group label {
+  color: #24292f;
+}
+
+.theme-md3 .form-group label {
+  color: #e6e1e5;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #1e1e1e;
+  color: #e6edf3;
+  transition: border-color 0.2s ease;
+}
+
+.theme-light .form-input {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-md3 .form-input {
+  background: #1c1b1f;
+  border-color: #49454f;
+  color: #e6e1e5;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #1f6feb;
+}
+
+.theme-light .form-input:focus {
+  border-color: #0165ff;
+}
+
+.theme-md3 .form-input:focus {
+  border-color: #6750a4;
+}
+
+.file-name-input {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.file-name-input .form-input {
+  padding-right: 50px;
+}
+
+.file-extension {
+  position: absolute;
+  right: 12px;
+  color: #8b949e;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.theme-light .file-extension {
+  color: #57606a;
+}
+
+.theme-md3 .file-extension {
+  color: #938f99;
+}
+
 /* 目标路径预览 */
 .target-path-preview {
-  margin-top: 20px;
+  margin-top: 16px;
   padding: 12px;
   background: #0d1117;
   border: 1px solid #30363d;
@@ -54,6 +173,11 @@
 .theme-light .target-path-preview {
   background: #ffffff;
   border-color: #d0d7de;
+}
+
+.theme-md3 .target-path-preview {
+  background: #2b2930;
+  border-color: #49454f;
 }
 
 .target-path-preview label {
@@ -70,6 +194,10 @@
   color: #57606a;
 }
 
+.theme-md3 .target-path-preview label {
+  color: #938f99;
+}
+
 .preview-path {
   font-size: 13px;
   color: #58a6ff;
@@ -81,10 +209,14 @@
   color: #0969da;
 }
 
+.theme-md3 .preview-path {
+  color: #6750a4;
+}
+
 /* 覆盖确认 */
 .overwrite-confirm {
   text-align: center;
-  padding: 20px;
+  padding: 40px 20px;
 }
 
 .confirm-icon {
@@ -103,6 +235,10 @@
   color: #24292f;
 }
 
+.theme-md3 .overwrite-confirm h3 {
+  color: #e6e1e5;
+}
+
 .overwrite-confirm p {
   margin: 8px 0;
   font-size: 14px;
@@ -112,6 +248,10 @@
 
 .theme-light .overwrite-confirm p {
   color: #57606a;
+}
+
+.theme-md3 .overwrite-confirm p {
+  color: #938f99;
 }
 
 .confirm-path {
@@ -132,6 +272,68 @@
   color: #cf222e;
 }
 
+.theme-md3 .confirm-path {
+  background: #3d2f2f;
+  border-color: #f85149;
+  color: #f85149;
+}
+
+/* 按钮样式 */
+.btn-secondary {
+  background: #21262d;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-light .btn-secondary {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-md3 .btn-secondary {
+  background: #2b2930;
+  border-color: #49454f;
+  color: #e6e1e5;
+}
+
+.btn-secondary:hover {
+  background: #30363d;
+}
+
+.theme-light .btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+.theme-md3 .btn-secondary:hover {
+  background: #3d4046;
+}
+
+.btn-primary {
+  background: #1f6feb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* 危险按钮 */
 .btn-danger {
   padding: 8px 16px;
@@ -139,7 +341,7 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   border: none;
   background: linear-gradient(135deg, #da3633 0%, #f85149 100%);
   color: #ffffff;
@@ -151,6 +353,22 @@
   box-shadow: 0 4px 12px rgba(248, 81, 73, 0.3);
 }
 
+/* 错误消息 */
+.error-message {
+  color: #f85149;
+  background: #ffebe9;
+  border: 1px solid #ffd7d5;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.theme-md3 .error-message {
+  background: #3d2f2f;
+  border-color: #f85149;
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .save-as-dialog {
@@ -158,4 +376,10 @@
   }
 }
 
-
+@media (max-width: 480px) {
+  .save-as-dialog {
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 0;
+  }
+}

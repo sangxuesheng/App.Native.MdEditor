@@ -28,6 +28,7 @@ import ShortcutsDialog from './components/ShortcutsDialog'
 import ImageManagerDialog from './components/ImageManagerDialog'
 import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
+import FileHistoryDialog from './components/FileHistoryDialog'
 import { ToastContainer } from './components/Toast'
 import { useAutoSave } from './hooks/useAutoSave'
 import { useDebounce } from './hooks/useDebounce'
@@ -202,7 +203,7 @@ function App() {
     }
   }
 
-  const saveFile = async (path = currentPath) => {
+  const saveFile = async (path = currentPath, saveContent = content) => {
     if (!path) {
       setStatus('未指定文件路径，无法保存')
       return false
@@ -213,13 +214,13 @@ function App() {
       const response = await fetch('/api/file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path, content })
+        body: JSON.stringify({ path, content: saveContent })
       })
       const data = await response.json()
       
       if (data.ok) {
         // 保存历史记录
-        saveFileHistory(path, content)
+        saveFileHistory(path, saveContent)
         
         setStatus(`已保存: ${path}`)
         setStatusType('success')
@@ -245,7 +246,7 @@ function App() {
       const formattedError = handleError(error, {
         operation: '保存文件',
         filePath: path,
-        contentSize: new Blob([content]).size
+        contentSize: new Blob([saveContent]).size
       })
       setStatus(`保存失败: ${formattedError.message}`)
       return false
@@ -679,19 +680,34 @@ HTML
     setShowNewFileDialog(true)
   }
 
-  const handleNewFileConfirm = async (filePath, fileContent) => {
-    setCurrentPath(filePath)
+  const [newFileContent, setNewFileContent] = useState('')
+  const [initialFileName, setInitialFileName] = useState('')
+
+  const handleNewFileConfirm = (fileName, fileContent) => {
+    // 保存文件名和内容
     setContent(fileContent)
-    autoSave.reset()
-    setStatus(`已创建: ${filePath}`)
-    
-    // 刷新文件树（刷新父目录）
-    if (fileTreeRef.current && fileTreeRef.current.refreshDirectory) {
-      const parentPath = filePath.split('/').slice(0, -1).join('/') || '/'
-      await fileTreeRef.current.refreshDirectory(parentPath)
+    setNewFileContent(fileContent)
+    setInitialFileName(fileName)
+    // 打开保存对话框，让用户选择路径
+    setIsSaveAsMode(false) // 非另存为模式，是新建文件
+    setShowSaveAsDialog(true)
+  }
+
+  const handleSaveAsConfirm = async (newPath) => {
+    const success = await saveFile(newPath, newFileContent)
+    if (success) {
+      setCurrentPath(newPath)
+      autoSave.reset()
+      setStatus(`已创建: ${newPath}`)
+      
+      // 刷新文件树（刷新父目录）
+      if (fileTreeRef.current && fileTreeRef.current.refreshDirectory) {
+        const parentPath = newPath.split('/').slice(0, -1).join('/') || '/'
+        await fileTreeRef.current.refreshDirectory(parentPath)
+      }
+      
+      setTimeout(() => setStatus('就绪'), 2000)
     }
-    
-    setTimeout(() => setStatus('就绪'), 2000)
   }
 
   const handleImageUpload = useCallback(async (file) => {
@@ -803,14 +819,6 @@ HTML
   const handleSaveAs = () => {
     setIsSaveAsMode(true)
     setShowSaveAsDialog(true)
-  }
-
-  const handleSaveAsConfirm = async (newPath) => {
-    const success = await saveFile(newPath)
-    if (success) {
-      setCurrentPath(newPath)
-      autoSave.reset()
-    }
   }
 
   const handleExport = () => {
@@ -1653,6 +1661,8 @@ HTML
           rootDirs={rootDirs}
           currentPath={currentPath}
           theme={editorTheme}
+          initialFileName={initialFileName}
+          isSaveAs={isSaveAsMode}
         />
       )}
 

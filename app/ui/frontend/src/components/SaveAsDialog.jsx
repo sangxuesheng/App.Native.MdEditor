@@ -1,29 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import FileBrowser from './FileBrowser';
 import './SaveAsDialog.css';
 
-const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSaveAs = true }) => {
+const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSaveAs = true, initialFileName = '' }) => {
   const [fileName, setFileName] = useState('');
-  const [selectedDir, setSelectedDir] = useState('');
-  const [directories, setDirectories] = useState([]);
+  const [selectedPath, setSelectedPath] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [targetPath, setTargetPath] = useState('');
 
   useEffect(() => {
-    // 加载可用目录
-    if (rootDirs && rootDirs.length > 0) {
-      setDirectories(rootDirs);
-      setSelectedDir(rootDirs[0].path);
-    }
-
-    // 从当前路径提取文件名
-    if (currentPath) {
+    // 设置文件名
+    if (initialFileName) {
+      // 从NewFileDialog传递过来的文件名
+      setFileName(initialFileName.replace(/\.md$/, ''));
+    } else if (currentPath) {
+      // 从当前路径提取文件名
       const pathParts = currentPath.split('/');
       const currentFileName = pathParts[pathParts.length - 1];
       setFileName(currentFileName.replace(/\.md$/, ''));
     }
-  }, [rootDirs, currentPath]);
+  }, [rootDirs, currentPath, initialFileName]);
 
   const checkFileExists = async (path) => {
     try {
@@ -35,13 +33,17 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
     }
   };
 
+  const handlePathSelect = (path) => {
+    setSelectedPath(path);
+  };
+
   const handleSaveAs = async () => {
     if (!fileName.trim()) {
       setError('请输入文件名');
       return;
     }
 
-    if (!selectedDir) {
+    if (!selectedPath) {
       setError('请选择保存位置');
       return;
     }
@@ -53,7 +55,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
     }
 
     // 构建完整路径
-    const fullPath = `${selectedDir}/${finalFileName}`;
+    const fullPath = `${selectedPath}/${finalFileName}`;
 
     // 检查是否与当前文件相同
     if (fullPath === currentPath) {
@@ -104,11 +106,22 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
     setLoading(false);
   };
 
+  const getFullPath = () => {
+    if (!selectedPath || !fileName.trim()) {
+      return '';
+    }
+    let finalFileName = fileName.trim();
+    if (!finalFileName.endsWith('.md')) {
+      finalFileName += '.md';
+    }
+    return `${selectedPath}/${finalFileName}`;
+  };
+
   return (
-    <div className={`dialog-overlay ${theme === 'light' ? 'theme-light' : 'theme-dark'}`} onClick={onClose}>
+    <div className={`dialog-overlay ${theme === 'light' ? 'theme-light' : theme === 'md3' ? 'theme-md3' : 'theme-dark'}`} onClick={onClose}>
       <div className="dialog-content save-as-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
-          <h2>{isSaveAs ? '另存为' : '保存'}</h2>
+          <h2>{isSaveAs ? '另存为' : '保存到'}</h2>
           <button className="dialog-close" onClick={onClose}>×</button>
         </div>
 
@@ -120,19 +133,13 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
                 <div className="current-file-path">{currentPath || '未保存的文件'}</div>
               </div>
 
-              <div className="form-group">
-                <label>保存位置</label>
-                <select 
-                  value={selectedDir} 
-                  onChange={(e) => setSelectedDir(e.target.value)}
-                  className="form-select"
-                >
-                  {directories.map(dir => (
-                    <option key={dir.path} value={dir.path}>
-                      {dir.name} ({dir.path})
-                    </option>
-                  ))}
-                </select>
+              <div className="file-browser-container">
+                <FileBrowser 
+                  rootDirs={rootDirs}
+                  theme={theme}
+                  onPathSelect={handlePathSelect}
+                  selectedPath={selectedPath}
+                />
               </div>
 
               <div className="form-group">
@@ -150,11 +157,11 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
                 </div>
               </div>
 
-              {selectedDir && fileName && (
+              {getFullPath() && (
                 <div className="target-path-preview">
                   <label>目标路径</label>
                   <div className="preview-path">
-                    {selectedDir}/{fileName.trim()}{fileName.trim().endsWith('.md') ? '' : '.md'}
+                    {getFullPath()}
                   </div>
                 </div>
               )}
@@ -179,7 +186,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
               <button 
                 className="btn-primary" 
                 onClick={handleSaveAs}
-                disabled={loading || !fileName.trim()}
+                disabled={loading || !fileName.trim() || !selectedPath}
               >
                 {loading ? '保存中...' : (isSaveAs ? '另存为' : '保存')}
               </button>
@@ -199,5 +206,3 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
 };
 
 export default SaveAsDialog;
-
-

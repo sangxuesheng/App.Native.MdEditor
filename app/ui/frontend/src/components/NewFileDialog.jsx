@@ -181,47 +181,18 @@ categories: [分类]
 ];
 
 const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
-  const [step, setStep] = useState(1); // 1: 选择模板, 2: 选择位置和文件名
   const [selectedTemplate, setSelectedTemplate] = useState('blank');
   const [fileName, setFileName] = useState('');
-  const [selectedDir, setSelectedDir] = useState('');
-  const [directories, setDirectories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    // 加载可用目录
-    if (rootDirs && rootDirs.length > 0) {
-      setDirectories(rootDirs);
-      setSelectedDir(rootDirs[0].path);
-    }
-  }, [rootDirs]);
 
   const handleTemplateSelect = (templateId) => {
     setSelectedTemplate(templateId);
   };
 
-  const handleNext = () => {
-    if (step === 1) {
-      setStep(2);
-    }
-  };
-
-  const handleBack = () => {
-    if (step === 2) {
-      setStep(1);
-      setError('');
-    }
-  };
-
   const handleCreate = async () => {
     if (!fileName.trim()) {
       setError('请输入文件名');
-      return;
-    }
-
-    if (!selectedDir) {
-      setError('请选择保存位置');
       return;
     }
 
@@ -231,37 +202,14 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
       finalFileName += '.md';
     }
 
-    // 构建完整路径
-    const fullPath = `${selectedDir}/${finalFileName}`;
-
     // 获取模板内容
     const template = TEMPLATES.find(t => t.id === selectedTemplate);
     const content = template ? template.content : '';
 
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: fullPath, content })
-      });
-
-      const data = await response.json();
-
-      if (data.ok) {
-        onConfirm(fullPath, content);
-        onClose();
-      } else {
-        setError(data.message || '创建文件失败');
-      }
-    } catch (err) {
-      setError('网络错误，请重试');
-      console.error('Create file error:', err);
-    } finally {
-      setLoading(false);
-    }
+    // 直接调用onConfirm，将文件名和内容传递给父组件
+    // 路径选择将在保存时由父组件处理
+    onConfirm(finalFileName, content);
+    onClose();
   };
 
   const selectedTemplateData = TEMPLATES.find(t => t.id === selectedTemplate);
@@ -275,103 +223,62 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
         </div>
 
         <div className="dialog-body">
-          {step === 1 && (
-            <div className="template-selection">
-              <h3>选择模板</h3>
-              <div className="template-grid">
-                {TEMPLATES.map(template => (
-                  <div
-                    key={template.id}
-                    className={`template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
-                    onClick={() => handleTemplateSelect(template.id)}
-                  >
-                    <div className="template-icon">
-                      {template.id === 'blank' && '📄'}
-                      {template.id === 'note' && '📝'}
-                      {template.id === 'document' && '📋'}
-                      {template.id === 'blog' && '✍️'}
-                      {template.id === 'todo' && '✅'}
-                      {template.id === 'meeting' && '📅'}
-                    </div>
-                    <div className="template-info">
-                      <h4>{template.name}</h4>
-                      <p>{template.description}</p>
-                    </div>
-                    {selectedTemplate === template.id && (
-                      <div className="template-check">✓</div>
-                    )}
-                  </div>
-                ))}
-              </div>
+          <div className="form-group">
+            <label>文件名称 *</label>
+            <div className="file-name-input">
+              <input
+                type="text"
+                value={fileName}
+                onChange={(e) => setFileName(e.target.value)}
+                placeholder="新建文件名称"
+                className="form-input"
+                autoFocus
+              />
+              <span className="file-extension">.md</span>
             </div>
-          )}
+          </div>
 
-          {step === 2 && (
-            <div className="file-details">
-              <h3>文件信息</h3>
-              
-              <div className="form-group">
-                <label>模板</label>
-                <div className="selected-template-info">
-                  <span className="template-name">{selectedTemplateData?.name}</span>
-                  <button className="btn-link" onClick={handleBack}>更改</button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>保存位置</label>
-                <select 
-                  value={selectedDir} 
-                  onChange={(e) => setSelectedDir(e.target.value)}
-                  className="form-select"
+          <div className="form-group">
+            <label>模板</label>
+            <div className="template-grid">
+              {TEMPLATES.map(template => (
+                <div
+                  key={template.id}
+                  className={`template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
+                  onClick={() => handleTemplateSelect(template.id)}
                 >
-                  {directories.map(dir => (
-                    <option key={dir.path} value={dir.path}>
-                      {dir.name} ({dir.path})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>文件名</label>
-                <div className="file-name-input">
-                  <input
-                    type="text"
-                    value={fileName}
-                    onChange={(e) => setFileName(e.target.value)}
-                    placeholder="输入文件名"
-                    className="form-input"
-                    autoFocus
-                  />
-                  <span className="file-extension">.md</span>
+                  <div className="template-icon">
+                    {template.id === 'blank' && '📄'}
+                    {template.id === 'note' && '📝'}
+                    {template.id === 'document' && '📋'}
+                    {template.id === 'blog' && '✍️'}
+                    {template.id === 'todo' && '✅'}
+                    {template.id === 'meeting' && '📅'}
+                  </div>
+                  <div className="template-info">
+                    <h4>{template.name}</h4>
+                    <p>{template.description}</p>
+                  </div>
+                  {selectedTemplate === template.id && (
+                    <div className="template-check">✓</div>
+                  )}
                 </div>
-              </div>
-
-              {error && <div className="error-message">{error}</div>}
+              ))}
             </div>
-          )}
+          </div>
+
+          {error && <div className="error-message">{error}</div>}
         </div>
 
         <div className="dialog-footer">
-          {step === 1 && (
-            <>
-              <button className="btn-secondary" onClick={onClose}>取消</button>
-              <button className="btn-primary" onClick={handleNext}>下一步</button>
-            </>
-          )}
-          {step === 2 && (
-            <>
-              <button className="btn-secondary" onClick={handleBack}>上一步</button>
-              <button 
-                className="btn-primary" 
-                onClick={handleCreate}
-                disabled={loading}
-              >
-                {loading ? '创建中...' : '创建'}
-              </button>
-            </>
-          )}
+          <button className="btn-secondary" onClick={onClose}>取消</button>
+          <button 
+            className="btn-primary" 
+            onClick={handleCreate}
+            disabled={loading}
+          >
+            {loading ? '创建中...' : '确定'}
+          </button>
         </div>
       </div>
     </div>
