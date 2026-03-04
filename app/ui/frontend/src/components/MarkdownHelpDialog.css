@@ -48,22 +48,9 @@
 }
 
 /* 深色主题 */
-.theme-dark .help-section h3 {
-  color: #e6edf3;
-}
 
-.theme-dark .help-example {
-  background: #161b22;
-}
 
-.theme-dark .help-example code {
-  color: #79c0ff;
-  background: #0d1117;
-}
 
-.theme-dark .help-example pre {
-  color: #c9d1d9;
-}
 
 /* 浅色主题 */
 .theme-light .help-section h3 {
@@ -84,19 +71,6 @@
 }
 
 /* MD3 主题 */
-.theme-md3 .help-section h3 {
-  color: #6750a4;
-}
 
-.theme-md3 .help-example {
-  background: #f6edff;
-}
 
-.theme-md3 .help-example code {
-  color: #6750a4;
-  background: #fef7ff;
-}
 
-.theme-md3 .help-example pre {
-  color: #1d1b20;
-}

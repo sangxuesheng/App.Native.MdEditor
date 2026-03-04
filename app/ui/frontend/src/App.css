@@ -269,13 +269,7 @@ html, body {
 }
 
 /* MD3 主题下的 Monaco Editor 滚动条 */
-.app.theme-md3 .editor-pane .monaco-scrollable-element > .scrollbar > .slider {
-  background: rgba(103, 80, 164, 0.3) !important;
-}
 
-.app.theme-md3 .editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
-  background: rgba(103, 80, 164, 0.5) !important;
-}
 
 /* 拖拽上传图片样式 */
 .editor-pane.drag-over {
@@ -675,219 +669,46 @@ html, body {
 }
 
 /* ==================== Material Design 3 主题 ==================== */
-.app.theme-md3 {
-  background: #fef7ff;
-  color: #1d1b20;
-}
 
-.app.theme-md3 .toolbar {
-  background: linear-gradient(135deg, #6750a4 0%, #7f67be 100%);
-  border-bottom: none;
-  box-shadow: 0 2px 8px rgba(103, 80, 164, 0.15);
-}
 
-.app.theme-md3 .title {
-  color: #ffffff;
-  font-weight: 500;
-}
 
-.app.theme-md3 .app-logo {
-  filter: brightness(0) invert(1);
-}
 
-.app.theme-md3 .file-path {
-  color: #e8def8;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-}
 
-.app.theme-md3 .btn-icon {
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-}
 
-.app.theme-md3 .btn-icon:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  transform: scale(1.05);
-}
 
-.app.theme-md3 .btn-icon.active {
-  background: #d0bcff;
-  color: #381e72;
-}
 
-.app.theme-md3 .btn-primary {
-  background: linear-gradient(135deg, #d0bcff 0%, #eaddff 100%);
-  color: #381e72;
-  font-weight: 600;
-  border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(208, 188, 255, 0.3);
-}
 
-.app.theme-md3 .btn-primary:hover {
-  background: linear-gradient(135deg, #eaddff 0%, #d0bcff 100%);
-  box-shadow: 0 4px 16px rgba(208, 188, 255, 0.5);
-}
 
-.app.theme-md3 .unsaved-indicator {
-  color: #ffb4ab;
-}
 
-.app.theme-md3 .editor-pane,
-.app.theme-md3 .preview-pane {
-  background: #fef7ff;
-  border-color: #e6e0e9;
-}
 
-.app.theme-md3 .preview-pane {
-  background: linear-gradient(180deg, #fef7ff 0%, #f6edff 100%);
-}
 
 /* MD3 主题滚动条 */
-.app.theme-md3 .preview-pane::-webkit-scrollbar-thumb {
-  background: #d0bcff;
-}
 
-.app.theme-md3 .preview-pane::-webkit-scrollbar-thumb:hover {
-  background: #b69df8;
-}
 
-.app.theme-md3 .editor-pane .monaco-scrollable-element > .scrollbar > .slider {
-  background: rgba(103, 80, 164, 0.3) !important;
-}
 
-.app.theme-md3 .editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
-  background: rgba(103, 80, 164, 0.5) !important;
-}
 
-.app.theme-md3 .markdown-body {
-  color: #1d1b20 !important;
-  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
-}
 
-.app.theme-md3 .markdown-body h1,
-.app.theme-md3 .markdown-body h2,
-.app.theme-md3 .markdown-body h3 {
-  color: #6750a4 !important;
-  border-bottom-color: #e6e0e9 !important;
-  font-weight: 500;
-}
 
-.app.theme-md3 .markdown-body h1 {
-  font-size: 2.5em;
-}
 
-.app.theme-md3 .markdown-body code {
-  background: #eaddff !important;
-  color: #6750a4 !important;
-  border-radius: 8px;
-  font-weight: 500;
-}
 
-.app.theme-md3 .markdown-body pre {
-  background: #f6edff !important;
-  border: 1px solid #e6e0e9;
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(103, 80, 164, 0.1);
-}
 
-.app.theme-md3 .markdown-body table th,
-.app.theme-md3 .markdown-body table td {
-  border-color: #e6e0e9 !important;
-}
 
-.app.theme-md3 .markdown-body table th {
-  background: linear-gradient(135deg, #eaddff 0%, #f6edff 100%) !important;
-  color: #6750a4 !important;
-  font-weight: 600;
-}
 
-.app.theme-md3 .markdown-body table tr:nth-child(even) {
-  background: #fef7ff !important;
-}
 
-.app.theme-md3 .markdown-body table tr:hover {
-  background: #f6edff !important;
-}
 
-.app.theme-md3 .markdown-body blockquote {
-  border-left: 4px solid #d0bcff !important;
-  background: #f6edff;
-  color: #49454f !important;
-  border-radius: 0 8px 8px 0;
-  padding: 12px 16px;
-}
 
-.app.theme-md3 .markdown-body a {
-  color: #6750a4 !important;
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-  transition: border-color 0.2s;
-}
 
-.app.theme-md3 .markdown-body a:hover {
-  border-bottom-color: #d0bcff;
-  text-decoration: none;
-}
 
-.app.theme-md3 .mermaid {
-  background: #f6edff;
-  border-radius: 16px;
-  border: 1px solid #e6e0e9;
-  box-shadow: 0 2px 8px rgba(103, 80, 164, 0.08);
-}
 
-.app.theme-md3 .statusbar {
-  background: linear-gradient(135deg, #6750a4 0%, #7f67be 100%);
-  border-top: none;
-  color: #e8def8;
-  box-shadow: 0 -2px 8px rgba(103, 80, 164, 0.15);
-}
 
-.app.theme-md3 ::-webkit-scrollbar-track {
-  background: #fef7ff;
-}
 
-.app.theme-md3 ::-webkit-scrollbar-thumb {
-  background: #d0bcff;
-  border-radius: 10px;
-}
 
-.app.theme-md3 ::-webkit-scrollbar-thumb:hover {
-  background: #b69df8;
-}
 
 /* MD3 主题预览区滚动条 */
-.app.theme-md3 .preview-pane::-webkit-scrollbar-track {
-  background: transparent;
-}
 
-.app.theme-md3 .preview-pane::-webkit-scrollbar-thumb {
-  background: rgba(103, 80, 164, 0.3);
-  border-radius: 5px;
-}
 
-.app.theme-md3 .preview-pane::-webkit-scrollbar-thumb:hover {
-  background: rgba(103, 80, 164, 0.5);
-}
 
 /* MD3 特殊效果 */
-.app.theme-md3 .toolbar::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-}
 
 /* 状态栏按钮 */
 .statusbar-left,
@@ -931,17 +752,7 @@ html, body {
 }
 
 /* MD3 主题状态栏按钮 */
-.app.theme-md3 .statusbar-btn {
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: #e8def8;
-  border-radius: 12px;
-}
 
-.app.theme-md3 .statusbar-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-}
 
 /* 修复工具栏下拉菜单被遮挡的问题 */
 .editor-toolbar {
@@ -1062,9 +873,6 @@ html, body {
 }
 
 /* MD3 主题 */
-.app.theme-md3 .main-content > .editor-toolbar {
-  border-bottom-color: #e6e0e9;
-}
 
 
 /* ==================== 行号右对齐 ==================== */
@@ -1126,13 +934,7 @@ html, body {
 }
 
 /* MD3 主题 */
-.app.theme-md3 .monaco-editor .find-widget .button.codicon-find-close::before {
-  color: #49454f !important;
-}
 
-.app.theme-md3 .monaco-editor .find-widget .button.codicon-find-close:hover::before {
-  color: #ba1a1a !important;
-}
 
 /* 确保查找窗口的关闭按钮始终可见 */
 .monaco-editor .find-widget {
@@ -1200,13 +1002,7 @@ html, body {
 }
 
 /* MD3 主题 */
-.app.theme-md3 .monaco-editor .find-widget .button.codicon-find-close::before {
-  color: #49454f !important;
-}
 
-.app.theme-md3 .monaco-editor .find-widget .button.codicon-find-close:hover::before {
-  color: #ba1a1a !important;
-}
 
 /* ==================== 完全隐藏 Escape 提示 ==================== */
 
@@ -1280,17 +1076,8 @@ mark {
 }
 
 /* 暗色主题下的高亮 */
-.app.theme-dark mark,
-.markdown-body.markdown-body-dark mark {
-  background-color: #ffd700;
-  color: #1a1a1a;
-}
 
 /* MD3 主题下的高亮 */
-.app.theme-md3 mark {
-  background-color: #fff59d;
-  color: #000000;
-}
 
 /* ==================== 注脚样式优化 ==================== */
 
@@ -1306,9 +1093,6 @@ mark {
   border-top-color: #d0d7de;
 }
 
-.app.theme-md3 .markdown-body .footnotes {
-  border-top-color: #e6e0e9;
-}
 
 /* 注脚返回链接 - 强制使用文本样式而非 emoji */
 .markdown-body .data-footnote-backref,
@@ -1372,16 +1156,7 @@ mark {
 }
 
 /* MD3 主题拖拽样式 */
-.app.theme-md3 .editor-pane.drag-over {
-  background: rgba(103, 80, 164, 0.1);
-  border-color: #6750a4;
-}
 
-.app.theme-md3 .editor-pane.drag-over::after {
-  color: #6750a4;
-  background: rgba(254, 247, 255, 0.95);
-  border-color: #6750a4;
-}
 
 /* ==================== 文件树布局 ==================== */
 

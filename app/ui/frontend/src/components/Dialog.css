@@ -45,11 +45,6 @@
   border: none;
 }
 
-.theme-md3 .dialog-container {
-  background: #fef7ff;
-  box-shadow: 0 8px 32px rgba(103, 80, 164, 0.2);
-  border: none;
-}
 
 @keyframes slideUp {
   from {
@@ -76,9 +71,6 @@
   border-bottom-color: #d0d7de;
 }
 
-.theme-md3 .dialog-header {
-  border-bottom-color: #e6e0e9;
-}
 
 .dialog-header h2 {
   margin: 0;
@@ -91,9 +83,6 @@
   color: #24292f;
 }
 
-.theme-md3 .dialog-header h2 {
-  color: #6750a4;
-}
 
 .dialog-close {
   width: 32px;
@@ -122,10 +111,6 @@
   color: #24292f;
 }
 
-.theme-md3 .dialog-close:hover {
-  background: #eaddff;
-  color: #6750a4;
-}
 
 /* 对话框内容 */
 .dialog-content {
@@ -146,9 +131,6 @@
   color: #24292f;
 }
 
-.theme-md3 .dialog-content {
-  color: #1d1b20;
-}
 
 /* 对话框底部 */
 .dialog-footer {
@@ -165,9 +147,6 @@
   border-top-color: #d0d7de;
 }
 
-.theme-md3 .dialog-footer {
-  border-top-color: #e6e0e9;
-}
 
 /* 按钮样式 */
 .btn-secondary,
@@ -192,10 +171,6 @@
   color: #24292f;
 }
 
-.theme-md3 .btn-secondary {
-  border-color: #e6e0e9;
-  color: #6750a4;
-}
 
 .btn-secondary:hover {
   background: #30363d;
@@ -205,9 +180,6 @@
   background: #f6f8fa;
 }
 
-.theme-md3 .btn-secondary:hover {
-  background: #eaddff;
-}
 
 .btn-primary {
   background: linear-gradient(135deg, #238636 0%, #2ea043 100%);

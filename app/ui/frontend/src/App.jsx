@@ -10,7 +10,6 @@ import rehypeStringify from 'rehype-stringify'
 import rehypeRaw from 'rehype-raw'
 import rehypeHighlight from 'rehype-highlight'
 import 'katex/dist/katex.min.css'
-import 'github-markdown-css/github-markdown-dark.css'
 import 'github-markdown-css/github-markdown-light.css'
 
 import FileTree from './components/FileTree'
@@ -38,7 +37,7 @@ import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
-import { FolderArchive, Sun, Moon, StretchVertical, Columns, FileText,Sparkle, Eye } from 'lucide-react'
+import { FolderArchive, Sun, Columns, FileText, Eye } from 'lucide-react'
 
 // 初始化 unified 处理器
 const createMarkdownProcessor = () => {
@@ -143,22 +142,21 @@ function App() {
 
   // 初始化主题
   useEffect(() => {
-    const savedTheme = localStorage.getItem('md-editor-theme')
-    if (savedTheme && ['light', 'vs-dark', 'md3'].includes(savedTheme)) {
-      setEditorTheme(savedTheme)
-    }
+    // 始终使用 light 主题
+    setEditorTheme('light')
+    localStorage.setItem('md-editor-theme', 'light')
   }, [])
 
   // 当主题变化时，应用到 Monaco Editor
   useEffect(() => {
     if (editorRef.current && monaco) {
       try {
-        monaco.editor.setTheme(editorTheme)
+        monaco.editor.setTheme('light')
       } catch (error) {
         console.error('Failed to set Monaco theme:', error)
       }
     }
-  }, [editorTheme])
+  }, [])
 
   // 处理文件树宽度调整
   const handleFileTreeResize = useCallback((delta) => {
@@ -183,31 +181,18 @@ function App() {
   }, [showFileTree, fileTreeWidth])
 
   const toggleEditorTheme = async () => {
-    // 三个主题循环切换: light -> vs-dark -> md3 -> light
-    let newTheme = 'light'
-    if (editorTheme === 'light') {
-      newTheme = 'vs-dark'
-    } else if (editorTheme === 'vs-dark') {
-      newTheme = 'md3'
-    } else {
-      newTheme = 'light'
-    }
+    // 只使用 light 主题，但保留切换按钮
+    const newTheme = 'light'
     
     // 保存主题设置
     setEditorTheme(newTheme)
     localStorage.setItem('md-editor-theme', newTheme)
     
-    // 如果 Mermaid 已加载，更新主题
+    // 如果 Mermaid 已加载，使用 default 主题
     if (mermaidLoaded && mermaidModule) {
-      let mermaidTheme = 'default'
-      if (newTheme === 'vs-dark') {
-        mermaidTheme = 'dark'
-      } else if (newTheme === 'md3') {
-        mermaidTheme = 'default'
-      }
       mermaidModule.initialize({ 
         startOnLoad: false,
-        theme: mermaidTheme,
+        theme: 'default',
         securityLevel: 'loose'
       })
       setTimeout(() => renderMarkdown(), 100)
@@ -1192,34 +1177,8 @@ HTML
       }
     })
     
-    monaco.editor.defineTheme('vs-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: {}
-    })
-    
-    // 定义 MD3 紫色主题
-    monaco.editor.defineTheme('md3', {
-      base: 'vs',
-      inherit: true,
-      rules: [
-        { token: 'keyword.md', foreground: '6750a4', fontStyle: 'bold' },
-        { token: 'string.md', foreground: '6750a4', fontStyle: 'bold' },
-      ],
-      colors: {
-        'editor.background': '#fef7ff',
-        'editor.foreground': '#1c1b1f',
-        'editorLineNumber.foreground': '#79747e',
-        'editorLineNumber.activeForeground': '#6750a4',
-        'editor.selectionBackground': '#e8def8',
-        'editor.inactiveSelectionBackground': '#f3edf7',
-        'editorCursor.foreground': '#6750a4',
-      }
-    })
-    
     // 应用主题
-    monaco.editor.setTheme(editorTheme)
+    monaco.editor.setTheme('light')
     
     // 监听粘贴事件，处理图片粘贴
     const domNode = editor.getDomNode()
@@ -1665,7 +1624,7 @@ HTML
 
 
   return (
-    <div className={`app ${editorTheme === 'light' ? 'theme-light' : editorTheme === 'md3' ? 'theme-md3' : 'theme-dark'}`}>
+    <div className="app theme-light">
       {showDraftDialog && (
         <DraftRecoveryDialog
           draft={pendingDraft}
@@ -1680,7 +1639,7 @@ HTML
           onClose={() => setShowNewFileDialog(false)}
           onConfirm={handleNewFileConfirm}
           rootDirs={rootDirs}
-          theme={editorTheme}
+          theme="light"
         />
       )}
 
@@ -1690,7 +1649,7 @@ HTML
           onConfirm={handleSaveAsConfirm}
           rootDirs={rootDirs}
           currentPath={currentPath}
-          theme={editorTheme}
+          theme="light"
           initialFileName={initialFileName}
           isSaveAs={isSaveAsMode}
         />
@@ -1701,7 +1660,7 @@ HTML
           onClose={() => setShowExportDialog(false)}
           content={content}
           currentPath={currentPath}
-          theme={editorTheme}
+          theme="light"
           previewHtml={previewRef.current?.innerHTML}
         />
       )}
@@ -1709,7 +1668,7 @@ HTML
       {showSettingsDialog && (
         <SettingsDialog
           onClose={() => setShowSettingsDialog(false)}
-          theme={editorTheme}
+          theme="light"
           onThemeChange={toggleEditorTheme}
         />
       )}
@@ -1717,21 +1676,21 @@ HTML
       {showMarkdownHelp && (
         <MarkdownHelpDialog
           onClose={() => setShowMarkdownHelp(false)}
-          theme={editorTheme}
+          theme="light"
         />
       )}
 
       {showShortcuts && (
         <ShortcutsDialog
           onClose={() => setShowShortcuts(false)}
-          theme={editorTheme}
+          theme="light"
         />
       )}
 
       {showAbout && (
         <AboutDialog
           onClose={() => setShowAbout(false)}
-          theme={editorTheme}
+          theme="light"
         />
       )}
 
@@ -1743,7 +1702,7 @@ HTML
           onRestore={handleRestoreHistory}
           onDelete={handleDeleteHistory}
           onClose={() => setShowHistory(false)}
-          theme={editorTheme}
+          theme="light"
         />
       )}
 
@@ -1756,7 +1715,7 @@ HTML
           >
             <FolderArchive />
           </button>
-          <img src={markdownLogo} alt="Markdown" className="app-logo" style={{ filter: editorTheme === 'light' ? 'none' : editorTheme === 'md3' ? 'brightness(0) saturate(100%) invert(100%)' : 'brightness(0) saturate(100%) invert(64%) sepia(85%) saturate(2476%) hue-rotate(195deg) brightness(103%) contrast(101%)' }} />
+          <img src={markdownLogo} alt="Markdown" className="app-logo" />
           <MenuBar
             onNewFile={handleNewFile}
             onSave={() => autoSave.manualSave()}
@@ -1800,7 +1759,7 @@ HTML
             onOpenRecentFile={handleOpenRecentFile}
             onClearRecentFiles={handleClearRecentFiles}
             disabled={!currentPath}
-            theme={editorTheme}
+            theme="light"
           />
         
         </div>
@@ -1847,7 +1806,7 @@ HTML
               <Editor
                 height="100%"
                 defaultLanguage="markdown"
-                theme={editorTheme}
+                theme="light"
                 value={content}
                 onChange={(value) => setContent(value || '')}
                 onMount={handleEditorMount}
@@ -1907,15 +1866,9 @@ HTML
           <button 
             className="statusbar-btn" 
             onClick={toggleEditorTheme}
-            title="切换主题 (Ctrl+T)"
+            title="主题 (Ctrl+T)"
           >
-            {editorTheme === 'light' ? (
-              <Sun size={16} />
-            ) : editorTheme === 'md3' ? (
-              <Sparkle size={16} />
-            ) : (
-              <Moon size={16} />
-            )}
+            <Sun size={16} />
           </button>
           <span className={`status-text status-${statusType}`}>{status}</span>
         </div>
@@ -1950,7 +1903,7 @@ HTML
           isOpen={showImageManager}
           onClose={() => setShowImageManager(false)}
           onInsertImage={handleImageInsert}
-          theme={editorTheme}
+          theme="light"
           onNotify={(message, type) => {
             setStatus(message)
             setStatusType(type || 'normal')
@@ -1967,7 +1920,7 @@ HTML
           isOpen={showTableDialog}
           onClose={() => setShowTableDialog(false)}
           onInsert={insertTable}
-          theme={editorTheme}
+          theme="light"
         />
       )}
 

@@ -211,7 +211,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
   };
 
   return (
-    <div className={`file-browser ${theme === 'light' ? 'theme-light' : theme === 'md3' ? 'theme-md3' : 'theme-dark'}`}>
+    <div className="file-browser theme-light">
       <div className="file-browser-sidebar">
         <div className="sidebar-header">
           <span className="sidebar-title">我的文件</span>

@@ -36,10 +36,6 @@
   border-color: transparent;
 }
 
-.theme-md3 .file-browser-container {
-  background: transparent;
-  border-color: transparent;
-}
 
 /* 底部文件名输入 */
 .dialog-footer {
@@ -57,10 +53,6 @@
   border-top-color: #d0d7de;
 }
 
-.theme-md3 .dialog-footer {
-  background: #f3edf7;
-  border-top-color: #e7e0ec;
-}
 
 .footer-left {
   flex: 1;
@@ -99,11 +91,6 @@
   color: #24292f;
 }
 
-.theme-md3 .file-name-input-footer .form-input {
-  background: #ffffff;
-  border-color: #e7e0ec;
-  color: #1c1b1f;
-}
 
 .file-name-input-footer .form-input:focus {
   outline: none;
@@ -116,10 +103,6 @@
   box-shadow: 0 0 0 3px rgba(1, 101, 255, 0.1);
 }
 
-.theme-md3 .file-name-input-footer .form-input:focus {
-  border-color: #6750a4;
-  box-shadow: 0 0 0 3px rgba(103, 80, 164, 0.1);
-}
 
 .file-name-input-footer .file-extension {
   position: absolute;
@@ -134,9 +117,6 @@
   color: #57606a;
 }
 
-.theme-md3 .file-name-input-footer .file-extension {
-  color: #79747e;
-}
 
 /* 覆盖确认 */
 .overwrite-confirm {
@@ -160,9 +140,6 @@
   color: #24292f;
 }
 
-.theme-md3 .overwrite-confirm h3 {
-  color: #e6e1e5;
-}
 
 .overwrite-confirm p {
   margin: 8px 0;
@@ -175,9 +152,6 @@
   color: #57606a;
 }
 
-.theme-md3 .overwrite-confirm p {
-  color: #938f99;
-}
 
 .confirm-path {
   margin: 16px 0;
@@ -197,11 +171,6 @@
   color: #cf222e;
 }
 
-.theme-md3 .confirm-path {
-  background: #3d2f2f;
-  border-color: #f85149;
-  color: #f85149;
-}
 
 /* 按钮样式 */
 .btn-secondary {
@@ -222,11 +191,6 @@
   color: #24292f;
 }
 
-.theme-md3 .btn-secondary {
-  background: #ffffff;
-  border-color: #e7e0ec;
-  color: #1c1b1f;
-}
 
 .btn-secondary:hover {
   background: #30363d;
@@ -238,9 +202,6 @@
   background: #f3f4f6;
 }
 
-.theme-md3 .btn-secondary:hover {
-  background: #f3edf7;
-}
 
 .btn-primary {
   background: #1f6feb;
@@ -258,9 +219,6 @@
   background: #0165ff;
 }
 
-.theme-md3 .btn-primary {
-  background: #6750a4;
-}
 
 .btn-primary:hover:not(:disabled) {
   opacity: 0.9;
@@ -272,9 +230,6 @@
   box-shadow: 0 4px 12px rgba(1, 101, 255, 0.3);
 }
 
-.theme-md3 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(103, 80, 164, 0.3);
-}
 
 .btn-primary:disabled {
   opacity: 0.5;
@@ -311,16 +266,7 @@
   margin: 16px 20px;
 }
 
-.theme-dark .error-message {
-  background: #3d2f2f;
-  border-color: #f85149;
-}
 
-.theme-md3 .error-message {
-  background: #ffd8e4;
-  border-color: #f85149;
-  color: #ba1a1a;
-}
 
 /* 覆盖确认对话框 */
 .overwrite-confirm {
@@ -344,9 +290,6 @@
   color: #24292f;
 }
 
-.theme-md3 .overwrite-confirm h3 {
-  color: #1c1b1f;
-}
 
 .overwrite-confirm p {
   margin: 12px 0;
@@ -359,9 +302,6 @@
   color: #57606a;
 }
 
-.theme-md3 .overwrite-confirm p {
-  color: #79747e;
-}
 
 .confirm-path {
   margin: 24px 0;
@@ -381,11 +321,6 @@
   color: #cf222e;
 }
 
-.theme-md3 .confirm-path {
-  background: #ffd8e4;
-  border-color: #ba1a1a;
-  color: #ba1a1a;
-}
 
 /* 响应式 */
 @media (max-width: 768px) {

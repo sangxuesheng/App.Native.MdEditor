@@ -269,83 +269,16 @@
 }
 
 /* ==================== MD3 主题 ==================== */
-.theme-md3 .editor-toolbar {
-  background: linear-gradient(135deg, #f6edff 0%, #fef7ff 100%);
-  border-bottom-color: #e6e0e9;
-}
 
-.theme-md3 .toolbar-btn {
-  border-color: #d0bcff;
-  color: #6750a4;
-  border-radius: 12px;
-  font-weight: 500;
-}
 
-.theme-md3 .toolbar-btn:hover:not(:disabled) {
-  background: #eaddff;
-  border-color: #6750a4;
-  color: #381e72;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(103, 80, 164, 0.2);
-}
 
-.theme-md3 .toolbar-btn:active:not(:disabled) {
-  background: #d0bcff;
-  transform: scale(0.98);
-}
 
-.theme-md3 .toolbar-divider {
-  background: #e6e0e9;
-}
 
-.theme-md3 .chart-btn.active {
-  background: #eaddff;
-  border-color: #6750a4;
-  color: #381e72;
-}
 
-.theme-md3 .chart-dropdown {
-  background: #fef7ff;
-  border-color: #d0bcff;
-  box-shadow: 0 8px 24px rgba(103, 80, 164, 0.2);
-  border-radius: 16px;
-}
 
-.theme-md3 .chart-dropdown-header {
-  background: #f6edff;
-  border-bottom-color: #e6e0e9;
-  color: #381e72;
-}
 
-.theme-md3 .chart-dropdown-footer {
-  background: #f6edff;
-  border-top-color: #e6e0e9;
-  color: #6750a4;
-}
 
-.theme-md3 .chart-item {
-  background: #f6edff;
-  border-color: #d0bcff;
-  color: #6750a4;
-  border-radius: 12px;
-}
 
-.theme-md3 .chart-item:hover:not(:disabled) {
-  background: #eaddff;
-  border-color: #6750a4;
-  color: #381e72;
-  box-shadow: 0 2px 8px rgba(103, 80, 164, 0.2);
-}
 
-.theme-md3 .editor-toolbar::-webkit-scrollbar-track {
-  background: #f6edff;
-}
 
-.theme-md3 .editor-toolbar::-webkit-scrollbar-thumb {
-  background: #d0bcff;
-  border-radius: 3px;
-}
 
-.theme-md3 .editor-toolbar::-webkit-scrollbar-thumb:hover {
-  background: #b69df8;
-}

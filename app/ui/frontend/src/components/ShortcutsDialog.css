@@ -62,27 +62,10 @@
 }
 
 /* 深色主题 */
-.theme-dark .shortcuts-section h3 {
-  color: #e6edf3;
-  border-bottom-color: #30363d;
-}
 
-.theme-dark .shortcut-item {
-  background: #161b22;
-}
 
-.theme-dark .shortcut-item:hover {
-  background: #1c2128;
-}
 
-.theme-dark .shortcut-keys {
-  color: #79c0ff;
-  background: #0d1117;
-}
 
-.theme-dark .shortcut-description {
-  color: #8b949e;
-}
 
 /* 浅色主题 */
 .theme-light .shortcuts-section h3 {
@@ -108,24 +91,7 @@
 }
 
 /* MD3 主题 */
-.theme-md3 .shortcuts-section h3 {
-  color: #6750a4;
-  border-bottom-color: #e6e0e9;
-}
 
-.theme-md3 .shortcut-item {
-  background: #f6edff;
-}
 
-.theme-md3 .shortcut-item:hover {
-  background: #eaddff;
-}
 
-.theme-md3 .shortcut-keys {
-  color: #6750a4;
-  background: #fef7ff;
-}
 
-.theme-md3 .shortcut-description {
-  color: #49454f;
-}

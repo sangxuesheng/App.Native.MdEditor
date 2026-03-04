@@ -64,12 +64,6 @@
 }
 
 /* 深色主题 */
-.theme-dark {
-  --menu-bg: #252526;
-  --menu-hover-bg: #2a2d2e;
-  --border-color: #3e3e42;
-  --text-color: #cccccc;
-}
 
 /* 浅色主题 */
 .theme-light {

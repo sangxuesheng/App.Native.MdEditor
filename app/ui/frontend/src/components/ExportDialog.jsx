@@ -149,7 +149,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
   };
 
   return (
-    <div className={`dialog-overlay ${theme === 'light' ? 'theme-light' : 'theme-dark'}`} onClick={onClose}>
+    <div className="dialog-overlay theme-light" onClick={onClose}>
       <div className="dialog-content export-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>导出文档</h2>

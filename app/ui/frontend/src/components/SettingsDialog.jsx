@@ -77,7 +77,7 @@ const SettingsDialog = ({
   };
 
   return (
-    <div className={`dialog-overlay ${theme === 'light' ? 'theme-light' : 'theme-dark'}`} onClick={onClose}>
+    <div className="dialog-overlay theme-light" onClick={onClose}>
       <div className="dialog-content settings-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>设置</h2>

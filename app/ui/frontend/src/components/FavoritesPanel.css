@@ -166,17 +166,6 @@
 }
 
 /* 深色主题 */
-.theme-dark {
-  --panel-bg: #1e1e1e;
-  --hover-bg: #2a2d2e;
-  --active-bg: #37373d;
-  --active-color: #ffffff;
-  --text-secondary: #cccccc;
-  --danger-color: #f48771;
-  --danger-bg: rgba(244, 135, 113, 0.1);
-  --scrollbar-thumb: #424242;
-  --scrollbar-thumb-hover: #4e4e4e;
-}
 
 /* 浅色主题 */
 .theme-light {
@@ -219,9 +208,6 @@
 }
 
 /* 深色主题拖拽 */
-.theme-dark {
-  --dragging-bg: #37373d;
-}
 
 /* 浅色主题拖拽 */
 .theme-light {

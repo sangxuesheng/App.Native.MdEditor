@@ -126,41 +126,13 @@
 }
 
 /* 深色主题 */
-.theme-dark .app-name {
-  color: #e6edf3;
-}
 
-.theme-dark .app-version,
-.theme-dark .app-description {
-  color: #8b949e;
-}
 
-.theme-dark .about-features h4,
-.theme-dark .about-tech h4 {
-  color: #e6edf3;
-}
 
-.theme-dark .about-features li {
-  background: #161b22;
-  color: #c9d1d9;
-}
 
-.theme-dark .about-features li:hover {
-  background: #1c2128;
-}
 
-.theme-dark .tech-tag {
-  background: #161b22;
-  color: #79c0ff;
-}
 
-.theme-dark .about-footer-info {
-  border-top-color: #30363d;
-}
 
-.theme-dark .about-footer-info p {
-  color: #6e7681;
-}
 
 /* 浅色主题 */
 .theme-light .app-name {
@@ -200,38 +172,10 @@
 }
 
 /* MD3 主题 */
-.theme-md3 .app-name {
-  color: #6750a4;
-}
 
-.theme-md3 .app-version,
-.theme-md3 .app-description {
-  color: #49454f;
-}
 
-.theme-md3 .about-features h4,
-.theme-md3 .about-tech h4 {
-  color: #6750a4;
-}
 
-.theme-md3 .about-features li {
-  background: #f6edff;
-  color: #1d1b20;
-}
 
-.theme-md3 .about-features li:hover {
-  background: #eaddff;
-}
 
-.theme-md3 .tech-tag {
-  background: #f6edff;
-  color: #6750a4;
-}
 
-.theme-md3 .about-footer-info {
-  border-top-color: #e6e0e9;
-}
 
-.theme-md3 .about-footer-info p {
-  color: #79747e;
-}

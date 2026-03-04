@@ -95,9 +95,6 @@
 }
 
 /* 深色主题 */
-.theme-dark .toast {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
 
 /* 浅色主题 */
 .theme-light .toast {
@@ -105,7 +102,4 @@
 }
 
 /* MD3 主题 */
-.theme-md3 .toast {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
 

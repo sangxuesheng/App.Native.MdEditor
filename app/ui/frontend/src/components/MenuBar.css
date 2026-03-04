@@ -120,16 +120,6 @@
 }
 
 /* 深色主题 */
-.theme-dark {
-  --menubar-bg: #1e1e1e;
-  --menu-hover-bg: #2d2d30;
-  --dropdown-bg: #252526;
-  --menu-item-hover-bg: #2a2d2e;
-  --border-color: #3e3e42;
-  --text-color: #cccccc;
-  --menu-button-border: #3e3e42;
-  --menu-button-border-hover: #0e639c;
-}
 
 /* 浅色主题 */
 .theme-light {
@@ -156,16 +146,6 @@
 }
 
 /* MD3 主题 */
-.theme-md3 {
-  --menubar-bg: #6750a4;
-  --menu-hover-bg: rgba(255, 255, 255, 0.1);
-  --dropdown-bg: #fef7ff;
-  --menu-item-hover-bg: #eaddff;
-  --border-color: #e6e0e9;
-  --text-color: #1d1b20;
-  --menu-button-border: rgba(255, 255, 255, 0.2);
-  --menu-button-border-hover: rgba(255, 255, 255, 0.4);
-}
 
 /* 最近文件样式 */
 .recent-files-submenu {
