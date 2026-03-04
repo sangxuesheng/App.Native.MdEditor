@@ -1,7 +1,73 @@
-/* 新建文件夹对话框样式 */
-.new-folder-dialog {
-  width: 450px;
-  max-width: 90vw;
+/* 新建文件夹对话框样式 - 固定尺寸 */
+.dialog-overlay .dialog-content.new-folder-dialog {
+  width: 600px !important;
+  min-width: 600px !important;
+  max-width: 600px !important;
+  height: 500px !important;
+  max-height: 85vh !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 确保 form 占满整个对话框 */
+.new-folder-dialog > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 确保所有子元素不超出宽度 */
+.dialog-overlay .dialog-content.new-folder-dialog > * {
+  max-width: 600px !important;
+  box-sizing: border-box !important;
+}
+
+/* dialog-body 占据剩余空间 */
+.new-folder-dialog .dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+/* dialog-footer 固定在底部 */
+.new-folder-dialog .dialog-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-top: 1px solid var(--border-color);
+}
+
+.new-folder-dialog .footer-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* 统一按钮样式 */
+.new-folder-dialog .btn-secondary,
+.new-folder-dialog .btn-primary {
+  height: 38px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.new-folder-dialog .form-hint {
+  flex: 1;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  word-break: break-all;
+  max-width: 350px;
 }
 
 .new-folder-dialog .form-group {
@@ -45,15 +111,5 @@
   margin-top: 6px;
   font-size: 12px;
   color: var(--error-color);
-}
-
-.new-folder-dialog .form-hint {
-  margin-top: 12px;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border-radius: 4px;
-  word-break: break-all;
 }
 

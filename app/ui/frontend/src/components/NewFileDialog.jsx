@@ -183,33 +183,19 @@ categories: [分类]
 
 const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
   const [selectedTemplate, setSelectedTemplate] = useState('blank');
-  const [fileName, setFileName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const handleTemplateSelect = (templateId) => {
     setSelectedTemplate(templateId);
   };
 
-  const handleCreate = async () => {
-    if (!fileName.trim()) {
-      setError('请输入文件名');
-      return;
-    }
-
-    // 确保文件名以 .md 结尾
-    let finalFileName = fileName.trim();
-    if (!finalFileName.endsWith('.md')) {
-      finalFileName += '.md';
-    }
-
+  const handleCreate = () => {
     // 获取模板内容
     const template = TEMPLATES.find(t => t.id === selectedTemplate);
     const content = template ? template.content : '';
 
-    // 直接调用onConfirm，将文件名和内容传递给父组件
-    // 路径选择将在保存时由父组件处理
-    onConfirm(finalFileName, content);
+    // 只传递内容给父组件，不需要文件名
+    // 文件名和保存位置将在用户保存时填写
+    onConfirm(content);
     onClose();
   };
 
@@ -225,22 +211,7 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
 
         <div className="dialog-body">
           <div className="form-group">
-            <label>文件名称 *</label>
-            <div className="file-name-input">
-              <input
-                type="text"
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-                placeholder="新建文件名称"
-                className="form-input"
-                autoFocus
-              />
-              <span className="file-extension">.md</span>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>模板</label>
+            <label>选择模板</label>
             <div className="template-grid">
               {TEMPLATES.map(template => {
                 const getIcon = () => {
@@ -276,8 +247,6 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
               })}
             </div>
           </div>
-
-          {error && <div className="error-message">{error}</div>}
         </div>
 
         <div className="dialog-footer">
@@ -285,9 +254,8 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
           <button 
             className="btn-primary" 
             onClick={handleCreate}
-            disabled={loading}
           >
-            {loading ? '创建中...' : '确定'}
+            创建并编辑
           </button>
         </div>
       </div>

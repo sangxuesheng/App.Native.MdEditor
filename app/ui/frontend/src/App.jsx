@@ -676,25 +676,24 @@ HTML
     setShowNewFileDialog(true)
   }
 
-  const [newFileContent, setNewFileContent] = useState('')
   const [initialFileName, setInitialFileName] = useState('')
 
-  const handleNewFileConfirm = (fileName, fileContent) => {
-    // 保存文件名和内容
+  const handleNewFileConfirm = (fileContent) => {
+    // 直接加载模板内容到编辑器
     setContent(fileContent)
-    setNewFileContent(fileContent)
-    setInitialFileName(fileName)
-    // 打开保存对话框，让用户选择路径
-    setIsSaveAsMode(false) // 非另存为模式，是新建文件
-    setShowSaveAsDialog(true)
+    setCurrentPath('') // 清空当前路径，表示这是新文件
+    setInitialFileName('') // 清空初始文件名，用户保存时自己填写
+    setStatus('新建文件 - 未保存')
+    // 不再打开保存对话框，用户编辑完成后通过保存按钮触发
   }
 
   const handleSaveAsConfirm = async (newPath) => {
-    const success = await saveFile(newPath, newFileContent)
+    // 使用当前编辑器内容进行保存
+    const success = await saveFile(newPath, content)
     if (success) {
       setCurrentPath(newPath)
       autoSave.reset()
-      setStatus(`已创建: ${newPath}`)
+      setStatus(`已保存: ${newPath}`)
       
       // 刷新文件树（刷新父目录）
       if (fileTreeRef.current && fileTreeRef.current.refreshDirectory) {
@@ -1617,9 +1616,30 @@ HTML
     setFavorites(newFavorites)
   }
 
-  const handleOpenFavorite = (path) => {
-    setCurrentPath(path)
-    loadFile(path)
+  const handleOpenFavorite = async (path) => {
+    // 从收藏夹列表中找到对应项
+    const favoriteItem = favorites.find(item => item.path === path)
+    
+    if (favoriteItem) {
+      if (favoriteItem.type === 'directory') {
+        // 如果是文件夹，展开到该文件夹
+        setCurrentPath(path)
+        if (fileTreeRef.current && fileTreeRef.current.expandToPath) {
+          await fileTreeRef.current.expandToPath(path)
+        }
+      } else {
+        // 如果是文件，加载文件内容并展开到该文件
+        setCurrentPath(path)
+        if (fileTreeRef.current && fileTreeRef.current.expandToPath) {
+          await fileTreeRef.current.expandToPath(path)
+        }
+        loadFile(path)
+      }
+    } else {
+      // 如果找不到收藏项，尝试作为文件加载
+      setCurrentPath(path)
+      loadFile(path)
+    }
   }
 
 

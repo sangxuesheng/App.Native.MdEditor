@@ -129,7 +129,7 @@ html, body {
 .btn-primary {
   height: 32px;
   padding: 0 16px;
-  background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+  background: #086ADA;
   border: none;
   border-radius: 6px;
   color: #ffffff;
@@ -143,9 +143,9 @@ html, body {
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+  background: #0757b8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(46, 160, 67, 0.3);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
 }
 
 .btn-primary:disabled {
@@ -1033,37 +1033,7 @@ html, body {
   display: block !important;
 }
 
-/* ==================== 隐藏查找窗口右侧的 (Escape) 按钮 ==================== */
 
-/* 隐藏关闭按钮（带 Escape 文字的按钮） */
-.monaco-editor .find-widget .button.codicon-find-close,
-.monaco-editor .find-widget .button[title*="Escape"],
-.monaco-editor .find-widget .button[aria-label*="Escape"] {
-  font-size: 0 !important;
-  color: transparent !important;
-}
-
-/* 只显示关闭图标，隐藏文字 */
-.monaco-editor .find-widget .button.codicon-find-close::before {
-  font-size: 16px !important;
-  color: #666 !important;
-}
-
-/* 隐藏按钮内的所有文本节点 */
-.monaco-editor .find-widget .button.codicon-find-close {
-  overflow: hidden !important;
-  text-indent: -9999px !important;
-  white-space: nowrap !important;
-}
-
-/* 确保图标正常显示 */
-.monaco-editor .find-widget .button.codicon-find-close::before {
-  text-indent: 0 !important;
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  transform: translate(-50%, -50%) !important;
-}
 
 
 
@@ -1208,4 +1178,25 @@ mark {
   width: 100%;
   padding: 0;
   gap: 8px;
+}
+
+/* 隐藏 Monaco Editor 的 "Close (Escape)" 提示 */
+.monaco-hover .hover-contents:has-text("Close (Escape)"),
+.monaco-hover .hover-row:has(.hover-contents:contains("Close")),
+.monaco-hover .hover-contents {
+  display: none !important;
+}
+
+/* 只显示实际的 hover 内容，隐藏关闭提示 */
+.monaco-hover .hover-row.markdown-hover {
+  display: block !important;
+}
+
+.monaco-hover .hover-row.markdown-hover .hover-contents {
+  display: block !important;
+}
+
+/* 隐藏包含 "Escape" 的 hover 行 */
+.monaco-hover .hover-row:last-child {
+  display: none !important;
 }

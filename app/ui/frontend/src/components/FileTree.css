@@ -104,9 +104,10 @@
 
 .tree-node-favorite {
   color: #ffd700;
-  font-size: 14px;
   margin-left: 6px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
   animation: starPulse 2s ease-in-out infinite;
 }
 

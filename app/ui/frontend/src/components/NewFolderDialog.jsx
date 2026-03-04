@@ -75,18 +75,20 @@ function NewFolderDialog({
               />
               {error && <div className="form-error">{error}</div>}
             </div>
-            <div className="form-hint">
-              位置: {parentPath}
-            </div>
           </div>
           
           <div className="dialog-footer">
-            <button type="button" className="btn-secondary" onClick={onCancel}>
-              取消
-            </button>
-            <button type="submit" className="btn-primary">
-              创建
-            </button>
+            <div className="form-hint">
+              位置: {parentPath}
+            </div>
+            <div className="footer-buttons">
+              <button type="button" className="btn-secondary" onClick={onCancel}>
+                取消
+              </button>
+              <button type="submit" className="btn-primary">
+                创建
+              </button>
+            </div>
           </div>
         </form>
       </div>

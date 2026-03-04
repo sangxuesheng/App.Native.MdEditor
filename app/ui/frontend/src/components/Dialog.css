@@ -182,14 +182,14 @@
 
 
 .btn-primary {
-  background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+  background: #086ADA;
   color: #ffffff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+  background: #0757b8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(46, 160, 67, 0.3);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
 }
 
 .btn-primary:disabled {

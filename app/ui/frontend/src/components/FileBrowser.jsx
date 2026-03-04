@@ -196,7 +196,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
             )}
             {!dir.hasChildren && <span className="expand-placeholder"></span>}
             
-            {isExpanded ? <FolderOpen size={16} className="folder-icon" /> : <Folder size={16} className="folder-icon" />}
+            {isExpanded ? <FolderOpen size={28} className="folder-icon" /> : <Folder size={28} className="folder-icon" />}
             <span className="directory-name">{dir.name}</span>
           </div>
           
@@ -224,7 +224,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
                 className={`root-directory ${selectedRootDir?.path === dir.path ? 'selected' : ''}`}
                 onClick={() => handleRootDirSelect(dir)}
               >
-                <Folder size={18} className="folder-icon" />
+                <Folder size={28} className="folder-icon" />
                 <span className="directory-name">{dir.name}</span>
               </div>
             ))}
@@ -265,7 +265,6 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
               className="btn-secondary btn-sm"
               onClick={() => handleNewFolder(selectedRootDir?.path)}
             >
-              <Plus size={14} />
               创建第一个文件夹
             </button>
           </div>

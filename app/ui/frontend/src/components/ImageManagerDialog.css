@@ -606,7 +606,7 @@
 }
 
 /* 图片库标签页 */
-.library-tab {
+.library-tab.empty {
   min-height: 300px;
   display: flex;
   align-items: center;
@@ -861,7 +861,7 @@
 .delete-image-btn {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
   width: 32px;
   height: 32px;
   display: flex;
@@ -948,12 +948,14 @@
 }
 
 .selection-mode-button {
-  background: #2196f3;
+  background: #086ADA;
   color: white;
 }
 
 .selection-mode-button:hover:not(:disabled) {
-  background: #1976d2;
+  background: #0757b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
 }
 
 .selection-mode-button:disabled {

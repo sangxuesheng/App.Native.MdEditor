@@ -213,3 +213,86 @@
 .theme-light {
   --dragging-bg: #d4d4d4;
 }
+
+/* 自定义右键菜单 */
+.favorites-context-menu {
+  position: fixed;
+  min-width: 180px;
+  background: var(--menu-bg, #2d2d2d);
+  border: 1px solid var(--border-color, #404040);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  z-index: 10000;
+  animation: contextMenuFadeIn 0.15s ease-out;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.favorites-context-menu .context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-color, #e0e0e0);
+  cursor: pointer;
+  transition: background-color 0.15s;
+  user-select: none;
+}
+
+.favorites-context-menu .context-menu-item:hover {
+  background: var(--hover-bg, #3a3a3a);
+}
+
+.favorites-context-menu .context-menu-item.danger {
+  color: var(--danger-color, #f85149);
+}
+
+.favorites-context-menu .context-menu-item.danger:hover {
+  background: rgba(248, 81, 73, 0.1);
+}
+
+.favorites-context-menu .context-menu-divider {
+  height: 1px;
+  background: var(--border-color, #404040);
+  margin: 4px 0;
+}
+
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: transparent;
+}
+
+/* 浅色主题右键菜单 */
+.theme-light .favorites-context-menu {
+  background: #ffffff;
+  border-color: #d0d7de;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .favorites-context-menu .context-menu-item {
+  color: #24292f;
+}
+
+.theme-light .favorites-context-menu .context-menu-item:hover {
+  background: #f6f8fa;
+}
+
+.theme-light .favorites-context-menu .context-menu-divider {
+  background: #d0d7de;
+}

@@ -32,6 +32,22 @@
   animation: slideUp 0.3s ease;
 }
 
+/* 新建文件对话框 - 固定尺寸 */
+.dialog-overlay .dialog-content.new-file-dialog {
+  width: 600px !important;
+  min-width: 600px !important;
+  max-width: 600px !important;
+  height: 500px !important;
+  max-height: 85vh !important;
+  box-sizing: border-box !important;
+}
+
+/* 确保所有子元素不超出宽度 */
+.dialog-overlay .dialog-content.new-file-dialog > * {
+  max-width: 600px !important;
+  box-sizing: border-box !important;
+}
+
 .theme-light .dialog-content {
   background: #ffffff;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
@@ -444,4 +460,38 @@
   }
 }
 
+/* 统一按钮样式 */
+.new-file-dialog .btn-secondary,
+.new-file-dialog .btn-primary {
+  height: 38px;
+  min-width: 80px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.new-file-dialog .btn-primary {
+  background: #086ADA;
+  color: #ffffff;
+  border: none;
+}
+
+.new-file-dialog .btn-primary:hover:not(:disabled) {
+  background: #0757b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.new-file-dialog .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 

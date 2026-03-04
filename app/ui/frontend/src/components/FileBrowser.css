@@ -23,7 +23,7 @@
 
 /* 左侧边栏 */
 .file-browser-sidebar {
-  width: 220px;
+  width: 170px;
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -32,12 +32,15 @@
 }
 
 .sidebar-header {
-  padding: 16px;
+  height: 46px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border-color);
   font-weight: 600;
   color: var(--text-color);
   font-size: 14px;
   background: var(--dialog-bg);
+  display: flex;
+  align-items: center;
 }
 
 .sidebar-title {
@@ -53,7 +56,8 @@
 .root-directory {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  height: 36px;
+  padding: 0 12px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -131,7 +135,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  height: 46px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--border-color);
   background: var(--dialog-bg);
 }
@@ -187,7 +192,8 @@
 .directory-node {
   display: flex;
   align-items: center;
-  padding: 8px 10px;
+  height: 44px;
+  padding: 0 10px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -418,8 +424,8 @@
   color: var(--text-color);
 }
 
-.new-folder-dialog .dialog-body {
-  padding: 20px;
+.file-browser .new-folder-dialog .dialog-body {
+  padding: 24px 32px !important;
 }
 
 .new-folder-dialog .form-group {
@@ -462,11 +468,11 @@
   word-break: break-all;
 }
 
-.new-folder-dialog .dialog-footer {
+.file-browser .new-folder-dialog .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 16px;
+  gap: 12px;
+  padding: 20px 32px !important;
   border-top: 1px solid var(--border-color);
 }
 
@@ -530,22 +536,26 @@
 
 /* 滚动条样式 */
 .file-browser-sidebar::-webkit-scrollbar,
-.file-browser-content::-webkit-scrollbar {
+.file-browser-content::-webkit-scrollbar,
+.directory-tree::-webkit-scrollbar {
   width: 8px;
 }
 
 .file-browser-sidebar::-webkit-scrollbar-track,
-.file-browser-content::-webkit-scrollbar-track {
+.file-browser-content::-webkit-scrollbar-track,
+.directory-tree::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .file-browser-sidebar::-webkit-scrollbar-thumb,
-.file-browser-content::-webkit-scrollbar-thumb {
+.file-browser-content::-webkit-scrollbar-thumb,
+.directory-tree::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 4px;
 }
 
 .file-browser-sidebar::-webkit-scrollbar-thumb:hover,
-.file-browser-content::-webkit-scrollbar-thumb:hover {
+.file-browser-content::-webkit-scrollbar-thumb:hover,
+.directory-tree::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }

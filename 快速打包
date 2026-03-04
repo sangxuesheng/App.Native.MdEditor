@@ -72,3 +72,11 @@ export PATH=/var/apps/python312/target/bin:$PATH
 
 ln -s /var/apps/nodejs_v22/target/bin/node /usr/local/bin/node
 ln -s /var/apps/python312/target/bin/python3 /usr/local/bin/python
+
+
+
+
+
+开发服务
+
+cd /vol4/1000/开发文件夹/mac/app/ui/frontend && export PATH=/var/apps/nodejs_v22/target/bin:$PATH && npm run dev

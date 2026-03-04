@@ -10,6 +10,7 @@ function ContextMenu({
   x, 
   y, 
   node,
+  type,
   onAction,
   onClose
 }) {
@@ -17,6 +18,17 @@ function ContextMenu({
 
   // 根据节点类型生成菜单项
   const getMenuItems = () => {
+    // 如果是头部菜单
+    if (type === 'header') {
+      return [
+        {
+          label: '刷新',
+          icon: <RefreshCw size={16} />,
+          action: () => onAction('refresh')
+        }
+      ]
+    }
+    
     if (!node) return []
     
     const isFile = node.type === 'file'

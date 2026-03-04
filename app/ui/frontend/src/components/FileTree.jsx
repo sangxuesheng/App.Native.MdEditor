@@ -1,4 +1,5 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { ChevronRight, File, Folder, Star, FileText, FileJson } from 'lucide-react';
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
 import ContextMenu from './ContextMenu';
@@ -46,8 +47,45 @@ const FileTree = forwardRef(({
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
-    refreshDirectory: loadDirectory
+    refreshDirectory: loadDirectory,
+    expandToPath: expandToPath
   }));
+
+  // 展开到指定路径
+  const expandToPath = async (targetPath) => {
+    // 解析路径，获取所有父级目录
+    const pathParts = targetPath.split('/').filter(Boolean)
+    const newExpanded = new Set(expanded)
+    
+    // 逐级展开父目录
+    let currentPath = ''
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      currentPath += '/' + pathParts[i]
+      newExpanded.add(currentPath)
+      
+      // 加载该目录（如果还没加载）
+      const node = findNodeByPath(tree, currentPath)
+      if (node && !node.children) {
+        await loadDirectory(currentPath)
+      }
+    }
+    
+    setExpanded(newExpanded)
+  }
+
+  // 在树中查找节点
+  const findNodeByPath = (nodes, targetPath) => {
+    for (const node of nodes) {
+      if (node.path === targetPath) {
+        return node
+      }
+      if (node.children) {
+        const found = findNodeByPath(node.children, targetPath)
+        if (found) return found
+      }
+    }
+    return null
+  }
 
   // 加载根目录
   useEffect(() => {
@@ -144,6 +182,20 @@ const FileTree = forwardRef(({
     });
   };
 
+  // 处理文件树头部右键菜单
+  const handleHeaderContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 显示刷新菜单
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      node: null,
+      type: 'header'
+    });
+  };
+
   // 处理空白区域右键菜单（显示根目录菜单）
   const handleEmptyAreaContextMenu = (e) => {
     e.preventDefault();
@@ -162,9 +214,17 @@ const FileTree = forwardRef(({
 
   // 右键菜单操作处理
   const handleMenuAction = async (action) => {
-    if (!selectedNode) return;
-    
     setContextMenu(null);
+    
+    // 处理头部菜单操作
+    if (contextMenu?.type === 'header') {
+      if (action === 'refresh') {
+        await loadDirectory('/');
+      }
+      return;
+    }
+    
+    if (!selectedNode) return;
     
     switch (action) {
       case 'open':
@@ -486,6 +546,14 @@ const FileTree = forwardRef(({
     );
   };
 
+  // 根据文件类型获取图标
+  const getFileIcon = (path) => {
+    if (path.endsWith('.md')) return <FileText size={16} />
+    if (path.endsWith('.txt')) return <File size={16} />
+    if (path.endsWith('.json')) return <FileJson size={16} />
+    return <File size={16} />
+  };
+
   // 渲染树节点
   const renderNode = (node, level = 0) => {
     const isExpanded = expanded.has(node.path);
@@ -503,15 +571,28 @@ const FileTree = forwardRef(({
           onContextMenu={(e) => handleContextMenu(e, node)}
         >
           {hasChildren && (
-            <span className={`tree-node-icon ${isExpanded ? 'expanded' : ''}`}>
-              ▶
+            <>
+              <span className={`tree-node-icon ${isExpanded ? 'expanded' : ''}`}>
+                <ChevronRight size={16} />
+              </span>
+              <span className="tree-node-icon">
+                <Folder size={16} />
+              </span>
+            </>
+          )}
+          {!hasChildren && (
+            <span className="tree-node-icon">
+              {getFileIcon(node.path)}
             </span>
           )}
-          {!hasChildren && <span className="tree-node-icon">📄</span>}
           <span className="tree-node-name" title={node.path}>
             {debouncedQuery ? renderHighlightedName(node.name, debouncedQuery) : node.name}
           </span>
-          {isFav && <span className="tree-node-favorite" title="已收藏">★</span>}
+          {isFav && (
+            <span className="tree-node-favorite" title="已收藏">
+              <Star size={14} fill="currentColor" />
+            </span>
+          )}
         </div>
         
         {hasChildren && isExpanded && children.length > 0 && (
@@ -527,7 +608,7 @@ const FileTree = forwardRef(({
 
   return (
     <div className="file-tree" style={style}>
-      <div className="file-tree-header">
+      <div className="file-tree-header" onContextMenu={handleHeaderContextMenu}>
         <h3>文件</h3>
         <FileSearchBox
           value={searchQuery}
@@ -571,6 +652,7 @@ const FileTree = forwardRef(({
           x={contextMenu.x}
           y={contextMenu.y}
           node={contextMenu.node}
+          type={contextMenu.type}
           onAction={handleMenuAction}
           onClose={() => setContextMenu(null)}
         />

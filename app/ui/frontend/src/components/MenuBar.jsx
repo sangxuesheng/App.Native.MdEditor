@@ -36,7 +36,9 @@ import {
   Keyboard,
   Info,
   X,
-  Settings
+  Settings,
+  File,
+  FileJson
 } from 'lucide-react'
 
 /**
@@ -98,6 +100,16 @@ const MenuItemIcon = ({ type }) => {
   };
   
   return icons[type] || null;
+};
+
+// 根据文件路径获取文件图标
+const getFileIcon = (path) => {
+  const iconStyle = { width: '14px', height: '14px', marginRight: '8px', flexShrink: 0, strokeWidth: 2.5 };
+  
+  if (path.endsWith('.md')) return <FileText style={iconStyle} />
+  if (path.endsWith('.txt')) return <File style={iconStyle} />
+  if (path.endsWith('.json')) return <FileJson style={iconStyle} />
+  return <File style={iconStyle} />
 };
 
 
@@ -316,6 +328,7 @@ function MenuBar({
                                 onClick={() => handleMenuItemClick(() => onOpenRecentFile(file.path))}
                                 title={file.path}
                               >
+                                {getFileIcon(file.path)}
                                 <span className="menu-label">{file.name}</span>
                                 <span className="menu-shortcut recent-time">{formatTime(file.timestamp)}</span>
                               </button>

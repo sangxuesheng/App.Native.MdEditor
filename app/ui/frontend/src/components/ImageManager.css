@@ -320,3 +320,212 @@
 [data-theme="md3"] .image-card:hover {
   border-color: #d0bcff;
 }
+
+/* 批量管理按钮 */
+.selection-mode-button,
+.select-all-button,
+.batch-delete-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.selection-mode-button {
+  background: #086ADA;
+  color: white;
+}
+
+.selection-mode-button:hover {
+  background: #0757b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.select-all-button {
+  background: var(--bg-secondary, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.select-all-button:hover {
+  background: var(--hover-bg, #333);
+}
+
+.batch-delete-button {
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid #ff4444;
+  color: #ff4444;
+}
+
+.batch-delete-button:hover:not(:disabled) {
+  background: rgba(255, 68, 68, 0.2);
+}
+
+.batch-delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.footer-left-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* 图片项容器 */
+.image-item {
+  position: relative;
+  background: var(--bg-secondary, #2a2a2a);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s;
+  border: 1px solid var(--border-color, #333);
+}
+
+.image-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: var(--primary-color, #007acc);
+}
+
+.image-item > img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.image-item .image-info {
+  padding: 12px;
+  background: var(--bg-secondary, #2a2a2a);
+}
+
+.image-item .image-filename {
+  display: block;
+  font-size: 13px;
+  color: var(--text-primary, #e0e0e0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.image-item .image-size {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+.image-item .image-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  color: white;
+}
+
+.image-item.selected {
+  border-color: #086ADA;
+  box-shadow: 0 0 0 2px #086ADA;
+}
+
+/* 删除图片按钮 - 右上角 */
+.delete-image-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  z-index: 20;
+}
+
+.image-item:hover .delete-image-btn {
+  opacity: 1;
+}
+
+.delete-image-btn:hover {
+  background: #ff4444;
+  transform: scale(1.1);
+}
+
+/* 图片覆盖层（插入按钮） */
+.image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+
+.image-item:hover .image-overlay {
+  opacity: 1;
+}
+
+.image-overlay button {
+  background: #086ADA;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.image-overlay button:hover {
+  background: #0757b8;
+  transform: scale(1.05);
+}
+
+/* 浅色主题下的按钮 */
+[data-theme="light"] .select-all-button {
+  background: #f5f5f5;
+  border-color: #ccc;
+  color: #1e1e1e;
+}
+
+[data-theme="light"] .select-all-button:hover {
+  background: #e0e0e0;
+}
+
+[data-theme="light"] .delete-image-btn {
+  background: rgba(255, 255, 255, 0.9);
+  color: #ff4444;
+}
+
+[data-theme="light"] .delete-image-btn:hover {
+  background: #ff4444;
+  color: white;
+}
