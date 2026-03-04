@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Check, X, AlertTriangle, Info } from 'lucide-react'
 import './Toast.css'
 
 /**
@@ -18,16 +19,19 @@ function Toast({ message, type = 'info', duration = 3000, onClose }) {
     return () => clearTimeout(timer)
   }, [duration, onClose])
 
-  const icons = {
-    success: '✓',
-    error: '✕',
-    warning: '⚠',
-    info: 'ℹ'
+  const getIcon = () => {
+    switch(type) {
+      case 'success': return <Check size={18} />
+      case 'error': return <X size={18} />
+      case 'warning': return <AlertTriangle size={18} />
+      case 'info': return <Info size={18} />
+      default: return <Info size={18} />
+    }
   }
 
   return (
     <div className={`toast toast-${type} ${visible ? 'toast-visible' : 'toast-hidden'}`}>
-      <span className="toast-icon">{icons[type]}</span>
+      <span className="toast-icon">{getIcon()}</span>
       <span className="toast-message">{message}</span>
     </div>
   )

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Star, Folder, FileText, File, FileJson, ChevronDown, ChevronRight, GripVertical } from 'lucide-react'
 import './FavoritesPanel.css'
 
 /**
@@ -71,18 +72,18 @@ function FavoritesPanel({
   }
 
   const getFavoriteIcon = (type, path) => {
-    if (type === 'directory') return '📁'
-    if (path.endsWith('.md')) return '📝'
-    if (path.endsWith('.txt')) return '📄'
-    if (path.endsWith('.json')) return '📋'
-    return '📄'
+    if (type === 'directory') return <Folder size={16} />
+    if (path.endsWith('.md')) return <FileText size={16} />
+    if (path.endsWith('.txt')) return <File size={16} />
+    if (path.endsWith('.json')) return <FileJson size={16} />
+    return <File size={16} />
   }
 
   return (
     <div className="favorites-panel">
       <div className="favorites-header" onClick={handleToggle}>
-        <span className="favorites-toggle">{isExpanded ? '▼' : '▶'}</span>
-        <span className="favorites-title">⭐ 收藏夹</span>
+        <span className="favorites-toggle">{isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
+        <span className="favorites-title"><Star size={16} fill="currentColor" /> 收藏夹</span>
         <span className="favorites-count">({favorites.length})</span>
       </div>
 
@@ -90,7 +91,7 @@ function FavoritesPanel({
         <div className="favorites-content">
           {favorites.length === 0 ? (
             <div className="favorites-empty">
-              <span className="empty-icon">⭐</span>
+              <span className="empty-icon"><Star size={48} /></span>
               <span className="empty-text">暂无收藏</span>
               <span className="empty-hint">右键文件可添加收藏</span>
             </div>
@@ -109,7 +110,7 @@ function FavoritesPanel({
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, index)}
                   >
-                    <span className="favorite-drag-handle" title="拖拽排序">⋮⋮</span>
+                    <span className="favorite-drag-handle" title="拖拽排序"><GripVertical size={16} /></span>
                     <span className="favorite-icon">
                       {getFavoriteIcon(item.type, item.path)}
                     </span>

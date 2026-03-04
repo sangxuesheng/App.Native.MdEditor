@@ -62,3 +62,13 @@ Make sure that /usr/local/bin is in your $PATH.
 
 
 cd "/vol4/1000/开发文件夹/mac" && fnpack build
+
+
+
+
+飞牛上的信息
+export PATH=/var/apps/nodejs_v22/target/bin:$PATH
+export PATH=/var/apps/python312/target/bin:$PATH
+
+ln -s /var/apps/nodejs_v22/target/bin/node /usr/local/bin/node
+ln -s /var/apps/python312/target/bin/python3 /usr/local/bin/python

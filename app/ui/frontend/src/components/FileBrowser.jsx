@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, FolderOpen, ChevronRight, ChevronDown, Plus } from 'lucide-react';
+import { Folder, FolderOpen, ChevronRight, ChevronDown, Plus, X } from 'lucide-react';
+import AnimatedList from './AnimatedList';
 import './FileBrowser.css';
 
 const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
   const [selectedRootDir, setSelectedRootDir] = useState(null);
-  const [subDirectories, setSubDirectories] = useState([]);
+  const [directoryTree, setDirectoryTree] = useState([]);
   const [expandedDirs, setExpandedDirs] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
@@ -14,46 +15,113 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
 
   useEffect(() => {
     if (rootDirs && rootDirs.length > 0) {
-      setSelectedRootDir(rootDirs[0]);
-      loadSubDirectories(rootDirs[0].path);
+      const firstDir = rootDirs[0];
+      setSelectedRootDir(firstDir);
+      loadDirectoryTree(firstDir.path);
+      // 默认选中根目录
+      onPathSelect(firstDir.path);
     }
   }, [rootDirs]);
 
-  const loadSubDirectories = async (rootPath) => {
+  // 递归加载目录树
+  const loadDirectoryTree = async (rootPath) => {
     try {
       setLoading(true);
       setError('');
       
-      const response = await fetch(`/api/files?path=${encodeURIComponent(rootPath)}`);
-      const data = await response.json();
-      
-      if (data.ok && data.items) {
-        const dirs = data.items.filter(item => item.type === 'directory');
-        setSubDirectories(dirs);
-      } else {
-        setError(data.message || '加载目录失败');
-      }
+      const tree = await loadDirectoryRecursive(rootPath);
+      setDirectoryTree(tree);
     } catch (err) {
-      setError('网络错误');
-      console.error('Load subdirectories error:', err);
+      setError('加载目录失败');
+      console.error('Load directory tree error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRootDirSelect = (dir) => {
-    setSelectedRootDir(dir);
-    loadSubDirectories(dir.path);
-    setExpandedDirs(new Set());
+  // 递归加载目录及其子目录
+  const loadDirectoryRecursive = async (dirPath) => {
+    try {
+      const response = await fetch(`/api/files?path=${encodeURIComponent(dirPath)}`);
+      const data = await response.json();
+      
+      if (data.ok && data.items) {
+        const dirs = data.items.filter(item => item.type === 'directory');
+        
+        // 为每个目录添加 children 属性，但不立即加载
+        return dirs.map(dir => ({
+          ...dir,
+          children: null, // null 表示未加载，[] 表示已加载但为空
+          hasChildren: true // 假设所有目录都可能有子目录
+        }));
+      }
+      return [];
+    } catch (err) {
+      console.error('Load directory error:', err);
+      return [];
+    }
   };
 
-  const handleSubDirClick = (dir) => {
+  // 加载子目录
+  const loadSubDirectory = async (dirPath) => {
+    try {
+      const response = await fetch(`/api/files?path=${encodeURIComponent(dirPath)}`);
+      const data = await response.json();
+      
+      if (data.ok && data.items) {
+        const dirs = data.items.filter(item => item.type === 'directory');
+        return dirs.map(dir => ({
+          ...dir,
+          children: null,
+          hasChildren: true
+        }));
+      }
+      return [];
+    } catch (err) {
+      console.error('Load subdirectory error:', err);
+      return [];
+    }
+  };
+
+  // 更新树中的节点
+  const updateTreeNode = (nodes, targetPath, children) => {
+    return nodes.map(node => {
+      if (node.path === targetPath) {
+        return { ...node, children, hasChildren: children.length > 0 };
+      }
+      if (node.children) {
+        return { ...node, children: updateTreeNode(node.children, targetPath, children) };
+      }
+      return node;
+    });
+  };
+
+  const handleRootDirSelect = (dir) => {
+    setSelectedRootDir(dir);
+    loadDirectoryTree(dir.path);
+    setExpandedDirs(new Set());
+    onPathSelect(dir.path);
+  };
+
+  const handleToggleExpand = async (e, dir) => {
+    e.stopPropagation();
+    
     const newExpanded = new Set(expandedDirs);
-    if (newExpanded.has(dir.path)) {
+    
+    if (expandedDirs.has(dir.path)) {
+      // 折叠
       newExpanded.delete(dir.path);
     } else {
+      // 展开
       newExpanded.add(dir.path);
+      
+      // 如果子目录未加载，则加载
+      if (dir.children === null) {
+        const children = await loadSubDirectory(dir.path);
+        setDirectoryTree(prevTree => updateTreeNode(prevTree, dir.path, children));
+      }
     }
+    
     setExpandedDirs(newExpanded);
   };
 
@@ -61,10 +129,11 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
     onPathSelect(dir.path);
   };
 
-  const handleNewFolder = (parentDir) => {
-    setNewFolderParent(parentDir);
+  const handleNewFolder = (parentPath) => {
+    setNewFolderParent(parentPath);
     setNewFolderName('');
     setShowNewFolderDialog(true);
+    setError('');
   };
 
   const handleCreateFolder = async () => {
@@ -74,9 +143,9 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
     }
 
     try {
-      const folderPath = newFolderParent ? `${newFolderParent}/${newFolderName.trim()}` : newFolderName.trim();
+      const folderPath = `${newFolderParent}/${newFolderName.trim()}`;
       
-      const response = await fetch('/api/directory', {
+      const response = await fetch('/api/folder/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: folderPath })
@@ -89,10 +158,9 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
         setNewFolderName('');
         setError('');
         
-        if (newFolderParent) {
-          loadSubDirectories(selectedRootDir.path);
-        } else {
-          loadSubDirectories(selectedRootDir.path);
+        // 重新加载目录树
+        if (selectedRootDir) {
+          loadDirectoryTree(selectedRootDir.path);
         }
       } else {
         setError(data.message || '创建文件夹失败');
@@ -104,53 +172,63 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
   };
 
   const renderDirectoryTree = (dirs, depth = 0) => {
-    return dirs.map(dir => (
-      <div key={dir.path} className="directory-item">
-        <div 
-          className={`directory-node ${selectedPath === dir.path ? 'selected' : ''}`}
-          style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          onClick={() => handleDirSelect(dir)}
-        >
-          {dir.children && dir.children.length > 0 && (
-            <button 
-              className="expand-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSubDirClick(dir);
-              }}
-            >
-              {expandedDirs.has(dir.path) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          )}
-          <Folder size={16} className="folder-icon" />
-          <span className="directory-name">{dir.name}</span>
-        </div>
-        {expandedDirs.has(dir.path) && dir.children && (
-          <div className="directory-children">
-            {renderDirectoryTree(dir.children, depth + 1)}
+    if (!dirs || dirs.length === 0) return null;
+
+    return dirs.map((dir, index) => {
+      const isExpanded = expandedDirs.has(dir.path);
+      const isSelected = selectedPath === dir.path;
+      const hasChildren = dir.hasChildren && dir.children !== null && dir.children.length > 0;
+
+      return (
+        <div key={dir.path} className="directory-item" style={{ '--item-index': index }}>
+          <div 
+            className={`directory-node ${isSelected ? 'selected' : ''}`}
+            style={{ paddingLeft: `${depth * 16 + 8}px` }}
+            onClick={() => handleDirSelect(dir)}
+          >
+            {dir.hasChildren && (
+              <button 
+                className="expand-button"
+                onClick={(e) => handleToggleExpand(e, dir)}
+              >
+                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+            )}
+            {!dir.hasChildren && <span className="expand-placeholder"></span>}
+            
+            {isExpanded ? <FolderOpen size={16} className="folder-icon" /> : <Folder size={16} className="folder-icon" />}
+            <span className="directory-name">{dir.name}</span>
           </div>
-        )}
-      </div>
-    ));
+          
+          {isExpanded && hasChildren && (
+            <div className="directory-children">
+              {renderDirectoryTree(dir.children, depth + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   return (
     <div className={`file-browser ${theme === 'light' ? 'theme-light' : theme === 'md3' ? 'theme-md3' : 'theme-dark'}`}>
       <div className="file-browser-sidebar">
         <div className="sidebar-header">
-          <span className="sidebar-title">目录</span>
+          <span className="sidebar-title">我的文件</span>
         </div>
         <div className="root-directories">
-          {rootDirs && rootDirs.map(dir => (
-            <div
-              key={dir.path}
-              className={`root-directory ${selectedRootDir?.path === dir.path ? 'selected' : ''}`}
-              onClick={() => handleRootDirSelect(dir)}
-            >
-              <Folder size={18} className="folder-icon" />
-              <span className="directory-name">{dir.name}</span>
-            </div>
-          ))}
+          <AnimatedList delay={50}>
+            {rootDirs && rootDirs.map(dir => (
+              <div
+                key={dir.path}
+                className={`root-directory ${selectedRootDir?.path === dir.path ? 'selected' : ''}`}
+                onClick={() => handleRootDirSelect(dir)}
+              >
+                <Folder size={18} className="folder-icon" />
+                <span className="directory-name">{dir.name}</span>
+              </div>
+            ))}
+          </AnimatedList>
         </div>
       </div>
       
@@ -158,32 +236,46 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
         <div className="content-header">
           <span className="content-title">{selectedRootDir?.name || '请选择目录'}</span>
           <button 
-            className="btn-secondary btn-sm"
+            className="btn-new-folder"
             onClick={() => handleNewFolder(selectedRootDir?.path)}
+            disabled={!selectedRootDir}
+            title="新建文件夹"
           >
-            <Plus size={14} />
+            <Plus size={16} />
             新建文件夹
           </button>
         </div>
         
         {loading && (
-          <div className="loading-state">加载中...</div>
-        )}
-        
-        {error && (
-          <div className="error-message">{error}</div>
-        )}
-        
-        {!loading && !error && subDirectories.length === 0 && (
-          <div className="empty-state">
-            <Folder size={48} className="empty-icon" />
-            <span className="empty-text">此目录为空</span>
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <span>加载中...</span>
           </div>
         )}
         
-        {!loading && !error && subDirectories.length > 0 && (
+        {error && !showNewFolderDialog && (
+          <div className="error-message">{error}</div>
+        )}
+        
+        {!loading && !error && directoryTree.length === 0 && (
+          <div className="empty-state">
+            <Folder size={48} className="empty-icon" />
+            <span className="empty-text">此目录为空</span>
+            <button 
+              className="btn-secondary btn-sm"
+              onClick={() => handleNewFolder(selectedRootDir?.path)}
+            >
+              <Plus size={14} />
+              创建第一个文件夹
+            </button>
+          </div>
+        )}
+        
+        {!loading && !error && directoryTree.length > 0 && (
           <div className="directory-tree">
-            {renderDirectoryTree(subDirectories)}
+            <AnimatedList delay={30}>
+              {renderDirectoryTree(directoryTree)}
+            </AnimatedList>
           </div>
         )}
       </div>
@@ -193,7 +285,9 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
           <div className="new-folder-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <h3>新建文件夹</h3>
-              <button className="dialog-close" onClick={() => setShowNewFolderDialog(false)}>×</button>
+              <button className="dialog-close" onClick={() => setShowNewFolderDialog(false)}>
+                <X size={20} />
+              </button>
             </div>
             <div className="dialog-body">
               <div className="form-group">
@@ -202,16 +296,23 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
                   type="text"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
                   placeholder="输入文件夹名称"
                   className="form-input"
                   autoFocus
                 />
               </div>
+              <div className="form-group">
+                <label>父目录</label>
+                <div className="parent-path">{newFolderParent}</div>
+              </div>
               {error && <div className="error-message">{error}</div>}
             </div>
             <div className="dialog-footer">
               <button className="btn-secondary" onClick={() => setShowNewFolderDialog(false)}>取消</button>
-              <button className="btn-primary" onClick={handleCreateFolder}>确定</button>
+              <button className="btn-primary" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+                创建
+              </button>
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import FileBrowser from './FileBrowser';
 import './SaveAsDialog.css';
 
@@ -128,11 +129,6 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
         <div className="dialog-body">
           {!showOverwriteConfirm ? (
             <div className="save-as-form">
-              <div className="current-file-info">
-                <label>当前文件</label>
-                <div className="current-file-path">{currentPath || '未保存的文件'}</div>
-              </div>
-
               <div className="file-browser-container">
                 <FileBrowser 
                   rootDirs={rootDirs}
@@ -142,35 +138,11 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
                 />
               </div>
 
-              <div className="form-group">
-                <label>文件名</label>
-                <div className="file-name-input">
-                  <input
-                    type="text"
-                    value={fileName}
-                    onChange={(e) => setFileName(e.target.value)}
-                    placeholder="输入文件名"
-                    className="form-input"
-                    autoFocus
-                  />
-                  <span className="file-extension">.md</span>
-                </div>
-              </div>
-
-              {getFullPath() && (
-                <div className="target-path-preview">
-                  <label>目标路径</label>
-                  <div className="preview-path">
-                    {getFullPath()}
-                  </div>
-                </div>
-              )}
-
               {error && <div className="error-message">{error}</div>}
             </div>
           ) : (
             <div className="overwrite-confirm">
-              <div className="confirm-icon">⚠️</div>
+              <div className="confirm-icon"><AlertTriangle size={48} /></div>
               <h3>文件已存在</h3>
               <p>目标位置已存在同名文件：</p>
               <div className="confirm-path">{targetPath}</div>
@@ -182,14 +154,30 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
         <div className="dialog-footer">
           {!showOverwriteConfirm ? (
             <>
-              <button className="btn-secondary" onClick={onClose}>取消</button>
-              <button 
-                className="btn-primary" 
-                onClick={handleSaveAs}
-                disabled={loading || !fileName.trim() || !selectedPath}
-              >
-                {loading ? '保存中...' : (isSaveAs ? '另存为' : '保存')}
-              </button>
+              <div className="footer-left">
+                <div className="file-name-input-footer">
+                  <input
+                    type="text"
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSaveAs()}
+                    placeholder="输入文件名"
+                    className="form-input"
+                    autoFocus
+                  />
+                  <span className="file-extension">.md</span>
+                </div>
+              </div>
+              <div className="footer-right">
+                <button className="btn-secondary" onClick={onClose}>取消</button>
+                <button 
+                  className="btn-primary" 
+                  onClick={handleSaveAs}
+                  disabled={loading || !fileName.trim() || !selectedPath}
+                >
+                  {loading ? '保存中...' : (isSaveAs ? '另存为' : '保存')}
+                </button>
+              </div>
             </>
           ) : (
             <>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { File, Folder, Edit, Trash2, Copy, Scissors, Clipboard, Star, FolderPlus, RefreshCw, Info } from 'lucide-react'
 import { isFavorite } from '../utils/favoritesManager'
 import './ContextMenu.css'
 
@@ -27,7 +28,7 @@ function ContextMenu({
     // 打开
     items.push({
       label: isFile ? '打开文件' : '展开文件夹',
-      icon: isFile ? '📄' : '📁',
+      icon: isFile ? <File size={16} /> : <Folder size={16} />,
       action: () => onAction('open')
     })
     
@@ -36,14 +37,14 @@ function ContextMenu({
     // 重命名
     items.push({
       label: '重命名',
-      icon: '✏️',
+      icon: <Edit size={16} />,
       action: () => onAction('rename')
     })
     
     // 删除
     items.push({
       label: '删除',
-      icon: '🗑️',
+      icon: <Trash2 size={16} />,
       action: () => onAction('delete')
     })
     
@@ -52,14 +53,14 @@ function ContextMenu({
     // 复制
     items.push({
       label: '复制',
-      icon: '📋',
+      icon: <Copy size={16} />,
       action: () => onAction('copy')
     })
     
     // 剪切
     items.push({
       label: '剪切',
-      icon: '✂️',
+      icon: <Scissors size={16} />,
       action: () => onAction('cut')
     })
     
@@ -72,7 +73,7 @@ function ContextMenu({
           if (clipData && clipData.path) {
             items.push({
               label: '粘贴',
-              icon: '📋',
+              icon: <Clipboard size={16} />,
               action: () => onAction('paste')
             });
           }
@@ -87,7 +88,7 @@ function ContextMenu({
     // 收藏
     items.push({
       label: isFav ? '取消收藏' : '添加到收藏夹',
-      icon: isFav ? '☆' : '★',
+      icon: <Star size={16} fill={isFav ? 'currentColor' : 'none'} />,
       action: () => onAction('favorite')
     })
     
@@ -95,7 +96,7 @@ function ContextMenu({
     if (isDirectory) {
       items.push({
         label: '新建文件夹',
-        icon: '📁',
+        icon: <FolderPlus size={16} />,
         action: () => onAction('newfolder')
       })
     }
@@ -104,7 +105,7 @@ function ContextMenu({
     if (isDirectory) {
       items.push({
         label: '刷新',
-        icon: '🔄',
+        icon: <RefreshCw size={16} />,
         action: () => onAction('refresh')
       })
     }
@@ -114,7 +115,7 @@ function ContextMenu({
     // 属性
     items.push({
       label: '属性',
-      icon: 'ℹ️',
+      icon: <Info size={16} />,
       action: () => onAction('properties')
     })
     

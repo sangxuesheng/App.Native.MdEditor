@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X, ZoomIn, ZoomOut, Copy, Plus, Download, Trash2 } from 'lucide-react';
 import './ImagePreview.css';
 
 const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
@@ -50,7 +51,7 @@ const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
       <div className="image-preview-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="image-preview-header">
           <div className="image-preview-title">{image.filename}</div>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <div className="image-preview-body" onWheel={handleWheel}>
@@ -63,13 +64,13 @@ const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
 
         <div className="image-preview-controls">
           <button className="control-btn" onClick={handleZoomOut} title="缩小">
-            🔍−
+            <ZoomOut size={18} />
           </button>
           <button className="control-btn" onClick={handleReset} title="重置">
             {Math.round(scale * 100)}%
           </button>
           <button className="control-btn" onClick={handleZoomIn} title="放大">
-            🔍+
+            <ZoomIn size={18} />
           </button>
         </div>
 
@@ -80,19 +81,19 @@ const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
           </div>
           <div className="image-preview-actions">
             <button className="action-btn" onClick={handleCopyLink}>
-              📋 复制链接
+              <Copy size={16} /> 复制链接
             </button>
             <button className="action-btn" onClick={() => onInsert(image)}>
-              ➕ 插入
+              <Plus size={16} /> 插入
             </button>
             <button className="action-btn" onClick={handleDownload}>
-              ⬇️ 下载
+              <Download size={16} /> 下载
             </button>
             <button className="action-btn delete-btn" onClick={() => {
               onDelete(image);
               onClose();
             }}>
-              🗑️ 删除
+              <Trash2 size={16} /> 删除
             </button>
           </div>
         </div>

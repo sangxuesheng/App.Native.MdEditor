@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Image, X, Upload, Copy, Plus, Trash2 } from 'lucide-react';
 import './ImageManager.css';
 import ImageUploader from './ImageUploader';
 import ImagePreview from './ImagePreview';
@@ -90,8 +91,8 @@ const ImageManager = ({ onInsert, onClose }) => {
     <div className="image-manager-overlay" onClick={onClose}>
       <div className="image-manager-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="image-manager-header">
-          <h3>🖼️ 图片管理器</h3>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <h3><Image size={20} /> 图片管理器</h3>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <div className="image-manager-toolbar">
@@ -103,7 +104,7 @@ const ImageManager = ({ onInsert, onClose }) => {
             onChange={(e) => setSearch(e.target.value)}
           />
           <button className="upload-btn" onClick={() => setShowUploader(true)}>
-            📤 上传图片
+            <Upload size={16} /> 上传图片
           </button>
         </div>
 
@@ -112,7 +113,7 @@ const ImageManager = ({ onInsert, onClose }) => {
             <div className="loading">加载中...</div>
           ) : images.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🖼️</div>
+              <div className="empty-icon"><Image size={64} /></div>
               <p>还没有上传图片</p>
               <button className="upload-btn" onClick={() => setShowUploader(true)}>
                 上传第一张图片
@@ -137,21 +138,21 @@ const ImageManager = ({ onInsert, onClose }) => {
                       onClick={() => handleInsert(image)}
                       title="插入到编辑器"
                     >
-                      ➕
+                      <Plus size={16} />
                     </button>
                     <button
                       className="action-btn"
                       onClick={() => handleCopyLink(image)}
                       title="复制链接"
                     >
-                      📋
+                      <Copy size={16} />
                     </button>
                     <button
                       className="action-btn delete-btn"
                       onClick={() => handleDelete(image)}
                       title="删除"
                     >
-                      🗑️
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>

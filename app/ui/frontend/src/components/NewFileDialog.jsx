@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FileText, StickyNote, FileCheck, Pen, ListTodo, Calendar } from 'lucide-react';
 import './NewFileDialog.css';
 
 const TEMPLATES = [
@@ -241,29 +242,38 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
           <div className="form-group">
             <label>模板</label>
             <div className="template-grid">
-              {TEMPLATES.map(template => (
-                <div
-                  key={template.id}
-                  className={`template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
-                  onClick={() => handleTemplateSelect(template.id)}
-                >
-                  <div className="template-icon">
-                    {template.id === 'blank' && '📄'}
-                    {template.id === 'note' && '📝'}
-                    {template.id === 'document' && '📋'}
-                    {template.id === 'blog' && '✍️'}
-                    {template.id === 'todo' && '✅'}
-                    {template.id === 'meeting' && '📅'}
+              {TEMPLATES.map(template => {
+                const getIcon = () => {
+                  switch(template.id) {
+                    case 'blank': return <FileText size={32} />
+                    case 'note': return <StickyNote size={32} />
+                    case 'document': return <FileCheck size={32} />
+                    case 'blog': return <Pen size={32} />
+                    case 'todo': return <ListTodo size={32} />
+                    case 'meeting': return <Calendar size={32} />
+                    default: return <FileText size={32} />
+                  }
+                }
+                
+                return (
+                  <div
+                    key={template.id}
+                    className={`template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
+                    onClick={() => handleTemplateSelect(template.id)}
+                  >
+                    <div className="template-icon">
+                      {getIcon()}
+                    </div>
+                    <div className="template-info">
+                      <h4>{template.name}</h4>
+                      <p>{template.description}</p>
+                    </div>
+                    {selectedTemplate === template.id && (
+                      <div className="template-check">✓</div>
+                    )}
                   </div>
-                  <div className="template-info">
-                    <h4>{template.name}</h4>
-                    <p>{template.description}</p>
-                  </div>
-                  {selectedTemplate === template.id && (
-                    <div className="template-check">✓</div>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 

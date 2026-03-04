@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Globe, FileText, File, FileCode } from 'lucide-react';
 import './ExportDialog.css';
 
 const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => {
@@ -169,7 +170,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
                     onChange={(e) => setExportFormat(e.target.value)}
                   />
                   <div className="format-card">
-                    <div className="format-icon">🌐</div>
+                    <div className="format-icon"><Globe size={32} /></div>
                     <div className="format-info">
                       <h4>HTML</h4>
                       <p>网页格式，可在浏览器中打开</p>
@@ -186,7 +187,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
                     onChange={(e) => setExportFormat(e.target.value)}
                   />
                   <div className="format-card">
-                    <div className="format-icon">📄</div>
+                    <div className="format-icon"><File size={32} /></div>
                     <div className="format-info">
                       <h4>PDF</h4>
                       <p>便携式文档格式</p>
@@ -203,7 +204,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
                     onChange={(e) => setExportFormat(e.target.value)}
                   />
                   <div className="format-card">
-                    <div className="format-icon">📝</div>
+                    <div className="format-icon"><FileCode size={32} /></div>
                     <div className="format-info">
                       <h4>Markdown</h4>
                       <p>原始 Markdown 文件</p>
@@ -220,7 +221,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
                     onChange={(e) => setExportFormat(e.target.value)}
                   />
                   <div className="format-card">
-                    <div className="format-icon">📃</div>
+                    <div className="format-icon"><FileText size={32} /></div>
                     <div className="format-info">
                       <h4>纯文本</h4>
                       <p>TXT 文本文件</p>

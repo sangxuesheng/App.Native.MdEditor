@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Upload, X, Image, AlertTriangle } from 'lucide-react';
 import './ImageUploader.css';
 
 const ImageUploader = ({ onUploadSuccess, onClose }) => {
@@ -113,8 +114,8 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
     <div className="image-uploader-overlay" onClick={onClose}>
       <div className="image-uploader-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="image-uploader-header">
-          <h3>📤 上传图片</h3>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <h3><Upload size={20} /> 上传图片</h3>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <div className="image-uploader-body">
@@ -135,7 +136,7 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
               </div>
             ) : (
               <>
-                <div className="drop-zone-icon">🖼️</div>
+                <div className="drop-zone-icon"><Image size={64} /></div>
                 <p className="drop-zone-text">拖拽图片到这里</p>
                 <p className="drop-zone-or">或</p>
                 <button
@@ -159,7 +160,7 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
 
           {error && (
             <div className="upload-error">
-              ⚠️ {error}
+              <AlertTriangle size={16} /> {error}
             </div>
           )}
         </div>

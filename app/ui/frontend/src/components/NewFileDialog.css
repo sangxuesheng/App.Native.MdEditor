@@ -51,7 +51,8 @@
 }
 
 .new-file-dialog {
-  width: 700px;
+  width: 900px;
+  max-width: 90vw;
 }
 
 /* 对话框头部 */
@@ -109,7 +110,7 @@
   padding: 24px;
   overflow-y: auto;
   flex: 1;
-  min-height: 400px;
+  max-height: 500px;
 }
 
 .dialog-body h3 {
@@ -416,6 +417,12 @@
 }
 
 /* 响应式 */
+@media (max-width: 1200px) {
+  .new-file-dialog {
+    width: 85vw;
+  }
+}
+
 @media (max-width: 768px) {
   .new-file-dialog {
     width: 95vw;
@@ -426,7 +433,7 @@
   }
 
   .dialog-body {
-    min-height: 300px;
+    max-height: 400px;
   }
 }
 

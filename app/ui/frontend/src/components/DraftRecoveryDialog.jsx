@@ -1,4 +1,5 @@
 import React from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { formatTimeSince } from '../utils/draftManager'
 import './DraftRecoveryDialog.css'
 
@@ -41,7 +42,7 @@ function DraftRecoveryDialog({ draft, onRecover, onDiscard, onClose }) {
           </div>
 
           <p className="draft-warning">
-            ⚠️ 恢复草稿将覆盖当前编辑器内容
+            <AlertTriangle size={16} /> 恢复草稿将覆盖当前编辑器内容
           </p>
         </div>
 

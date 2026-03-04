@@ -153,7 +153,7 @@ export function getUserFriendlyMessage(error, context = {}) {
   let message = `${formattedError.title}\n\n${formattedError.message}`
   
   if (formattedError.suggestion) {
-    message += `\n\n💡 建议：${formattedError.suggestion}`
+    message += `\n\n建议：${formattedError.suggestion}`
   }
   
   if (context.showDetails && formattedError.details) {
@@ -169,7 +169,7 @@ export function getUserFriendlyMessage(error, context = {}) {
 export function logError(error, context = {}) {
   const formattedError = formatError(error, context)
   
-  console.group(`❌ ${formattedError.title}`)
+  console.group(`[ERROR] ${formattedError.title}`)
   console.error('错误类型:', formattedError.type)
   console.error('错误信息:', formattedError.message)
   console.error('建议:', formattedError.suggestion)

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Scroll, Trash2, ArrowLeft } from 'lucide-react'
 import { 
   formatHistoryTime, 
   formatFileSize, 
@@ -75,7 +76,7 @@ function FileHistoryDialog({
 
           {history.length === 0 ? (
             <div className="history-empty">
-              <span className="empty-icon">📜</span>
+              <span className="empty-icon"><Scroll size={48} /></span>
               <span className="empty-text">暂无历史记录</span>
               <span className="empty-hint">保存文件时会自动创建历史版本</span>
             </div>
@@ -107,7 +108,7 @@ function FileHistoryDialog({
                       }}
                       title="删除此版本"
                     >
-                      🗑️
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 ))}
@@ -142,7 +143,7 @@ function FileHistoryDialog({
                   </>
                 ) : (
                   <div className="preview-placeholder">
-                    <span className="placeholder-icon">👈</span>
+                    <span className="placeholder-icon"><ArrowLeft size={48} /></span>
                     <span className="placeholder-text">选择一个版本查看内容</span>
                   </div>
                 )}

@@ -184,20 +184,20 @@ function getFileName(path) {
 }
 
 /**
- * 获取收藏项的图标
+ * 获取收藏项的图标类型
  * @param {string} type - 类型: 'file' 或 'directory'
  * @param {string} path - 文件路径
- * @returns {string} 图标字符
+ * @returns {string} 图标类型标识
  */
 export function getFavoriteIcon(type, path) {
   if (type === 'directory') {
-    return '📁'
+    return 'folder'
   }
   
-  // 根据文件扩展名返回不同图标
-  if (path.endsWith('.md')) return '📝'
-  if (path.endsWith('.txt')) return '📄'
-  if (path.endsWith('.json')) return '📋'
+  // 根据文件扩展名返回不同图标类型
+  if (path.endsWith('.md')) return 'markdown'
+  if (path.endsWith('.txt')) return 'text'
+  if (path.endsWith('.json')) return 'json'
   
-  return '📄'
+  return 'file'
 }

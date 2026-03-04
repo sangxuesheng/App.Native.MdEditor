@@ -1,4 +1,5 @@
 import React from 'react'
+import { Sparkles, FileText, Palette, Save, FolderTree, Zap, Upload, Gauge } from 'lucide-react'
 import './Dialog.css'
 import './AboutDialog.css'
 
@@ -47,14 +48,14 @@ function AboutDialog({ onClose, theme }) {
           <div className="about-features">
             <h4>核心功能</h4>
             <ul>
-              <li>✨ 实时预览与语法高亮</li>
-              <li>📝 支持 GFM、LaTeX、Mermaid</li>
-              <li>🎨 深色/浅色主题切换</li>
-              <li>💾 自动保存与草稿恢复</li>
-              <li>📁 文件树浏览与管理</li>
-              <li>🚀 专业菜单栏与快捷键</li>
-              <li>📤 多格式导出功能</li>
-              <li>⚡ 性能优化与懒加载</li>
+              <li><Sparkles size={16} /> 实时预览与语法高亮</li>
+              <li><FileText size={16} /> 支持 GFM、LaTeX、Mermaid</li>
+              <li><Palette size={16} /> 深色/浅色主题切换</li>
+              <li><Save size={16} /> 自动保存与草稿恢复</li>
+              <li><FolderTree size={16} /> 文件树浏览与管理</li>
+              <li><Zap size={16} /> 专业菜单栏与快捷键</li>
+              <li><Upload size={16} /> 多格式导出功能</li>
+              <li><Gauge size={16} /> 性能优化与懒加载</li>
             </ul>
           </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2, CheckSquare, Square } from 'lucide-react'
+import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2, CheckSquare, Square, Star } from 'lucide-react'
 import './ImageManagerDialog.css'
 import { compressImage } from '../utils/imageCompressor'
 import ImagePreviewDialog from './ImagePreviewDialog'
@@ -311,7 +311,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                 <Folder size={16} />
                 <span>当前图床：</span>
                 <strong>本地存储</strong>
-                <span className="star">⭐</span>
+                <span className="star"><Star size={16} fill="currentColor" /></span>
                 <button className="settings-icon-btn">
                   <Settings size={16} />
                 </button>
