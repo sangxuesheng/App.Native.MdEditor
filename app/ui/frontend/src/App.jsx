@@ -32,6 +32,7 @@ import { ToastContainer } from './components/Toast'
 import { useAutoSave } from './hooks/useAutoSave'
 import { useDebounce } from './hooks/useDebounce'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
+import { handleError, logError, getUserFriendlyMessage } from './utils/errorHandler'
 import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
@@ -228,12 +229,25 @@ function App() {
         }, 2000)
         return true
       } else {
+        const errorMsg = getUserFriendlyMessage(
+          new Error(data.message || data.code),
+          { operation: '保存文件', filePath: path, showDetails: false }
+        )
         setStatus(`保存失败: ${data.message || data.code}`)
+        logError(new Error(data.message || data.code), {
+          operation: '保存文件',
+          filePath: path,
+          responseData: data
+        })
         return false
       }
     } catch (error) {
-      setStatus('保存失败: 网络错误')
-      console.error('Save file error:', error)
+      const formattedError = handleError(error, {
+        operation: '保存文件',
+        filePath: path,
+        contentSize: new Blob([content]).size
+      })
+      setStatus(`保存失败: ${formattedError.message}`)
       return false
     }
   }
@@ -619,11 +633,19 @@ HTML
         
         setStatus(`已加载: ${path}`)
       } else {
+        const errorMsg = getUserFriendlyMessage(
+          new Error(data.message || data.code),
+          { operation: '加载文件', filePath: path }
+        )
         setStatus(`加载失败: ${data.message || data.code}`)
+        console.error(errorMsg)
       }
     } catch (error) {
-      setStatus('加载失败: 网络错误')
-      console.error('Load file error:', error)
+      const formattedError = handleError(error, {
+        operation: '加载文件',
+        filePath: path
+      })
+      setStatus(`加载失败: ${formattedError.message}`)
     }
   }
 
@@ -714,12 +736,26 @@ HTML
         setStatus(`图片上传成功: ${image.filename}`)
         setTimeout(() => setStatus('就绪'), 2000)
       } else {
-        setStatus('图片上传失败')
+        const errorMsg = getUserFriendlyMessage(
+          new Error(result.message || '上传失败'),
+          { operation: '图片上传', fileName: file.name }
+        )
+        setStatus(`图片上传失败: ${result.message || '未知错误'}`)
+        logError(new Error(result.message || '上传失败'), {
+          operation: '图片上传',
+          fileName: file.name,
+          fileSize: file.size,
+          responseData: result
+        })
         setTimeout(() => setStatus('就绪'), 2000)
       }
     } catch (error) {
-      console.error('上传图片错误:', error)
-      setStatus('图片上传失败')
+      const formattedError = handleError(error, {
+        operation: '图片上传',
+        fileName: file.name,
+        fileSize: file.size
+      })
+      setStatus(`图片上传失败: ${formattedError.message}`)
       setTimeout(() => setStatus('就绪'), 2000)
     }
   }, [])
@@ -905,14 +941,21 @@ HTML
             setStatus('就绪')
           }
         } catch (err) {
-          console.error('Mermaid render error:', err)
+          logError(err, {
+            operation: 'Mermaid 渲染',
+            mermaidBlocksCount: mermaidBlocks.length
+          })
           setStatus('Mermaid 渲染失败')
           setTimeout(() => setStatus('就绪'), 2000)
         }
       }
     } catch (err) {
-      console.error('Markdown render error:', err)
-      previewRef.current.innerHTML = `<pre style="color: red;">Markdown 渲染失败: ${err.message}</pre>`
+      const formattedError = handleError(err, {
+        operation: 'Markdown 渲染',
+        contentSize: new Blob([content]).size,
+        showDetails: true
+      })
+      previewRef.current.innerHTML = `<pre style="color: #f85149; background: #161b22; padding: 16px; border-radius: 6px; border: 1px solid #30363d; white-space: pre-wrap;">${formattedError.title}\n\n${formattedError.message}\n\n💡 ${formattedError.suggestion}\n\n详细信息：${formattedError.details}</pre>`
     } finally {
       // 性能监控：记录渲染时间
       const endTime = performance.now()
