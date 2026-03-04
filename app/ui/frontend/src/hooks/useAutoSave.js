@@ -22,8 +22,16 @@ export function useAutoSave(content, filePath, onSave, options = {}) {
   const saveTimerRef = useRef(null)
   const isSavingRef = useRef(false)
 
-  // 检查内容是否有变化
+  // 检查内容是否有变化（忽略空格变化）
   const hasChanges = useCallback(() => {
+    const currentTrimmed = content.trim()
+    const lastSavedTrimmed = lastSavedContent.current.trim()
+    
+    // 如果只是空格变化，不算作修改
+    if (currentTrimmed === lastSavedTrimmed) {
+      return false
+    }
+    
     return content !== lastSavedContent.current
   }, [content])
 

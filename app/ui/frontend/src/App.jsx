@@ -30,6 +30,7 @@ import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
 import { ToastContainer } from './components/Toast'
 import { useAutoSave } from './hooks/useAutoSave'
+import { useDebounce } from './hooks/useDebounce'
 import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
 import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
@@ -237,8 +238,25 @@ function App() {
     }
   }
 
+  // 根据文件大小动态调整自动保存间隔
+  const getAutoSaveInterval = useCallback(() => {
+    const contentSize = new Blob([content]).size
+    const sizeInMB = contentSize / 1024 / 1024
+    
+    // 小文件（<100KB）：30秒
+    // 中等文件（100KB-1MB）：60秒
+    // 大文件（>1MB）：120秒
+    if (sizeInMB > 1) {
+      return 120000 // 2分钟
+    } else if (sizeInMB > 0.1) {
+      return 60000 // 1分钟
+    } else {
+      return 30000 // 30秒
+    }
+  }, [content])
+
   const autoSave = useAutoSave(content, currentPath, saveFile, {
-    interval: 30000,
+    interval: getAutoSaveInterval(),
     enabled: !!currentPath,
     onAutoSaveSuccess: (message) => {
       setStatus(message)
@@ -770,7 +788,21 @@ HTML
   const renderMarkdown = useCallback(async () => {
     if (!previewRef.current) return
 
+    const startTime = performance.now() // 性能监控
+
     try {
+      // 大文件优化：检测文件大小
+      const contentSize = new Blob([content]).size
+      const isLargeFile = contentSize > 1024 * 1024 // 1MB
+      
+      if (isLargeFile) {
+        console.log(`大文件检测: ${(contentSize / 1024 / 1024).toFixed(2)}MB，使用优化渲染`)
+        // 对于大文件，显示加载提示
+        previewRef.current.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">正在渲染大文件，请稍候...</div>'
+        // 使用 setTimeout 让 UI 有时间更新
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
       // 预处理：将 ==高亮== 转换为 <mark>高亮</mark>
       let processedContent = content.replace(/==([^=\n]+)==/g, '<mark>$1</mark>')
       
@@ -881,13 +913,27 @@ HTML
     } catch (err) {
       console.error('Markdown render error:', err)
       previewRef.current.innerHTML = `<pre style="color: red;">Markdown 渲染失败: ${err.message}</pre>`
+    } finally {
+      // 性能监控：记录渲染时间
+      const endTime = performance.now()
+      const renderTime = endTime - startTime
+      const contentSize = new Blob([content]).size
+      console.log(`Markdown 渲染完成: ${renderTime.toFixed(2)}ms, 文件大小: ${(contentSize / 1024).toFixed(2)}KB`)
+      
+      // 如果渲染时间过长，给出提示
+      if (renderTime > 1000) {
+        console.warn(`⚠️ 渲染时间较长 (${renderTime.toFixed(2)}ms)，建议优化文档内容`)
+      }
     }
 
   }, [content, mermaidLoaded])
 
+  // 使用 debounce 优化 Markdown 渲染性能
+  const debouncedContent = useDebounce(content, 500) // 500ms 延迟
+
   useEffect(() => {
     renderMarkdown()
-  }, [renderMarkdown])
+  }, [debouncedContent, renderMarkdown])
 
   useEffect(() => {
     if (layout === 'preview-only' || layout === 'vertical') {
