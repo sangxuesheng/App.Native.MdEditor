@@ -27,8 +27,6 @@
   background: #1e1e1e;
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  max-width: 90vw;
-  max-height: 90vh;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease;
@@ -51,8 +49,10 @@
 }
 
 .new-file-dialog {
-  width: 900px;
+  width: 600px !important;
+  height: 500px !important;
   max-width: 90vw;
+  max-height: 90vh;
 }
 
 /* 对话框头部 */
@@ -110,7 +110,7 @@
   padding: 24px;
   overflow-y: auto;
   flex: 1;
-  max-height: 500px;
+  min-height: 0;
 }
 
 .dialog-body h3 {
