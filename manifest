@@ -1,7 +1,7 @@
 appname=App.Native.MdEditor2
-version=1.21.1
+version=1.21.2
 display_name=Markdown 编辑器 v2
-desc=飞牛 NAS 专用 Markdown 编辑器。v1.21.1 更新：图片管理对话框响应式优化（根据屏幕大小自适应、多断点布局、移动端优化）。包含v1.21.0的所有功能。
+desc=飞牛 NAS 专用 Markdown 编辑器。v1.21.2 更新：设置默认窗口尺寸（1400x900），确保图片管理对话框完整显示。包含v1.21.1的所有功能。
 platform=x86
 source=thirdparty
 maintainer=YourName

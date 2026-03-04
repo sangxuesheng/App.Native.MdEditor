@@ -7,7 +7,11 @@
       "protocol": "http",
       "port": "18080",
       "url": "/",
-      "allUsers": true
+      "allUsers": true,
+      "width": 1400,
+      "height": 900,
+      "minWidth": 1200,
+      "minHeight": 800
     },
     "App.Native.MdEditor2.OpenFile": {
       "title": "用 Markdown 编辑器打开",
@@ -18,7 +22,11 @@
       "url": "/",
       "allUsers": true,
       "fileTypes": ["md"],
-      "noDisplay": true
+      "noDisplay": true,
+      "width": 1400,
+      "height": 900,
+      "minWidth": 1200,
+      "minHeight": 800
     }
   }
 }
