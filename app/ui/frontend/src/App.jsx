@@ -850,8 +850,131 @@ HTML
     setShowSaveAsDialog(true)
   }
 
-  const handleExport = () => {
-    setShowExportDialog(true)
+  const handleExport = (format) => {
+    if (!format) {
+      // 如果没有指定格式，打开导出对话框让用户选择
+      setShowExportDialog(true)
+      return
+    }
+
+    // 直接导出指定格式
+    const getFileName = () => {
+      if (currentPath) {
+        const pathParts = currentPath.split('/')
+        const fileName = pathParts[pathParts.length - 1]
+        return fileName.replace(/\.md$/, '')
+      }
+      return 'document'
+    }
+
+    const fileName = getFileName()
+
+    try {
+      switch (format) {
+        case 'html':
+        case 'html-plain':
+          // HTML 导出
+          const includeCSS = format !== 'html-plain'
+          const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${fileName}</title>
+  ${includeCSS ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        processEnvironments: true
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #ffffff;
+    }
+    .markdown-body {
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 45px;
+    }
+    @media (max-width: 767px) {
+      .markdown-body {
+        padding: 15px;
+      }
+    }
+  </style>` : ''}
+</head>
+<body>
+  <div class="markdown-body">
+    ${previewRef.current?.innerHTML || ''}
+  </div>
+</body>
+</html>`
+          const htmlBlob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
+          const htmlUrl = URL.createObjectURL(htmlBlob)
+          const htmlLink = document.createElement('a')
+          htmlLink.href = htmlUrl
+          htmlLink.download = `${fileName}.html`
+          document.body.appendChild(htmlLink)
+          htmlLink.click()
+          document.body.removeChild(htmlLink)
+          URL.revokeObjectURL(htmlUrl)
+          setStatus('已导出为 HTML')
+          break
+
+        case 'md':
+          // Markdown 导出
+          const mdBlob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+          const mdUrl = URL.createObjectURL(mdBlob)
+          const mdLink = document.createElement('a')
+          mdLink.href = mdUrl
+          mdLink.download = `${fileName}.md`
+          document.body.appendChild(mdLink)
+          mdLink.click()
+          document.body.removeChild(mdLink)
+          URL.revokeObjectURL(mdUrl)
+          setStatus('已导出为 Markdown')
+          break
+
+        case 'wechat':
+          // 公众号格式 - 复制到剪贴板
+          const wechatHtml = previewRef.current?.innerHTML || ''
+          navigator.clipboard.writeText(wechatHtml).then(() => {
+            setStatus('已复制公众号格式到剪贴板')
+            setStatusType('success')
+            setTimeout(() => {
+              setStatus('就绪')
+              setStatusType('normal')
+            }, 2000)
+          }).catch(() => {
+            setStatus('复制失败')
+            setStatusType('error')
+          })
+          break
+
+        case 'pdf':
+        case 'png':
+          // PDF 和 PNG 需要更多选项，打开导出对话框
+          setShowExportDialog(true)
+          break
+
+        default:
+          setShowExportDialog(true)
+      }
+    } catch (error) {
+      setStatus('导出失败: ' + error.message)
+      setStatusType('error')
+      console.error('Export error:', error)
+    }
   }
 
   const handleSettings = () => {
@@ -1774,13 +1897,7 @@ HTML
             onNewFile={handleNewFile}
             onSave={() => autoSave.manualSave()}
             onSaveAs={handleSaveAs}
-            onExport={(format) => {
-              if (format === 'copy') {
-                handleMenuCopy()
-              } else {
-                setShowExportDialog(true)
-              }
-            }}
+            onExport={handleExport}
             onUndo={handleMenuUndo}
             onRedo={handleMenuRedo}
             onCopy={handleMenuCopy}

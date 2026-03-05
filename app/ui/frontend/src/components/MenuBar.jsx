@@ -207,8 +207,11 @@ function MenuBar({
             { label: '公众号格式', icon: 'export', action: () => onExport('wechat') },
             { label: 'HTML 格式', icon: 'export', action: () => onExport('html') },
             { label: 'HTML 格式（无样式）', icon: 'export', action: () => onExport('html-plain') },
-            { label: 'HTML 格式（兼容样式）', icon: 'export', action: () => onExport('html-compat') },
-            { label: 'MD 格式', icon: 'export', action: () => onExport('md') }
+            { label: 'PDF 格式', icon: 'export', action: () => onExport('pdf') },
+            { label: 'PNG 图片', icon: 'export', action: () => onExport('png') },
+            { label: 'MD 格式', icon: 'export', action: () => onExport('md') },
+            { divider: true },
+            { label: '更多选项...', icon: 'export', action: () => onExport() }
           ]
         }
       ]
@@ -357,19 +360,24 @@ function MenuBar({
                       <>{item.icon && <MenuItemIcon type={item.icon} />}<span className="menu-label">{item.label}</span></>
                       <span className="menu-arrow">▶</span>
                       <div className="menu-submenu">
-                        {item.submenu.map((subItem) => (
-                          <button
-                            key={subItem.label}
-                            className="menu-dropdown-item"
-                            onClick={() => handleMenuItemClick(subItem.action)}
-                            disabled={subItem.disabled}
-                          >
-                            <>{subItem.icon && <MenuItemIcon type={subItem.icon} />}<span className="menu-label">{subItem.label}</span></>
-                            {subItem.shortcut && (
-                              <span className="menu-shortcut">{subItem.shortcut}</span>
-                            )}
-                          </button>
-                        ))}
+                        {item.submenu.map((subItem, subIdx) => {
+                          if (subItem.divider) {
+                            return <div key={`divider-${subIdx}`} className="menu-divider" />
+                          }
+                          return (
+                            <button
+                              key={subItem.label || `item-${subIdx}`}
+                              className="menu-dropdown-item"
+                              onClick={() => handleMenuItemClick(subItem.action)}
+                              disabled={subItem.disabled}
+                            >
+                              <>{subItem.icon && <MenuItemIcon type={subItem.icon} />}<span className="menu-label">{subItem.label}</span></>
+                              {subItem.shortcut && (
+                                <span className="menu-shortcut">{subItem.shortcut}</span>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   )

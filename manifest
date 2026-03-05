@@ -1,7 +1,7 @@
 appname=App.Native.MdEditor2
-version=1.22.0
+version=1.22.1
 display_name=Markdown 编辑器 v2
-desc=飞牛 NAS 专用 Markdown 编辑器。v1.22.0 更新：1) 新增端口配置功能，支持用户自定义端口并检查冲突；2) 优化UI圆角设计，所有对话框统一12px圆角；3) 修复文件树选中状态显示；4) 修复新建文件夹父目录错误；5) 优化文件保存后自动刷新文件树；6) 修复工具栏布局问题，确保在显示文件树时正确显示；7) 替换emoji为lucide-react图标。
+desc=飞牛 NAS 专用 Markdown 编辑器。v1.22.1 更新：1) 修复文件树展开状态同步问题，解决刷新页面后图标显示展开但内容未加载的bug；2) 优化文件夹展开逻辑，确保数据加载完成后再更新展开状态；3) 实现展开状态持久化恢复，页面刷新后自动加载已展开文件夹的数据。
 platform=x86
 source=thirdparty
 maintainer=YourName

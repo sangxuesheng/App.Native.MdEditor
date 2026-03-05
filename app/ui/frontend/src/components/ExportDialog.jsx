@@ -1,36 +1,46 @@
 import React, { useState } from 'react';
-import { Globe, FileText, File, FileCode } from 'lucide-react';
+import { Globe, FileText, File, FileCode, Image, FileType } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import './ExportDialog.css';
 
 const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => {
   const [exportFormat, setExportFormat] = useState('html');
-  const [exportTheme, setExportTheme] = useState('github-dark');
   const [includeCSS, setIncludeCSS] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+  const [fileName, setFileName] = useState('');
 
-  const getFileName = () => {
+  // 初始化文件名
+  React.useEffect(() => {
     if (currentPath) {
       const pathParts = currentPath.split('/');
-      const fileName = pathParts[pathParts.length - 1];
-      return fileName.replace(/\.md$/, '');
+      const name = pathParts[pathParts.length - 1];
+      setFileName(name.replace(/\.md$/, ''));
+    } else {
+      setFileName('document');
     }
-    return 'document';
+  }, [currentPath]);
+
+  const getFileName = () => {
+    return fileName || 'document';
   };
 
-  const exportAsHTML = () => {
-    const fileName = getFileName();
-    const cssTheme = exportTheme === 'github-dark' 
-      ? 'github-markdown-dark' 
-      : 'github-markdown-light';
+  // 计算文件大小 - 使用实际内容计算
+  const getFileSize = () => {
+    let size = 0;
     
-    const htmlContent = `<!DOCTYPE html>
+    try {
+      switch (exportFormat) {
+        case 'html':
+          // 生成实际的 HTML 内容并计算大小
+          const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${fileName}</title>
-  ${includeCSS ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-${exportTheme === 'github-dark' ? 'dark' : 'light'}.min.css">
+  <title>${fileName || 'document'}</title>
+  ${includeCSS ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
   <script>
     window.MathJax = {
       tex: {
@@ -46,7 +56,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
     body {
       margin: 0;
       padding: 20px;
-      background-color: ${exportTheme === 'github-dark' ? '#0d1117' : '#ffffff'};
+      background-color: #ffffff;
     }
     .markdown-body {
       box-sizing: border-box;
@@ -63,7 +73,178 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
   </style>` : ''}
 </head>
 <body>
-  <div class="markdown-body ${cssTheme}">
+  <div class="markdown-body">
+    ${previewHtml || ''}
+  </div>
+</body>
+</html>`;
+          size = new Blob([htmlContent]).size;
+          break;
+          
+        case 'pdf':
+          // PDF 大小估算：基于内容复杂度
+          // PDF 文件包含：文档结构、字体嵌入、图片等
+          // 通常是 HTML 内容的 2-5 倍
+          const pdfBaseSize = new Blob([previewHtml || content]).size;
+          // 基础 PDF 结构开销约 50KB
+          const pdfOverhead = 50 * 1024;
+          // 内容部分约为 HTML 的 3 倍（包含字体、格式等）
+          size = pdfBaseSize * 3 + pdfOverhead;
+          break;
+          
+        case 'word':
+          // 生成实际的 Word 内容并计算大小
+          const wordContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+            xmlns:w='urn:schemas-microsoft-com:office:word' 
+            xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>${fileName || 'document'}</title>
+        <style>
+          body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            margin: 1in;
+          }
+          h1 { font-size: 24pt; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
+          h2 { font-size: 18pt; font-weight: bold; margin-top: 10pt; margin-bottom: 6pt; }
+          h3 { font-size: 14pt; font-weight: bold; margin-top: 8pt; margin-bottom: 4pt; }
+          h4 { font-size: 12pt; font-weight: bold; margin-top: 6pt; margin-bottom: 4pt; }
+          p { margin-top: 0; margin-bottom: 8pt; }
+          code { 
+            font-family: 'Courier New', monospace; 
+            background-color: #f6f8fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+          }
+          pre {
+            font-family: 'Courier New', monospace;
+            background-color: #f6f8fa;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8pt 0;
+          }
+          blockquote {
+            border-left: 4px solid #dfe2e5;
+            padding-left: 16px;
+            margin-left: 0;
+            color: #57606a;
+          }
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8pt 0;
+          }
+          th, td {
+            border: 1px solid #d0d7de;
+            padding: 6px 13px;
+            text-align: left;
+          }
+          th {
+            background-color: #f6f8fa;
+            font-weight: bold;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+          }
+          ul, ol {
+            margin-top: 0;
+            margin-bottom: 8pt;
+            padding-left: 2em;
+          }
+          li {
+            margin-bottom: 4pt;
+          }
+        </style>
+      </head>
+      <body>
+        ${previewHtml || ''}
+      </body>
+      </html>
+    `;
+          size = new Blob(['\ufeff', wordContent]).size;
+          break;
+          
+        case 'png':
+          // PNG 大小估算：预览内容 × 3（图片通常比HTML大很多）
+          size = (previewHtml?.length || content.length) * 3;
+          break;
+          
+        case 'markdown':
+          // Markdown 就是原始内容
+          size = new Blob([content]).size;
+          break;
+          
+        case 'text':
+          // 纯文本就是原始内容
+          size = new Blob([content]).size;
+          break;
+          
+        default:
+          size = new Blob([content]).size;
+      }
+    } catch (err) {
+      console.error('计算文件大小失败:', err);
+      size = content.length;
+    }
+    
+    // 格式化显示
+    if (size < 1024) {
+      return `${size} B`;
+    } else if (size < 1024 * 1024) {
+      return `${(size / 1024).toFixed(2)} KB`;
+    } else {
+      return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+    }
+  };
+
+  const exportAsHTML = () => {
+    const fileName = getFileName();
+    
+    const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${fileName}</title>
+  ${includeCSS ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        processEnvironments: true
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #ffffff;
+    }
+    .markdown-body {
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 45px;
+    }
+    @media (max-width: 767px) {
+      .markdown-body {
+        padding: 15px;
+      }
+    }
+  </style>` : ''}
+</head>
+<body>
+  <div class="markdown-body">
     ${previewHtml || ''}
   </div>
 </body>
@@ -81,7 +262,162 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
   };
 
   const exportAsPDF = async () => {
-    setError('PDF 导出功能需要服务器端支持，当前版本暂不支持。您可以先导出为 HTML，然后使用浏览器的"打印为 PDF"功能。');
+    try {
+      // 使用浏览器的打印功能生成 PDF
+      const fileName = getFileName();
+      
+      // 创建一个临时窗口用于打印
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        setError('无法打开打印窗口，请检查浏览器弹窗设置');
+        return;
+      }
+      
+      const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${fileName}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <style>
+    @media print {
+      body {
+        margin: 0;
+        padding: 20px;
+        background-color: white;
+      }
+      .markdown-body {
+        max-width: 100%;
+        padding: 0;
+      }
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #ffffff;
+    }
+    .markdown-body {
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 45px;
+    }
+  </style>
+</head>
+<body>
+  <div class="markdown-body">
+    ${previewHtml || ''}
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        setTimeout(function() {
+          window.close();
+        }, 100);
+      }, 500);
+    };
+  </script>
+</body>
+</html>`;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      
+      setStatus('PDF 导出窗口已打开，请在打印对话框中选择"另存为 PDF"');
+    } catch (err) {
+      setError('PDF 导出失败: ' + err.message);
+    }
+  };
+
+  const exportAsPNG = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      // 检查是否有预览内容
+      if (!previewHtml) {
+        setError('没有可导出的内容');
+        setLoading(false);
+        return;
+      }
+
+      setStatus('正在生成图片...');
+
+      // 创建临时容器 - 使用合理的宽度（1200px）
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.top = '0';
+      tempContainer.style.width = '1200px'; // 合理的宽度，适合阅读
+      tempContainer.style.padding = '40px';
+      tempContainer.style.backgroundColor = '#ffffff';
+      tempContainer.className = 'markdown-body';
+      tempContainer.innerHTML = previewHtml;
+      document.body.appendChild(tempContainer);
+
+      // 等待图片加载
+      const images = tempContainer.getElementsByTagName('img');
+      if (images.length > 0) {
+        setStatus('正在加载图片...');
+        await Promise.all(
+          Array.from(images).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve;
+              setTimeout(resolve, 3000); // 3秒超时
+            });
+          })
+        );
+      }
+
+      setStatus('正在渲染...');
+
+      // 转换为图片 - 使用 scale: 2 保证高清晰度
+      const canvas = await html2canvas(tempContainer, {
+        scale: 2, // 2倍缩放，确保清晰度
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+
+      // 清理临时容器
+      document.body.removeChild(tempContainer);
+
+      setStatus('正在保存...');
+
+      // 下载图片
+      const fileName = getFileName();
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          setError('生成图片失败');
+          setLoading(false);
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${fileName}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        setTimeout(() => {
+          onClose();
+        }, 500);
+      }, 'image/png');
+
+    } catch (err) {
+      setError('PNG 导出失败: ' + err.message);
+      console.error('PNG export error:', err);
+      setLoading(false);
+    }
   };
 
   const exportAsMarkdown = () => {
@@ -110,6 +446,96 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
     URL.revokeObjectURL(url);
   };
 
+  const exportAsWord = () => {
+    const fileName = getFileName();
+    
+    // 创建 Word 文档的 HTML 内容（使用 MIME 类型让 Word 识别）
+    const wordContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+            xmlns:w='urn:schemas-microsoft-com:office:word' 
+            xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>${fileName}</title>
+        <style>
+          body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            margin: 1in;
+          }
+          h1 { font-size: 24pt; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
+          h2 { font-size: 18pt; font-weight: bold; margin-top: 10pt; margin-bottom: 6pt; }
+          h3 { font-size: 14pt; font-weight: bold; margin-top: 8pt; margin-bottom: 4pt; }
+          h4 { font-size: 12pt; font-weight: bold; margin-top: 6pt; margin-bottom: 4pt; }
+          p { margin-top: 0; margin-bottom: 8pt; }
+          code { 
+            font-family: 'Courier New', monospace; 
+            background-color: #f6f8fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+          }
+          pre {
+            font-family: 'Courier New', monospace;
+            background-color: #f6f8fa;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8pt 0;
+          }
+          blockquote {
+            border-left: 4px solid #dfe2e5;
+            padding-left: 16px;
+            margin-left: 0;
+            color: #57606a;
+          }
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8pt 0;
+          }
+          th, td {
+            border: 1px solid #d0d7de;
+            padding: 6px 13px;
+            text-align: left;
+          }
+          th {
+            background-color: #f6f8fa;
+            font-weight: bold;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+          }
+          ul, ol {
+            margin-top: 0;
+            margin-bottom: 8pt;
+            padding-left: 2em;
+          }
+          li {
+            margin-bottom: 4pt;
+          }
+        </style>
+      </head>
+      <body>
+        ${previewHtml || ''}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', wordContent], { 
+      type: 'application/msword;charset=utf-8' 
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleExport = async () => {
     setLoading(true);
     setError('');
@@ -124,6 +550,12 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
           break;
         case 'pdf':
           await exportAsPDF();
+          setTimeout(() => {
+            onClose();
+          }, 1000);
+          break;
+        case 'png':
+          await exportAsPNG();
           break;
         case 'markdown':
           exportAsMarkdown();
@@ -133,6 +565,12 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
           break;
         case 'text':
           exportAsText();
+          setTimeout(() => {
+            onClose();
+          }, 500);
+          break;
+        case 'word':
+          exportAsWord();
           setTimeout(() => {
             onClose();
           }, 500);
@@ -195,6 +633,40 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
                   </div>
                 </label>
 
+                <label className={`format-option ${exportFormat === 'word' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="format"
+                    value="word"
+                    checked={exportFormat === 'word'}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                  />
+                  <div className="format-card">
+                    <div className="format-icon"><FileType size={32} /></div>
+                    <div className="format-info">
+                      <h4>Word</h4>
+                      <p>Microsoft Word 文档</p>
+                    </div>
+                  </div>
+                </label>
+
+                <label className={`format-option ${exportFormat === 'png' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="format"
+                    value="png"
+                    checked={exportFormat === 'png'}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                  />
+                  <div className="format-card">
+                    <div className="format-icon"><Image size={32} /></div>
+                    <div className="format-info">
+                      <h4>PNG 图片</h4>
+                      <p>高清图片格式</p>
+                    </div>
+                  </div>
+                </label>
+
                 <label className={`format-option ${exportFormat === 'markdown' ? 'selected' : ''}`}>
                   <input
                     type="radio"
@@ -232,44 +704,56 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
             </div>
 
             {exportFormat === 'html' && (
-              <>
-                <div className="form-group">
-                  <label>主题</label>
-                  <select 
-                    value={exportTheme} 
-                    onChange={(e) => setExportTheme(e.target.value)}
-                    className="form-select"
-                  >
-                    <option value="github-dark">GitHub Dark</option>
-                    <option value="github-light">GitHub Light</option>
-                  </select>
-                </div>
+              <div className="form-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={includeCSS}
+                    onChange={(e) => setIncludeCSS(e.target.checked)}
+                  />
+                  <span>包含样式表（推荐）</span>
+                </label>
+                <p className="form-hint">包含 CSS 样式可以确保导出的 HTML 正确显示</p>
+              </div>
+            )}
 
-                <div className="form-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={includeCSS}
-                      onChange={(e) => setIncludeCSS(e.target.checked)}
-                    />
-                    <span>包含样式表（推荐）</span>
-                  </label>
-                  <p className="form-hint">包含 CSS 样式可以确保导出的 HTML 正确显示</p>
-                </div>
-              </>
+            {exportFormat === 'png' && (
+              <div className="form-group">
+                <p className="form-hint">将以 1200px 宽度导出高清图片（2倍分辨率，确保清晰，文件大小为估算值）</p>
+              </div>
+            )}
+
+            {exportFormat === 'word' && (
+              <div className="form-group">
+                <p className="form-hint">导出为 Word 文档格式（.doc），可在 Microsoft Word 中打开编辑（文件大小为估算值）</p>
+              </div>
+            )}
+
+            {exportFormat === 'pdf' && (
+              <div className="form-group">
+                <p className="form-hint">将打开浏览器打印对话框，请选择"另存为 PDF"（文件大小为估算值）</p>
+              </div>
             )}
 
             <div className="export-info">
-              <div className="info-item">
+              <div className="info-item file-name-item">
                 <span className="info-label">文件名:</span>
-                <span className="info-value">{getFileName()}.{exportFormat === 'markdown' ? 'md' : exportFormat === 'text' ? 'txt' : exportFormat}</span>
+                <input
+                  type="text"
+                  className="file-name-input"
+                  value={fileName}
+                  onChange={(e) => setFileName(e.target.value)}
+                  placeholder="请输入文件名"
+                />
+                <span className="file-extension">.{exportFormat === 'markdown' ? 'md' : exportFormat === 'text' ? 'txt' : exportFormat === 'word' ? 'doc' : exportFormat}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">大小:</span>
-                <span className="info-value">{(content.length / 1024).toFixed(2)} KB</span>
+                <span className="info-value">{getFileSize()}</span>
               </div>
             </div>
 
+            {status && !error && <div className="status-message">{status}</div>}
             {error && <div className="error-message">{error}</div>}
           </div>
         </div>

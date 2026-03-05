@@ -1,60 +1,89 @@
+/* 设置对话框 - 固定尺寸 */
+.dialog-overlay .dialog-content.settings-dialog {
+  width: 600px !important;
+  min-width: 600px !important;
+  max-width: 600px !important;
+  height: 500px !important;
+  max-height: 85vh !important;
+  box-sizing: border-box !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 确保所有子元素不超出宽度 */
+.dialog-overlay .dialog-content.settings-dialog > * {
+  max-width: 600px !important;
+  box-sizing: border-box !important;
+}
+
 .settings-dialog {
-  width: 700px;
-  max-width: 90vw;
-  max-height: 85vh;
+  width: 600px !important;
+  height: 500px !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-dialog .dialog-body {
-  max-height: calc(85vh - 140px);
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .settings-form {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
+  padding: 4px;
 }
 
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .section-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
-  padding-bottom: 8px;
+  padding-bottom: 6px;
   border-bottom: 2px solid var(--border-color);
 }
 
 .setting-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 0;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 10px 0;
 }
 
 .setting-label {
   flex: 1;
+  min-width: 0;
 }
 
 .setting-label label {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  white-space: normal;
+  word-wrap: break-word;
+}
 }
 
 .setting-description {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.4;
+  white-space: normal;
+  word-wrap: break-word;
 }
 
 /* Toggle Switch */
@@ -110,13 +139,14 @@
 /* Form Controls */
 .form-select,
 .form-input {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .form-select:focus,
@@ -128,11 +158,13 @@
 
 .form-select {
   cursor: pointer;
-  min-width: 150px;
+  min-width: 180px;
+  max-width: 220px;
 }
 
 .form-input[type="number"] {
   text-align: center;
+  width: 80px;
 }
 
 /* Footer */

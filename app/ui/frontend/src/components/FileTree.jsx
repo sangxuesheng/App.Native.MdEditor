@@ -22,8 +22,24 @@ const FileTree = forwardRef(({
   onReorderFavorites,
   style
 }, ref) => {
+  // 从 localStorage 恢复展开状态
+  const getInitialExpandedState = () => {
+    try {
+      const saved = localStorage.getItem('md-editor-expanded-folders');
+      console.log('[FileTree] Restoring expanded folders:', saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log('[FileTree] Restored expanded folders:', parsed);
+        return new Set(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to restore expanded folders:', error);
+    }
+    return new Set();
+  };
+
   const [tree, setTree] = useState([]);
-  const [expanded, setExpanded] = useState(new Set());
+  const [expanded, setExpanded] = useState(getInitialExpandedState());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,7 +48,17 @@ const FileTree = forwardRef(({
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
-  
+
+  // 保存展开状态到 localStorage
+  useEffect(() => {
+    try {
+      const expandedArray = Array.from(expanded);
+      localStorage.setItem('md-editor-expanded-folders', JSON.stringify(expandedArray));
+      console.log('[FileTree] Saved expanded folders:', expandedArray);
+    } catch (error) {
+      console.error('Failed to save expanded folders:', error);
+    }
+  }, [expanded]);
   // 重命名对话框状态
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [renameNode, setRenameNode] = useState(null);
@@ -87,10 +113,37 @@ const FileTree = forwardRef(({
     return null
   }
 
-  // 加载根目录
+  // 加载根目录并恢复展开状态
   useEffect(() => {
-    loadDirectory('/');
-  }, []);
+    const initializeTree = async () => {
+      // 先加载根目录
+      await loadDirectory('/');
+      
+      // 如果有持久化的展开状态，逐级加载这些文件夹
+      if (expanded.size > 0) {
+        console.log('[FileTree] Restoring expanded folders:', Array.from(expanded));
+        
+        // 将路径按层级排序（浅到深）
+        const sortedPaths = Array.from(expanded).sort((a, b) => {
+          const depthA = a.split('/').filter(Boolean).length;
+          const depthB = b.split('/').filter(Boolean).length;
+          return depthA - depthB;
+        });
+        
+        // 逐级加载每个展开的文件夹
+        for (const path of sortedPaths) {
+          try {
+            await loadDirectory(path);
+            console.log('[FileTree] Loaded expanded folder:', path);
+          } catch (error) {
+            console.error('[FileTree] Failed to load folder:', path, error);
+          }
+        }
+      }
+    };
+    
+    initializeTree();
+  }, []); // 只在组件挂载时执行一次
 
   // 点击其他地方关闭右键菜单
   useEffect(() => {
@@ -110,7 +163,7 @@ const FileTree = forwardRef(({
       
       if (!data.ok) {
         setError(data.message || '加载失败');
-        return;
+        return false;
       }
       
       if (dirPath === '/') {
@@ -120,9 +173,12 @@ const FileTree = forwardRef(({
         // 更新树结构
         setTree(prevTree => updateTreeNode(prevTree, dirPath, data.items));
       }
+      
+      return true;
     } catch (err) {
       setError('网络错误');
       console.error('Load directory error:', err);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -146,18 +202,19 @@ const FileTree = forwardRef(({
     const newExpanded = new Set(expanded);
     
     if (expanded.has(node.path)) {
-      // 折叠
+      // 折叠：直接更新状态
       newExpanded.delete(node.path);
+      setExpanded(newExpanded);
     } else {
-      // 展开
-      newExpanded.add(node.path);
-      // 如果还没有加载子节点，则加载
+      // 展开：如果需要加载数据，先加载再更新状态
       if (!node.children) {
+        // 先加载数据
         await loadDirectory(node.path);
       }
+      // 数据加载完成后再更新展开状态
+      newExpanded.add(node.path);
+      setExpanded(newExpanded);
     }
-    
-    setExpanded(newExpanded);
   };
 
   // 处理文件点击
