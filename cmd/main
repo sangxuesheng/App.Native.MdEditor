@@ -10,7 +10,8 @@ PID_FILE="${TRIM_PKGVAR}/md-editor.pid"
 # Node.js 运行环境（需与 manifest.install_dep_apps 对应）
 export PATH=/var/apps/nodejs_v22/target/bin:$PATH
 
-PORT="${TRIM_SERVICE_PORT:-18080}"
+# 使用用户配置的端口（从向导获取）或环境变量，最后使用默认值
+PORT="${wizard_port:-${TRIM_SERVICE_PORT:-18080}}"
 
 log_msg() {
   local msg="$1"

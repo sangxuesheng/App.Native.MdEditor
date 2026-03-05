@@ -13,7 +13,7 @@
 
 .table-insert-dialog {
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
@@ -104,7 +104,7 @@
   gap: 20px;
   background: #f5f5f5;
   padding: 8px 20px;
-  border-radius: 8px;
+  border-radius: 12px;
   min-width: 150px;
   justify-content: space-between;
 }
@@ -234,46 +234,78 @@
 }
 
 .table-insert-footer button {
-  padding: 10px 24px;
-  border-radius: 6px;
+  height: 38px;
+  min-width: 80px;
+  padding: 0 20px;
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .cancel-button {
-  background: #f0f0f0;
-  color: #333;
+  background: #ffffff;
+  color: #24292f;
+  border: 1px solid #d0d7de;
 }
 
 .cancel-button:hover {
-  background: #e0e0e0;
+  background: #f3f4f6;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.table-insert-dialog.light .cancel-button {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  color: #24292f;
+}
+
+.table-insert-dialog.light .cancel-button:hover {
+  background: #f3f4f6;
 }
 
 .table-insert-dialog.dark .cancel-button {
-  background: #3a3a3a;
-  color: #e0e0e0;
+  background: #21262d;
+  color: #e6edf3;
+  border: 1px solid #30363d;
 }
 
 .table-insert-dialog.dark .cancel-button:hover {
-  background: #444;
+  background: #30363d;
 }
 
 .confirm-button {
-  background: #000;
+  background: #086ADA;
   color: white;
+  border: none;
 }
 
 .confirm-button:hover {
-  background: #333;
+  background: #0757b8;
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.table-insert-dialog.light .confirm-button {
+  background: #086ADA;
+}
+
+.table-insert-dialog.light .confirm-button:hover {
+  background: #0757b8;
 }
 
 .table-insert-dialog.dark .confirm-button {
-  background: #4285f4;
+  background: #086ADA;
 }
 
 .table-insert-dialog.dark .confirm-button:hover {
-  background: #5a95f5;
+  background: #0757b8;
 }

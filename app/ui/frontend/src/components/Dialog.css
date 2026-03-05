@@ -92,7 +92,7 @@
   color: #8b949e;
   font-size: 24px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -152,7 +152,7 @@
 .btn-secondary,
 .btn-primary {
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;

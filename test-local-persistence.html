@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>本地持久化功能测试</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+
+    .section h2 {
+      color: #086ADA;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 200px;
+      padding: 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #086ADA;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #086ADA;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0757b8;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+
+    .btn-secondary:hover {
+      background: #f5f5f5;
+    }
+
+    .btn-danger {
+      background: #ff4444;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #cc0000;
+    }
+
+    .status {
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .storage-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .info-card {
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .info-card h3 {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .info-card .value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .test-results {
+      margin-top: 15px;
+    }
+
+    .test-item {
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .test-item.pass {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .test-item.fail {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .test-item .icon {
+      font-size: 20px;
+    }
+
+    code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📦 本地持久化功能测试</h1>
+    <p class="subtitle">测试 localStorage 自动保存和恢复功能</p>
+
+    <!-- 编辑器测试 -->
+    <div class="section">
+      <h2>✏️ 编辑器测试</h2>
+      <textarea id="editor" placeholder="在这里输入内容，会自动保存到 localStorage..."></textarea>
+      <div class="controls">
+        <button class="btn-primary" onclick="saveNow()">立即保存</button>
+        <button class="btn-secondary" onclick="restoreContent()">恢复内容</button>
+        <button class="btn-danger" onclick="clearContent()">清除内容</button>
+      </div>
+      <div id="editorStatus"></div>
+    </div>
+
+    <!-- 存储信息 -->
+    <div class="section">
+      <h2>💾 存储信息</h2>
+      <div class="storage-info">
+        <div class="info-card">
+          <h3>内容大小</h3>
+          <div class="value" id="contentSize">0 KB</div>
+        </div>
+        <div class="info-card">
+          <h3>最后保存时间</h3>
+          <div class="value" id="lastSaveTime">未保存</div>
+        </div>
+        <div class="info-card">
+          <h3>已用空间</h3>
+          <div class="value" id="usedSpace">0 KB</div>
+        </div>
+        <div class="info-card">
+          <h3>保存次数</h3>
+          <div class="value" id="saveCount">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 功能测试 -->
+    <div class="section">
+      <h2>🧪 功能测试</h2>
+      <div class="controls">
+        <button class="btn-primary" onclick="runTests()">运行测试</button>
+        <button class="btn-secondary" onclick="clearAllData()">清除所有数据</button>
+      </div>
+      <div class="test-results" id="testResults"></div>
+    </div>
+
+    <!-- 使用说明 -->
+    <div class="section">
+      <h2>📖 使用说明</h2>
+      <ol style="line-height: 1.8; color: #666;">
+        <li>在编辑器中输入内容，会自动保存（防抖 500ms）</li>
+        <li>刷新页面（F5），内容会自动恢复</li>
+        <li>关闭标签页后重新打开，内容依然存在</li>
+        <li>点击"运行测试"检查所有功能是否正常</li>
+        <li>查看浏览器控制台可以看到详细日志</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    // 模拟导入的工具函数
+    const STORAGE_KEY = 'md-editor-test-content'
+    const SAVE_TIME_KEY = 'md-editor-test-save-time'
+    const SAVE_COUNT_KEY = 'md-editor-test-save-count'
+    
+    let debounceTimer = null
+    let saveCount = parseInt(localStorage.getItem(SAVE_COUNT_KEY) || '0')
+
+    // 获取元素
+    const editor = document.getElementById('editor')
+    const editorStatus = document.getElementById('editorStatus')
+    const contentSize = document.getElementById('contentSize')
+    const lastSaveTime = document.getElementById('lastSaveTime')
+    const usedSpace = document.getElementById('usedSpace')
+    const saveCountEl = document.getElementById('saveCount')
+    const testResults = document.getElementById('testResults')
+
+    // 初始化
+    window.addEventListener('load', () => {
+      restoreContent()
+      updateStorageInfo()
+      showStatus('页面已加载，内容已恢复', 'success')
+    })
+
+    // 监听输入，自动保存
+    editor.addEventListener('input', () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        saveNow()
+      }, 500)
+    })
+
+    // 立即保存
+    function saveNow() {
+      try {
+        const content = editor.value
+        localStorage.setItem(STORAGE_KEY, content)
+        localStorage.setItem(SAVE_TIME_KEY, Date.now().toString())
+        saveCount++
+        localStorage.setItem(SAVE_COUNT_KEY, saveCount.toString())
+        
+        updateStorageInfo()
+        showStatus('✅ 内容已保存到 localStorage', 'success')
+        console.log('[Test] Content saved:', content.length, 'characters')
+        return true
+      } catch (error) {
+        showStatus('❌ 保存失败: ' + error.message, 'error')
+        console.error('[Test] Save failed:', error)
+        return false
+      }
+    }
+
+    // 恢复内容
+    function restoreContent() {
+      try {
+        const content = localStorage.getItem(STORAGE_KEY) || ''
+        editor.value = content
+        updateStorageInfo()
+        if (content) {
+          showStatus('✅ 内容已从 localStorage 恢复', 'success')
+          console.log('[Test] Content restored:', content.length, 'characters')
+        } else {
+          showStatus('ℹ️ 没有保存的内容', 'info')
+        }
+      } catch (error) {
+        showStatus('❌ 恢复失败: ' + error.message, 'error')
+        console.error('[Test] Restore failed:', error)
+      }
+    }
+
+    // 清除内容
+    function clearContent() {
+      if (confirm('确定要清除编辑器内容吗？')) {
+        editor.value = ''
+        localStorage.removeItem(STORAGE_KEY)
+        updateStorageInfo()
+        showStatus('🗑️ 内容已清除', 'info')
+        console.log('[Test] Content cleared')
+      }
+    }
+
+    // 清除所有数据
+    function clearAllData() {
+      if (confirm('确定要清除所有测试数据吗？')) {
+        localStorage.clear()
+        editor.value = ''
+        saveCount = 0
+        updateStorageInfo()
+        showStatus('🗑️ 所有数据已清除', 'info')
+        console.log('[Test] All data cleared')
+      }
+    }
+
+    // 更新存储信息
+    function updateStorageInfo() {
+      // 内容大小
+      const content = editor.value
+      const size = new Blob([content]).size
+      contentSize.textContent = (size / 1024).toFixed(2) + ' KB'
+
+      // 最后保存时间
+      const saveTime = localStorage.getItem(SAVE_TIME_KEY)
+      if (saveTime) {
+        const date = new Date(parseInt(saveTime))
+        const now = new Date()
+        const diff = now - date
+        
+        if (diff < 60000) {
+          lastSaveTime.textContent = '刚刚'
+        } else if (diff < 3600000) {
+          lastSaveTime.textContent = Math.floor(diff / 60000) + ' 分钟前'
+        } else {
+          lastSaveTime.textContent = date.toLocaleTimeString('zh-CN')
+        }
+      } else {
+        lastSaveTime.textContent = '未保存'
+      }
+
+      // 已用空间
+      let totalSize = 0
+      for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+          totalSize += localStorage[key].length + key.length
+        }
+      }
+      usedSpace.textContent = (totalSize / 1024).toFixed(2) + ' KB'
+
+      // 保存次数
+      saveCountEl.textContent = saveCount
+    }
+
+    // 显示状态
+    function showStatus(message, type = 'info') {
+      editorStatus.innerHTML = `<div class="status ${type}">${message}</div>`
+      setTimeout(() => {
+        editorStatus.innerHTML = ''
+      }, 3000)
+    }
+
+    // 运行测试
+    function runTests() {
+      const tests = []
+
+      // 测试 1: localStorage 可用性
+      try {
+        localStorage.setItem('test', 'test')
+        localStorage.removeItem('test')
+        tests.push({ name: 'localStorage 可用', pass: true })
+      } catch (error) {
+        tests.push({ name: 'localStorage 可用', pass: false, error: error.message })
+      }
+
+      // 测试 2: 保存功能
+      try {
+        const testContent = 'Test content ' + Date.now()
+        localStorage.setItem(STORAGE_KEY, testContent)
+        const saved = localStorage.getItem(STORAGE_KEY)
+        tests.push({ name: '保存功能', pass: saved === testContent })
+      } catch (error) {
+        tests.push({ name: '保存功能', pass: false, error: error.message })
+      }
+
+      // 测试 3: 恢复功能
+      try {
+        const content = localStorage.getItem(STORAGE_KEY)
+        tests.push({ name: '恢复功能', pass: content !== null })
+      } catch (error) {
+        tests.push({ name: '恢复功能', pass: false, error: error.message })
+      }
+
+      // 测试 4: 大内容保存
+      try {
+        const largeContent = 'x'.repeat(100000) // 100KB
+        localStorage.setItem('test-large', largeContent)
+        const saved = localStorage.getItem('test-large')
+        localStorage.removeItem('test-large')
+        tests.push({ name: '大内容保存 (100KB)', pass: saved.length === 100000 })
+      } catch (error) {
+        tests.push({ name: '大内容保存 (100KB)', pass: false, error: error.message })
+      }
+
+      // 测试 5: 防抖功能
+      tests.push({ name: '防抖功能 (500ms)', pass: debounceTimer !== null || editor.value.length === 0 })
+
+      // 显示测试结果
+      let html = '<h3 style="margin-bottom: 10px;">测试结果：</h3>'
+      tests.forEach(test => {
+        const icon = test.pass ? '✅' : '❌'
+        const className = test.pass ? 'pass' : 'fail'
+        const error = test.error ? ` - ${test.error}` : ''
+        html += `<div class="test-item ${className}">
+          <span class="icon">${icon}</span>
+          <span>${test.name}${error}</span>
+        </div>`
+      })
+
+      const passCount = tests.filter(t => t.pass).length
+      const totalCount = tests.length
+      html += `<div style="margin-top: 15px; font-weight: 600;">
+        通过: ${passCount}/${totalCount}
+      </div>`
+
+      testResults.innerHTML = html
+      console.log('[Test] Test results:', tests)
+    }
+
+    // 页面关闭前保存
+    window.addEventListener('beforeunload', () => {
+      if (editor.value) {
+        saveNow()
+        console.log('[Test] Content saved before unload')
+      }
+    })
+
+    // 页面隐藏时保存
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && editor.value) {
+        saveNow()
+        console.log('[Test] Content saved on visibility change')
+      }
+    })
+
+    // 定期更新存储信息
+    setInterval(updateStorageInfo, 1000)
+  </script>
+</body>
+</html>

@@ -176,6 +176,47 @@ html, body {
   padding: 0;
 }
 
+/* 编辑器和预览区的包装器（包含工具栏） */
+.editor-preview-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px;
+  padding-top: 0;
+}
+
+/* 编辑器和预览区的内容区域 */
+.editor-preview-content {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  overflow: hidden;
+  gap: 8px;
+}
+
+/* 垂直布局时的内容区域 */
+.main-content.layout-vertical .editor-preview-content {
+  flex-direction: row;
+}
+
+/* 水平布局时的内容区域 */
+.main-content.layout-horizontal .editor-preview-content {
+  flex-direction: column;
+}
+
+/* 只显示编辑器时的内容区域 */
+.main-content.layout-editor-only .editor-preview-content {
+  flex-direction: row;
+}
+
+/* 只显示预览时的内容区域 */
+.main-content.layout-preview-only .editor-preview-content {
+  flex-direction: row;
+}
+
 .editor-pane,
 .preview-pane {
   min-height: 0;
@@ -857,19 +898,18 @@ html, body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236750a4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
 }
 
-/* ==================== 编辑器工具栏横跨全宽 ==================== */
+/* ==================== 编辑器工具栏样式 ==================== */
 
 /* 工具栏基础样式 */
-.main-content > .editor-toolbar {
+.editor-preview-wrapper > .editor-toolbar {
   flex: 0 0 auto;
   width: 100%;
-  border-bottom: 1px solid #21262d;
   z-index: 10;
 }
 
 /* 浅色主题 */
-.app.theme-light .main-content > .editor-toolbar {
-  border-bottom-color: #d0d7de;
+.app.theme-light .editor-preview-wrapper > .editor-toolbar {
+  /* 工具栏自身样式在 EditorToolbar.css 中定义 */
 }
 
 /* MD3 主题 */
@@ -1176,6 +1216,22 @@ mark {
 .main-content.with-filetree.layout-vertical > .editor-preview-container {
   flex: 1;
   width: 100%;
+  padding: 0;
+  gap: 8px;
+}
+
+/* 只显示编辑器时 */
+.main-content.with-filetree.layout-editor-only > .editor-preview-container {
+  flex: 1;
+  height: 100%;
+  padding: 0;
+  gap: 8px;
+}
+
+/* 只显示预览时 */
+.main-content.with-filetree.layout-preview-only > .editor-preview-container {
+  flex: 1;
+  height: 100%;
   padding: 0;
   gap: 8px;
 }

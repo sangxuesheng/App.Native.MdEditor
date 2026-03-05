@@ -38,6 +38,8 @@ import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentF
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
 import { FolderArchive, Sun, Columns, FileText, Eye } from 'lucide-react'
+import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
+import { restoreFullState, clearContent as clearPersistedContent } from './utils/localPersistence'
 
 // 初始化 unified 处理器
 const createMarkdownProcessor = () => {
@@ -78,15 +80,18 @@ const loadMermaid = async () => {
 }
 
 function App() {
-  const [content, setContent] = useState('')
+  // 恢复保存的状态
+  const savedState = restoreFullState()
+  
+  const [content, setContent] = useState(savedState?.content || '')
   const [showImageManager, setShowImageManager] = useState(false)
-  const [currentPath, setCurrentPath] = useState('')
+  const [currentPath, setCurrentPath] = useState(savedState?.currentPath || '')
   const [status, setStatus] = useState('就绪')
   const [statusType, setStatusType] = useState('normal') // normal, success, error
   const [showTableDialog, setShowTableDialog] = useState(false)
-  const [editorTheme, setEditorTheme] = useState('light')
-  const [layout, setLayout] = useState('vertical')
-  const [showFileTree, setShowFileTree] = useState(false)
+  const [editorTheme, setEditorTheme] = useState(savedState?.theme || 'light')
+  const [layout, setLayout] = useState(savedState?.layout || 'vertical')
+  const [showFileTree, setShowFileTree] = useState(savedState?.showFileTree || false)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
@@ -97,8 +102,8 @@ function App() {
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
-  const [showToolbar, setShowToolbar] = useState(true)
-  const [editorFontSize, setEditorFontSize] = useState(14)
+  const [showToolbar, setShowToolbar] = useState(savedState?.showToolbar !== false)
+  const [editorFontSize, setEditorFontSize] = useState(savedState?.fontSize || 14)
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
   const [pendingDraft, setPendingDraft] = useState(null)
@@ -109,14 +114,8 @@ function App() {
   const editorRef = useRef(null)
   const fileTreeRef = useRef(null)
   // 面板宽度状态
-  const [fileTreeWidth, setFileTreeWidth] = useState(() => {
-    const saved = localStorage.getItem('md-editor-filetree-width')
-    return saved ? parseInt(saved) : 280
-  })
-  const [editorWidth, setEditorWidth] = useState(() => {
-    const saved = localStorage.getItem('md-editor-editor-width')
-    return saved ? parseInt(saved) : 50 // 百分比
-  })
+  const [fileTreeWidth, setFileTreeWidth] = useState(savedState?.fileTreeWidth || 280)
+  const [editorWidth, setEditorWidth] = useState(savedState?.editorWidth || 50)
 
   // Toast 通知状态
   const [toasts, setToasts] = useState([])
@@ -131,7 +130,29 @@ function App() {
     setToasts(prev => prev.filter(toast => toast.id !== id))
   }, [])
 
-  // 保存面板宽度到 localStorage
+  // 本地持久化自动保存
+  const persistenceState = {
+    content,
+    currentPath,
+    editorWidth,
+    fileTreeWidth,
+    theme: editorTheme,
+    layout,
+    showFileTree,
+    showToolbar,
+    fontSize: editorFontSize
+  }
+  
+  // 启用自动保存（防抖 500ms）
+  const { saveNow } = useLocalPersistence(persistenceState, 500, true)
+  
+  // 页面关闭/刷新时保存
+  useBeforeUnload(persistenceState, true)
+  
+  // 页面隐藏时保存
+  useVisibilityChange(persistenceState, true)
+
+  // 保存面板宽度到 localStorage（保留原有逻辑以兼容）
   useEffect(() => {
     localStorage.setItem('md-editor-filetree-width', fileTreeWidth.toString())
   }, [fileTreeWidth])
@@ -217,6 +238,12 @@ function App() {
       if (data.ok) {
         // 保存历史记录
         saveFileHistory(path, saveContent)
+        
+        // 刷新文件树（刷新父目录）
+        if (fileTreeRef.current && fileTreeRef.current.refreshDirectory) {
+          const parentPath = path.split('/').slice(0, -1).join('/') || '/'
+          await fileTreeRef.current.refreshDirectory(parentPath)
+        }
         
         setStatus(`已保存: ${path}`)
         setStatusType('success')
@@ -364,7 +391,8 @@ function App() {
     if (path) {
       setCurrentPath(path)
       loadFile(path)
-    } else {
+    } else if (!savedState?.content) {
+      // 只在没有保存内容时才显示默认文本
       setContent(`# Markdown 编辑器功能展示
 这是一个完整的 Markdown 功能展示文档，包含了各种常用的格式和元素。
 
@@ -593,6 +621,9 @@ HTML
 
   const loadFile = async (path) => {
     try {
+      // 清除自动保存的内容（因为要加载新文件）
+      clearPersistedContent()
+      
       setStatus('正在加载...')
       const response = await fetch(`/api/file?path=${encodeURIComponent(path)}`)
       const data = await response.json()
@@ -679,6 +710,9 @@ HTML
   const [initialFileName, setInitialFileName] = useState('')
 
   const handleNewFileConfirm = (fileContent) => {
+    // 清除自动保存的内容（因为要创建新文件）
+    clearPersistedContent()
+    
     // 直接加载模板内容到编辑器
     setContent(fileContent)
     setCurrentPath('') // 清空当前路径，表示这是新文件
@@ -1793,15 +1827,6 @@ HTML
       </header>
 
       <main className={`main-content layout-${layout} ${showFileTree ? 'with-filetree' : ''}`}>
-        {showToolbar && (layout === 'vertical' || layout === 'editor-only') && (
-          <EditorToolbar 
-            onInsert={handleToolbarInsert}
-            onImageUpload={handleImageUpload}
-            onOpenImageManager={() => setShowImageManager(true)}
-            onOpenTableInsert={() => setShowTableDialog(true)}
-            disabled={false}
-          />
-        )}
         <div className="editor-preview-container">
           {showFileTree && (
             <>
@@ -1819,7 +1844,17 @@ HTML
               <Resizer direction="vertical" onResize={handleFileTreeResize} />
             </>
           )}
-          {(layout === 'vertical' || layout === 'editor-only') && (
+          <div className="editor-preview-wrapper">
+            {showToolbar && (layout === 'vertical' || layout === 'editor-only') && (
+              <EditorToolbar 
+                onInsert={handleToolbarInsert}
+                onImageUpload={handleImageUpload}
+                onOpenImageManager={() => setShowImageManager(true)}
+                onOpenTableInsert={() => setShowTableDialog(true)}
+                disabled={false}
+              />
+            )}
+            <div className="editor-preview-content">{(layout === 'vertical' || layout === 'editor-only') && (
             <>
               <div className="editor-pane" style={(layout === 'vertical') ? { width: `${editorWidth}%`, flexShrink: 0, flex: '1 1 auto', minHeight: 0 } : { flex: 1, minHeight: 0 }}>
               
@@ -1877,6 +1912,8 @@ HTML
             />
           </div>
         )}
+          </div>
+        </div>
       </div>
 
       </main>

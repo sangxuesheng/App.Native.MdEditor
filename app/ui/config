@@ -5,11 +5,11 @@
       "icon": "images/icon-256.png",
       "type": "iframe",
       "protocol": "http",
-      "port": "18080",
+      "port": "${wizard_port}",
       "url": "/",
       "allUsers": true,
-      "width": 1400,
-      "height": 900,
+      "width": 1412,
+      "height": 887,
       "minWidth": 1200,
       "minHeight": 800
     },
@@ -18,17 +18,15 @@
       "icon": "images/icon-256.png",
       "type": "iframe",
       "protocol": "http",
-      "port": "18080",
+      "port": "${wizard_port}",
       "url": "/",
       "allUsers": true,
       "fileTypes": ["md"],
       "noDisplay": true,
-      "width": 1400,
-      "height": 900,
+      "width": 1412,
+      "height": 887,
       "minWidth": 1200,
       "minHeight": 800
     }
   }
 }
-
-

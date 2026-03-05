@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { Search, Clock } from 'lucide-react'
 import { 
   highlightMatches, 
   getSearchHistory, 
@@ -100,7 +101,7 @@ function FileSearchBox({ value, onChange, onSearch }) {
   return (
     <div className="file-search-box">
       <div className="search-input-wrapper">
-        <span className="search-icon">🔍</span>
+        <span className="search-icon"><Search size={16} /></span>
         <input
           ref={inputRef}
           type="text"
@@ -141,7 +142,7 @@ function FileSearchBox({ value, onChange, onSearch }) {
                 className="search-history-item"
                 onClick={() => handleHistoryClick(query)}
               >
-                <span className="history-icon">🕐</span>
+                <span className="history-icon"><Clock size={14} /></span>
                 <span className="history-text">
                   {value ? renderHighlightedText(query, value) : query}
                 </span>
@@ -155,4 +156,3 @@ function FileSearchBox({ value, onChange, onSearch }) {
 }
 
 export default FileSearchBox
-

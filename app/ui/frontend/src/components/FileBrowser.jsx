@@ -237,7 +237,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
           <span className="content-title">{selectedRootDir?.name || '请选择目录'}</span>
           <button 
             className="btn-new-folder"
-            onClick={() => handleNewFolder(selectedRootDir?.path)}
+            onClick={() => handleNewFolder(selectedPath || selectedRootDir?.path)}
             disabled={!selectedRootDir}
             title="新建文件夹"
           >
@@ -263,7 +263,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
             <span className="empty-text">此目录为空</span>
             <button 
               className="btn-secondary btn-sm"
-              onClick={() => handleNewFolder(selectedRootDir?.path)}
+              onClick={() => handleNewFolder(selectedPath || selectedRootDir?.path)}
             >
               创建第一个文件夹
             </button>

@@ -12,6 +12,8 @@
   flex-shrink: 0;
   position: relative;
   z-index: 100;
+  border-radius: 12px;
+  margin-bottom: 8px;
 }
 
 .toolbar-group {
