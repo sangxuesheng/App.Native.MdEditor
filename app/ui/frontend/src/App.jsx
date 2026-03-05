@@ -805,6 +805,19 @@ HTML
     }
   }, [])
 
+  // 处理大纲点击，跳转到指定行
+  const handleHeadingClick = useCallback((lineNumber) => {
+    if (!editorRef.current) return
+    
+    const editor = editorRef.current
+    // 跳转到指定行并居中显示
+    editor.revealLineInCenter(lineNumber)
+    // 设置光标位置
+    editor.setPosition({ lineNumber, column: 1 })
+    // 聚焦编辑器
+    editor.focus()
+  }, [])
+
   // 插入表格
   const insertTable = useCallback((markdown) => {
     if (!editorRef.current) return
@@ -1956,6 +1969,8 @@ HTML
                 onRemoveFavorite={handleRemoveFavorite}
                 onClearFavorites={handleClearFavorites}
                 onReorderFavorites={handleReorderFavorites}
+                content={content}
+                onHeadingClick={handleHeadingClick}
                 style={{ width: `${fileTreeWidth}px`, flexShrink: 0 }}
               />
               <Resizer direction="vertical" onResize={handleFileTreeResize} />

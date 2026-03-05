@@ -1,0 +1,116 @@
+.outline-panel {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.outline-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.outline-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.4;
+  border-left: 2px solid transparent;
+  gap: 6px;
+}
+
+.outline-item:hover {
+  background: var(--bg-hover);
+  border-left-color: var(--primary-color);
+}
+
+.outline-item-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.outline-item:hover .outline-item-icon {
+  opacity: 1;
+}
+
+.outline-item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-item-line {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.outline-item:hover .outline-item-line {
+  opacity: 1;
+}
+
+/* 不同层级的标题样式 */
+.outline-item-level-1 {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.outline-item-level-2 {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.outline-item-level-3 {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.outline-item-level-4 {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.outline-item-level-5 {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.outline-item-level-6 {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* 滚动条样式 */
+.outline-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.outline-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.outline-panel::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.outline-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'rea
 import { ChevronRight, File, Folder, Star, FileText, FileJson } from 'lucide-react';
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
+import OutlinePanel from './OutlinePanel';
 import ContextMenu from './ContextMenu';
 import RenameDialog from './RenameDialog';
 import NewFolderDialog from './NewFolderDialog';
@@ -20,6 +21,8 @@ const FileTree = forwardRef(({
   onRemoveFavorite,
   onClearFavorites,
   onReorderFavorites,
+  content,
+  onHeadingClick,
   style
 }, ref) => {
   // 从 localStorage 恢复展开状态
@@ -38,6 +41,7 @@ const FileTree = forwardRef(({
     return new Set();
   };
 
+  const [activeTab, setActiveTab] = useState('files'); // 'files', 'outline', 'history'
   const [tree, setTree] = useState([]);
   const [expanded, setExpanded] = useState(getInitialExpandedState());
   const [loading, setLoading] = useState(false);
@@ -665,43 +669,86 @@ const FileTree = forwardRef(({
 
   return (
     <div className="file-tree" style={style}>
-      <div className="file-tree-header" onContextMenu={handleHeaderContextMenu}>
-        <h3>文件</h3>
-        <FileSearchBox
-          value={searchQuery}
-          onChange={setSearchQuery}
-          onSearch={setSearchQuery}
-        />
+      {/* 标签页导航 */}
+      <div className="file-tree-tabs">
+        <button 
+          className={`file-tree-tab ${activeTab === 'files' ? 'active' : ''}`}
+          onClick={() => setActiveTab('files')}
+        >
+          文件
+        </button>
+        <button 
+          className={`file-tree-tab ${activeTab === 'outline' ? 'active' : ''}`}
+          onClick={() => setActiveTab('outline')}
+        >
+          大纲
+        </button>
+        <button 
+          className={`file-tree-tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
+          历史
+        </button>
       </div>
-      
-      <FavoritesPanel
-        favorites={favorites || []}
-        onOpenFavorite={onOpenFavorite}
-        onRemoveFavorite={onRemoveFavorite}
-        onClearFavorites={onClearFavorites}
-        onReorderFavorites={onReorderFavorites}
-        currentPath={currentPath}
-      />
-      
-      <div className="file-tree-content" onContextMenu={handleEmptyAreaContextMenu}>
-        {loading && tree.length === 0 && (
-          <div className="file-tree-loading">加载中...</div>
-        )}
-        
-        {error && (
-          <div className="file-tree-error">{error}</div>
-        )}
-        
-        {!loading && !error && filteredTree.length === 0 && (
-          <div className="file-tree-empty">
-            {searchQuery ? '未找到匹配的文件' : '暂无文件'}
+
+      {/* 文件夹标签页内容 */}
+      {activeTab === 'files' && (
+        <>
+          <div className="file-tree-header" onContextMenu={handleHeaderContextMenu}>
+            <FileSearchBox
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onSearch={setSearchQuery}
+            />
           </div>
-        )}
-        
-        <AnimatedList delay={30}>
-          {filteredTree.map(node => renderNode(node))}
-        </AnimatedList>
-      </div>
+          
+          <FavoritesPanel
+            favorites={favorites || []}
+            onOpenFavorite={onOpenFavorite}
+            onRemoveFavorite={onRemoveFavorite}
+            onClearFavorites={onClearFavorites}
+            onReorderFavorites={onReorderFavorites}
+            currentPath={currentPath}
+          />
+          
+          <div className="file-tree-content" onContextMenu={handleEmptyAreaContextMenu}>
+            {loading && tree.length === 0 && (
+              <div className="file-tree-loading">加载中...</div>
+            )}
+            
+            {error && (
+              <div className="file-tree-error">{error}</div>
+            )}
+            
+            {!loading && !error && filteredTree.length === 0 && (
+              <div className="file-tree-empty">
+                {searchQuery ? '未找到匹配的文件' : '暂无文件'}
+              </div>
+            )}
+            
+            <AnimatedList delay={30}>
+              {filteredTree.map(node => renderNode(node))}
+            </AnimatedList>
+          </div>
+        </>
+      )}
+
+      {/* 大纲标签页内容 */}
+      {activeTab === 'outline' && (
+        <OutlinePanel 
+          content={content || ''}
+          onHeadingClick={onHeadingClick}
+        />
+      )}
+
+      {/* 历史标签页内容 */}
+      {activeTab === 'history' && (
+        <div className="file-tree-content">
+          <div className="file-tree-empty">
+            历史功能开发中...
+          </div>
+        </div>
+      )}
       
       {/* 右键菜单 */}
       {contextMenu && (
