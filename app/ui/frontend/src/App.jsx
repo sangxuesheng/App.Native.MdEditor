@@ -15,7 +15,6 @@ import 'github-markdown-css/github-markdown-light.css'
 import FileTree from './components/FileTree'
 import Resizer from './components/Resizer'
 import markdownLogo from './assets/markdown.svg'
-import DraftRecoveryDialog from './components/DraftRecoveryDialog'
 import EditorToolbar from './components/EditorToolbar'
 import MenuBar from './components/MenuBar'
 import NewFileDialog from './components/NewFileDialog'
@@ -29,9 +28,8 @@ import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
 import FileHistoryDialog from './components/FileHistoryDialog'
 import { ToastContainer } from './components/Toast'
-import { useAutoSave } from './hooks/useAutoSave'
 import { useDebounce } from './hooks/useDebounce'
-import { getDraft, clearDraft, hasDraft } from './utils/draftManager'
+import { saveFileHistory } from './utils/fileHistoryManagerV2'
 import { handleError, logError, getUserFriendlyMessage } from './utils/errorHandler'
 import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
@@ -92,7 +90,6 @@ function App() {
   const [editorTheme, setEditorTheme] = useState(savedState?.theme || 'light')
   const [layout, setLayout] = useState(savedState?.layout || 'vertical')
   const [showFileTree, setShowFileTree] = useState(savedState?.showFileTree || false)
-  const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
   const [isSaveAsMode, setIsSaveAsMode] = useState(true)
@@ -106,13 +103,17 @@ function App() {
   const [editorFontSize, setEditorFontSize] = useState(savedState?.fontSize || 14)
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
-  const [pendingDraft, setPendingDraft] = useState(null)
 
   const [rootDirs, setRootDirs] = useState([])
   const [mermaidLoaded, setMermaidLoaded] = useState(false)
   const previewRef = useRef(null)
   const editorRef = useRef(null)
   const fileTreeRef = useRef(null)
+  // 跟踪上次保存的内容（用于自动保存优化）
+  const lastSavedContentRef = useRef('')
+  const lastSavedPathRef = useRef('')
+  // 自动保存定时器
+  const autoSaveTimerRef = useRef(null)
   // 面板宽度状态
   const [fileTreeWidth, setFileTreeWidth] = useState(savedState?.fileTreeWidth || 280)
   const [editorWidth, setEditorWidth] = useState(savedState?.editorWidth || 50)
@@ -236,8 +237,11 @@ function App() {
       const data = await response.json()
       
       if (data.ok) {
-        // 保存历史记录
-        saveFileHistory(path, saveContent)
+        // 不在这里保存历史版本，由调用方决定
+        
+        // 更新上次保存的内容（用于自动保存优化）
+        lastSavedContentRef.current = saveContent
+        lastSavedPathRef.current = path
         
         // 刷新文件树（刷新父目录）
         if (fileTreeRef.current && fileTreeRef.current.refreshDirectory) {
@@ -293,17 +297,51 @@ function App() {
     }
   }, [content])
 
-  const autoSave = useAutoSave(content, currentPath, saveFile, {
-    interval: getAutoSaveInterval(),
-    enabled: !!currentPath,
-    onAutoSaveSuccess: (message) => {
-      setStatus(message)
-      setTimeout(() => setStatus('就绪'), 2000)
-    },
-    onAutoSaveError: (error) => {
-      console.error('自动保存失败:', error)
+  // 自动保存（替代 useAutoSave）- 只在内容变化时保存
+  useEffect(() => {
+    if (!currentPath || content === '') return
+
+    // 清除之前的定时器
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
     }
-  })
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      // 检查内容是否真的变化了
+      const contentChanged = content !== lastSavedContentRef.current
+      const pathChanged = currentPath !== lastSavedPathRef.current
+
+      // 只在内容变化或路径变化时才保存
+      if (contentChanged || pathChanged) {
+        try {
+          const success = await saveFile(currentPath, content)
+          if (success) {
+            // 保存历史版本（自动保存标记）
+            await saveFileHistory(currentPath, content, '', true)
+            // 更新上次保存的内容
+            lastSavedContentRef.current = content
+            lastSavedPathRef.current = currentPath
+          }
+        } catch (error) {
+          console.error('自动保存失败:', error)
+        }
+      }
+    }, getAutoSaveInterval())
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [content, currentPath, getAutoSaveInterval])
+
+  // 当文件加载时，更新上次保存的内容
+  useEffect(() => {
+    if (currentPath && content) {
+      lastSavedContentRef.current = content
+      lastSavedPathRef.current = currentPath
+    }
+  }, [currentPath])
 
   // 加载最近文件列表和收藏夹
   useEffect(() => {
@@ -649,15 +687,7 @@ HTML
         addRecentFile(path)
         setRecentFiles(getRecentFiles())
         
-        if (hasDraft(path, fileContent)) {
-          const draft = getDraft(path)
-          setPendingDraft(draft)
-          setShowDraftDialog(true)
-          setContent(fileContent)
-        } else {
-          setContent(fileContent)
-          autoSave.reset()
-        }
+        setContent(fileContent)
         
         setStatus(`已加载: ${path}`)
       } else {
@@ -680,27 +710,6 @@ HTML
   const handleFileSelect = (filePath) => {
     setCurrentPath(filePath)
     loadFile(filePath)
-  }
-
-  const handleRecoverDraft = () => {
-    if (pendingDraft) {
-      setContent(pendingDraft.content)
-      autoSave.reset()
-      setStatus('已恢复草稿')
-      setTimeout(() => setStatus('就绪'), 2000)
-    }
-    setShowDraftDialog(false)
-    setPendingDraft(null)
-  }
-
-  const handleDiscardDraft = () => {
-    if (pendingDraft) {
-      clearDraft(pendingDraft.filePath)
-      setStatus('已丢弃草稿')
-      setTimeout(() => setStatus('就绪'), 2000)
-    }
-    setShowDraftDialog(false)
-    setPendingDraft(null)
   }
 
   const handleNewFile = () => {
@@ -726,8 +735,12 @@ HTML
     const success = await saveFile(newPath, content)
     if (success) {
       setCurrentPath(newPath)
-      autoSave.reset()
       setStatus(`已保存: ${newPath}`)
+      
+      // 另存为后创建历史版本（标记为手动保存）
+      await saveFileHistory(newPath, content, '', false).catch(err => {
+        console.warn('保存历史版本失败:', err)
+      })
       
       // 刷新文件树（刷新父目录）
       if (fileTreeRef.current && fileTreeRef.current.refreshDirectory) {
@@ -847,16 +860,60 @@ HTML
     editor.focus()
   }, [])
 
-  const handleSaveClick = () => {
+  const handleSaveClick = async () => {
     if (currentPath) {
+      // 清除自动保存定时器，避免冲突
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = null
+      }
       // 如果有路径，直接保存
-      autoSave.manualSave()
+      const success = await saveFile(currentPath, content)
+      if (success) {
+        // 手动保存后创建历史版本（标记为手动保存）
+        await saveFileHistory(currentPath, content, '', false).catch(err => {
+          console.warn('保存历史版本失败:', err)
+        })
+      }
     } else {
       // 如果没有路径，打开保存对话框（不是另存为）
       setIsSaveAsMode(false)
       setShowSaveAsDialog(true)
     }
   }
+
+  // 恢复历史版本
+  const handleVersionRestore = useCallback(async (restoredContent, version) => {
+    if (!restoredContent) return
+    
+    // 更新编辑器内容
+    setContent(restoredContent)
+    
+    // 自动保存一个新版本，标记为从哪个版本恢复
+    try {
+      await saveFileHistory(
+        currentPath, 
+        restoredContent, 
+        `从版本 ${version.versionNumber} 恢复`, 
+        false // 手动保存
+      )
+    } catch (error) {
+      console.error('保存恢复版本失败:', error)
+    }
+    
+    // 显示成功提示
+    setStatus(`已恢复到版本 ${version.versionNumber}`)
+    setStatusType('success')
+    setTimeout(() => {
+      setStatus('就绪')
+      setStatusType('normal')
+    }, 3000)
+    
+    // 聚焦编辑器
+    if (editorRef.current) {
+      editorRef.current.focus()
+    }
+  }, [currentPath])
 
   const handleSaveAs = () => {
     setIsSaveAsMode(true)
@@ -1583,8 +1640,21 @@ HTML
       }
     })
     
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      autoSave.manualSave()
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
+      if (currentPath) {
+        // 清除自动保存定时器，避免冲突
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current)
+          autoSaveTimerRef.current = null
+        }
+        const success = await saveFile(currentPath, content)
+        if (success) {
+          // 手动保存后创建历史版本（标记为手动保存）
+          await saveFileHistory(currentPath, content, '', false).catch(err => {
+            console.warn('保存历史版本失败:', err)
+          })
+        }
+      }
     })
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => {
@@ -1815,15 +1885,6 @@ HTML
 
   return (
     <div className="app theme-light">
-      {showDraftDialog && (
-        <DraftRecoveryDialog
-          draft={pendingDraft}
-          onRecover={handleRecoverDraft}
-          onDiscard={handleDiscardDraft}
-          onClose={() => setShowDraftDialog(false)}
-        />
-      )}
-
       {showNewFileDialog && (
         <NewFileDialog
           onClose={() => setShowNewFileDialog(false)}
@@ -1908,7 +1969,7 @@ HTML
           <img src={markdownLogo} alt="Markdown" className="app-logo" />
           <MenuBar
             onNewFile={handleNewFile}
-            onSave={() => autoSave.manualSave()}
+            onSave={handleSaveClick}
             onSaveAs={handleSaveAs}
             onExport={handleExport}
             onUndo={handleMenuUndo}
@@ -1971,6 +2032,7 @@ HTML
                 onReorderFavorites={handleReorderFavorites}
                 content={content}
                 onHeadingClick={handleHeadingClick}
+                onVersionRestore={handleVersionRestore}
                 style={{ width: `${fileTreeWidth}px`, flexShrink: 0 }}
               />
               <Resizer direction="vertical" onResize={handleFileTreeResize} />
@@ -1986,7 +2048,8 @@ HTML
                 disabled={false}
               />
             )}
-            <div className="editor-preview-content">{(layout === 'vertical' || layout === 'editor-only') && (
+            <div className="editor-preview-content">
+              {(layout === 'vertical' || layout === 'editor-only') && (
             <>
               <div className="editor-pane" style={(layout === 'vertical') ? { width: `${editorWidth}%`, flexShrink: 0, flex: '1 1 auto', minHeight: 0 } : { flex: 1, minHeight: 0 }}>
               
@@ -2044,9 +2107,9 @@ HTML
             />
           </div>
         )}
+            </div>
           </div>
         </div>
-      </div>
 
       </main>
 
@@ -2064,7 +2127,6 @@ HTML
         <div className="statusbar-right">
           <span className="status-info">
             {content.length} 字符 · {content.split('\n').length} 行
-            {autoSave.hasChanges && ' · 未保存'}
           </span>
           <button 
             className="statusbar-btn" 

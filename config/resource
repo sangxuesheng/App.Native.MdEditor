@@ -8,6 +8,14 @@
             "data"
           ]
         }
+      },
+      {
+        "name": "mdeditor/history",
+        "permission": {
+          "rw": [
+            "data"
+          ]
+        }
       }
     ]
   }

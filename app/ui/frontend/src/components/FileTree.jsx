@@ -3,6 +3,7 @@ import { ChevronRight, File, Folder, Star, FileText, FileJson } from 'lucide-rea
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
 import OutlinePanel from './OutlinePanel';
+import HistoryPanel from './HistoryPanel';
 import ContextMenu from './ContextMenu';
 import RenameDialog from './RenameDialog';
 import NewFolderDialog from './NewFolderDialog';
@@ -23,6 +24,7 @@ const FileTree = forwardRef(({
   onReorderFavorites,
   content,
   onHeadingClick,
+  onVersionRestore,
   style
 }, ref) => {
   // 从 localStorage 恢复展开状态
@@ -743,11 +745,11 @@ const FileTree = forwardRef(({
 
       {/* 历史标签页内容 */}
       {activeTab === 'history' && (
-        <div className="file-tree-content">
-          <div className="file-tree-empty">
-            历史功能开发中...
-          </div>
-        </div>
+        <HistoryPanel 
+          currentPath={currentPath}
+          theme={document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light'}
+          onVersionRestore={onVersionRestore}
+        />
       )}
       
       {/* 右键菜单 */}

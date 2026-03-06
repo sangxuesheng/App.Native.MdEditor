@@ -11,6 +11,7 @@ const http = require('http');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const historyManager = require('./historyManager');
 
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
 const STATIC_DIR = path.join(__dirname, '../ui/frontend/dist');
@@ -827,6 +828,165 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+
+  // ==================== 历史版本 API ====================
+  
+  // 保存版本：POST /api/file/history/save
+  if (parsed.pathname === '/api/file/history/save' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 10 * 1024 * 1024) { // 限制10MB
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try {
+        const { filePath, content, label, autoSaved } = JSON.parse(raw || '{}');
+        
+        // 验证文件路径
+        try {
+          resolveSafePath(filePath);
+        } catch (error) {
+          sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
+          return;
+        }
+        
+        const result = historyManager.saveVersion(filePath, content, label || '', autoSaved !== false);
+        sendJson(res, 200, result);
+      } catch (error) {
+        console.error('Save history error:', error);
+        sendJson(res, 500, { ok: false, message: error.message });
+      }
+    });
+    return;
+  }
+
+  // 获取版本列表：GET /api/file/history/list?path=xxx
+  if (parsed.pathname === '/api/file/history/list' && req.method === 'GET') {
+    try {
+      const filePath = parsed.query.path;
+      
+      if (!filePath) {
+        sendJson(res, 400, { ok: false, message: '缺少文件路径参数' });
+        return;
+      }
+      
+      // 验证文件路径
+      try {
+        resolveSafePath(filePath);
+      } catch (error) {
+        sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
+        return;
+      }
+      
+      const versions = historyManager.getVersionList(filePath);
+      sendJson(res, 200, { ok: true, versions });
+    } catch (error) {
+      console.error('Get version list error:', error);
+      sendJson(res, 500, { ok: false, message: error.message });
+    }
+    return;
+  }
+
+  // 获取版本内容：GET /api/file/history/version?path=xxx&version=1
+  if (parsed.pathname === '/api/file/history/version' && req.method === 'GET') {
+    try {
+      const filePath = parsed.query.path;
+      const versionNumber = parseInt(parsed.query.version);
+      
+      if (!filePath || !versionNumber) {
+        sendJson(res, 400, { ok: false, message: '缺少必要参数' });
+        return;
+      }
+      
+      // 验证文件路径
+      try {
+        resolveSafePath(filePath);
+      } catch (error) {
+        sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
+        return;
+      }
+      
+      const version = historyManager.getVersionContent(filePath, versionNumber);
+      
+      if (version) {
+        sendJson(res, 200, { ok: true, ...version });
+      } else {
+        sendJson(res, 404, { ok: false, message: '版本不存在' });
+      }
+    } catch (error) {
+      console.error('Get version content error:', error);
+      sendJson(res, 500, { ok: false, message: error.message });
+    }
+    return;
+  }
+
+  // 删除单个版本：POST /api/file/history/delete
+  if (parsed.pathname === '/api/file/history/delete' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => { raw += chunk.toString('utf8'); });
+    req.on('end', () => {
+      try {
+        const { filePath, versionNumber } = JSON.parse(raw || '{}');
+        
+        if (!filePath || !versionNumber) {
+          sendJson(res, 400, { ok: false, message: '缺少必要参数' });
+          return;
+        }
+        
+        // 验证文件路径
+        try {
+          resolveSafePath(filePath);
+        } catch (error) {
+          sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
+          return;
+        }
+        
+        const result = historyManager.deleteVersion(filePath, versionNumber);
+        sendJson(res, 200, result);
+      } catch (error) {
+        console.error('Delete version error:', error);
+        sendJson(res, 500, { ok: false, message: error.message });
+      }
+    });
+    return;
+  }
+
+  // 删除所有版本：POST /api/file/history/clear
+  if (parsed.pathname === '/api/file/history/clear' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => { raw += chunk.toString('utf8'); });
+    req.on('end', () => {
+      try {
+        const { filePath } = JSON.parse(raw || '{}');
+        
+        if (!filePath) {
+          sendJson(res, 400, { ok: false, message: '缺少文件路径参数' });
+          return;
+        }
+        
+        // 验证文件路径
+        try {
+          resolveSafePath(filePath);
+        } catch (error) {
+          sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
+          return;
+        }
+        
+        const result = historyManager.clearAllVersions(filePath);
+        sendJson(res, 200, result);
+      } catch (error) {
+        console.error('Clear all versions error:', error);
+        sendJson(res, 500, { ok: false, message: error.message });
+      }
+    });
+    return;
+  }
+
+  // ==================== 静态文件服务 ====================
 
   // 静态文件服务
 

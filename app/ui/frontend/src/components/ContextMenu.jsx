@@ -166,12 +166,30 @@ function ContextMenu({
       let adjustedX = x
       let adjustedY = y
 
-      if (rect.right > viewportWidth) {
+      // 水平方向调整：如果右侧超出，则向左移动
+      if (x + rect.width > viewportWidth) {
         adjustedX = viewportWidth - rect.width - 10
       }
+      
+      // 确保不会超出左边界
+      if (adjustedX < 10) {
+        adjustedX = 10
+      }
 
-      if (rect.bottom > viewportHeight) {
-        adjustedY = viewportHeight - rect.height - 10
+      // 垂直方向调整：如果底部超出，则显示在鼠标上方
+      if (y + rect.height > viewportHeight) {
+        // 尝试显示在鼠标上方
+        adjustedY = y - rect.height
+        
+        // 如果上方也放不下，则尽量靠近顶部
+        if (adjustedY < 10) {
+          adjustedY = 10
+        }
+      }
+      
+      // 确保不会超出顶部
+      if (adjustedY < 10) {
+        adjustedY = 10
       }
 
       menuRef.current.style.left = `${adjustedX}px`
