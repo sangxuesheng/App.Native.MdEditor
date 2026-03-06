@@ -48,27 +48,19 @@
   }
 }
 
-/* 深色主题 */
-.theme-dark {
-  --progress-bg: #3e3e42;
-  --spinner-bg: #3e3e42;
-  --primary-color: #0e639c;
-  --text-primary: #cccccc;
-}
-
 /* 浅色主题 */
-.theme-light {
+.theme-light .progress-dialog {
   --progress-bg: #e5e5e5;
   --spinner-bg: #e5e5e5;
-  --primary-color: #0078d4;
-  --text-primary: #333333;
+  --primary-color: #0969da;
+  --text-primary: #24292f;
 }
 
-/* MD3 主题 */
-.theme-md3 {
-  --progress-bg: #e8def8;
-  --spinner-bg: #e8def8;
-  --primary-color: #6750a4;
-  --text-primary: #1c1b1f;
+/* 暗黑主题 */
+.theme-dark .progress-dialog {
+  --progress-bg: #30363d;
+  --spinner-bg: #30363d;
+  --primary-color: #58a6ff;
+  --text-primary: #c9d1d9;
 }
 

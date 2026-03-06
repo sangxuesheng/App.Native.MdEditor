@@ -63,14 +63,20 @@
   margin: 4px 8px;
 }
 
-/* 深色主题 */
-
 /* 浅色主题 */
 .theme-light {
   --menu-bg: #ffffff;
-  --menu-hover-bg: #e8e8e8;
-  --border-color: #d4d4d4;
-  --text-color: #333333;
+  --menu-hover-bg: #f6f8fa;
+  --border-color: #d0d7de;
+  --text-color: #24292f;
+}
+
+/* 暗黑主题 */
+.theme-dark {
+  --menu-bg: #161b22;
+  --menu-hover-bg: #21262d;
+  --border-color: #30363d;
+  --text-color: #c9d1d9;
 }
 
 

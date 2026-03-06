@@ -34,6 +34,15 @@
   width: 100%;
   max-width: 600px;
   height: calc(100% - 80px);
+  background: #0d1117;
+}
+
+.theme-light .save-as-dialog .dialog-body {
+  background: #ffffff;
+}
+
+.theme-dark .save-as-dialog .dialog-body {
+  background: #0d1117;
 }
 
 .save-as-form {
@@ -63,7 +72,7 @@
 
 
 /* 底部文件名输入 */
-.dialog-footer {
+.save-as-dialog .dialog-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -73,9 +82,14 @@
   background: #0d1117;
 }
 
-.theme-light .dialog-footer {
-  background: #f6f8fa;
+.theme-light .save-as-dialog .dialog-footer {
+  background: #ffffff;
   border-top-color: #d0d7de;
+}
+
+.theme-dark .save-as-dialog .dialog-footer {
+  background: #0d1117;
+  border-top-color: #30363d;
 }
 
 

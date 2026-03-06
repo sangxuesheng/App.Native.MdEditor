@@ -25,7 +25,8 @@ const FileTree = forwardRef(({
   content,
   onHeadingClick,
   onVersionRestore,
-  style
+  style,
+  theme = 'light'
 }, ref) => {
   // 从 localStorage 恢复展开状态
   const getInitialExpandedState = () => {
@@ -85,24 +86,50 @@ const FileTree = forwardRef(({
 
   // 展开到指定路径
   const expandToPath = async (targetPath) => {
+    console.log('[FileTree] expandToPath called with:', targetPath)
+    
     // 解析路径，获取所有父级目录
     const pathParts = targetPath.split('/').filter(Boolean)
     const newExpanded = new Set(expanded)
     
     // 逐级展开父目录
     let currentPath = ''
+    let currentTree = tree
+    
     for (let i = 0; i < pathParts.length - 1; i++) {
       currentPath += '/' + pathParts[i]
       newExpanded.add(currentPath)
+      console.log('[FileTree] Expanding path:', currentPath)
       
       // 加载该目录（如果还没加载）
-      const node = findNodeByPath(tree, currentPath)
+      const node = findNodeByPath(currentTree, currentPath)
       if (node && !node.children) {
-        await loadDirectory(currentPath)
+        console.log('[FileTree] Loading directory:', currentPath)
+        const success = await loadDirectory(currentPath)
+        if (success) {
+          // 等待一小段时间让状态更新
+          await new Promise(resolve => setTimeout(resolve, 50))
+          // 获取更新后的树（通过重新查找根节点）
+          currentTree = await new Promise(resolve => {
+            setTree(prevTree => {
+              resolve(prevTree)
+              return prevTree
+            })
+          })
+        }
       }
     }
     
+    console.log('[FileTree] Setting expanded paths:', Array.from(newExpanded))
     setExpanded(newExpanded)
+    
+    // 等待展开状态更新后滚动到目标节点
+    setTimeout(() => {
+      const targetElement = document.querySelector(`[data-path="${targetPath}"]`)
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
   }
 
   // 在树中查找节点
@@ -626,7 +653,7 @@ const FileTree = forwardRef(({
     const isFav = isFavorite(node.path);
 
     return (
-      <div key={node.path} className="tree-node">
+      <div key={node.path} className="tree-node" data-path={node.path}>
         <div
           className={`tree-node-content ${isActive ? 'active' : ''}`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
@@ -773,6 +800,7 @@ const FileTree = forwardRef(({
             setShowRenameDialog(false);
             setRenameNode(null);
           }}
+          theme={theme}
         />
       )}
       

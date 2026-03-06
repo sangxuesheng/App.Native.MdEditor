@@ -228,6 +228,20 @@
   --active-bg: #0969da;
   --active-color: #ffffff;
   --error-color: #d1242f;
+  --primary-color: #0969da;
+}
+
+.theme-dark .file-tree {
+  --bg-secondary: #0d1117;
+  --border-color: #30363d;
+  --bg-primary: #161b22;
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --hover-bg: #21262d;
+  --active-bg: #58a6ff;
+  --active-color: #0d1117;
+  --error-color: #f85149;
+  --primary-color: #58a6ff;
 }
 
 

@@ -261,17 +261,17 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-/* 深色主题 */
-
 /* 浅色主题 */
-.theme-light {
-  --path-bg: #f3f3f3;
-  --header-bg: #f3f3f3;
-  --hover-bg: #e8e8e8;
-  --selected-bg: #d4d4d4;
-  --primary-color: #0078d4;
-  --text-secondary: #666666;
-  --diff-bg: #f8f9fa;
+.theme-light .history-dialog {
+  --path-bg: #f6f8fa;
+  --header-bg: #f6f8fa;
+  --hover-bg: #eaeef2;
+  --selected-bg: #ddf4ff;
+  --primary-color: #0969da;
+  --text-color: #24292f;
+  --text-secondary: #57606a;
+  --border-color: #d0d7de;
+  --diff-bg: #f6f8fa;
   --added-bg: rgba(40, 167, 69, 0.1);
   --added-color: #28a745;
   --removed-bg: rgba(220, 53, 69, 0.1);
@@ -279,7 +279,29 @@
   --modified-bg: rgba(255, 193, 7, 0.1);
   --modified-color: #ffc107;
   --preview-bg: #ffffff;
-  --scrollbar-thumb: #c1c1c1;
-  --scrollbar-thumb-hover: #a8a8a8;
+  --scrollbar-thumb: #d0d7de;
+  --scrollbar-thumb-hover: #afb8c1;
+}
+
+/* 暗黑主题 */
+.theme-dark .history-dialog {
+  --path-bg: #161b22;
+  --header-bg: #161b22;
+  --hover-bg: #21262d;
+  --selected-bg: #1c2d41;
+  --primary-color: #58a6ff;
+  --text-color: #c9d1d9;
+  --text-secondary: #8b949e;
+  --border-color: #30363d;
+  --diff-bg: #161b22;
+  --added-bg: rgba(46, 160, 67, 0.15);
+  --added-color: #3fb950;
+  --removed-bg: rgba(248, 81, 73, 0.15);
+  --removed-color: #f85149;
+  --modified-bg: rgba(187, 128, 9, 0.15);
+  --modified-color: #d29922;
+  --preview-bg: #0d1117;
+  --scrollbar-thumb: #30363d;
+  --scrollbar-thumb-hover: #484f58;
 }
 

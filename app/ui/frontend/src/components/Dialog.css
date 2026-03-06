@@ -27,9 +27,9 @@
 
 /* 对话框容器 */
 .dialog-container {
-  background: #1e1e1e;
+  background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   max-width: 90vw;
   max-height: 85vh;
   width: 600px;
@@ -43,6 +43,12 @@
   background: #ffffff;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   border: none;
+}
+
+.theme-dark .dialog-container {
+  background: #0d1117;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid #30363d;
 }
 
 
@@ -71,6 +77,9 @@
   border-bottom-color: #d0d7de;
 }
 
+.theme-dark .dialog-header {
+  border-bottom-color: #30363d;
+}
 
 .dialog-header h2 {
   margin: 0;
@@ -81,6 +90,10 @@
 
 .theme-light .dialog-header h2 {
   color: #24292f;
+}
+
+.theme-dark .dialog-header h2 {
+  color: #c9d1d9;
 }
 
 
@@ -111,6 +124,11 @@
   color: #24292f;
 }
 
+.theme-dark .dialog-close:hover {
+  background: #21262d;
+  color: #c9d1d9;
+}
+
 
 /* 对话框内容 */
 .dialog-content {
@@ -131,6 +149,14 @@
   color: #24292f;
 }
 
+.theme-dark .dialog-content {
+  color: #c9d1d9;
+}
+
+.theme-dark .dialog-content {
+  color: #c9d1d9;
+}
+
 
 /* 对话框底部 */
 .dialog-footer {
@@ -145,6 +171,10 @@
 
 .theme-light .dialog-footer {
   border-top-color: #d0d7de;
+}
+
+.theme-dark .dialog-footer {
+  border-top-color: #30363d;
 }
 
 
@@ -171,6 +201,10 @@
   color: #24292f;
 }
 
+.theme-dark .btn-secondary {
+  border-color: #30363d;
+  color: #c9d1d9;
+}
 
 .btn-secondary:hover {
   background: #30363d;
@@ -178,6 +212,10 @@
 
 .theme-light .btn-secondary:hover {
   background: #f6f8fa;
+}
+
+.theme-dark .btn-secondary:hover {
+  background: #21262d;
 }
 
 

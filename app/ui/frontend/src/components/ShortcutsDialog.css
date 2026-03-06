@@ -61,36 +61,27 @@
   text-align: right;
 }
 
-/* 深色主题 */
-
-
-
-
-
 /* 浅色主题 */
-.theme-light .shortcuts-section h3 {
-  color: #24292f;
-  border-bottom-color: #d0d7de;
+.theme-light .shortcuts-dialog {
+  --text-primary: #24292f;
+  --text-secondary: #57606a;
+  --border-color: #d0d7de;
+  --item-bg: #f6f8fa;
+  --item-hover-bg: #eaeef2;
+  --key-color: #0969da;
+  --key-bg: #ffffff;
 }
 
-.theme-light .shortcut-item {
-  background: #f6f8fa;
+/* 暗黑主题 */
+.theme-dark .shortcuts-dialog {
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --border-color: #30363d;
+  --item-bg: #161b22;
+  --item-hover-bg: #21262d;
+  --key-color: #58a6ff;
+  --key-bg: #0d1117;
 }
-
-.theme-light .shortcut-item:hover {
-  background: #eaeef2;
-}
-
-.theme-light .shortcut-keys {
-  color: #0969da;
-  background: #ffffff;
-}
-
-.theme-light .shortcut-description {
-  color: #57606a;
-}
-
-/* MD3 主题 */
 
 
 

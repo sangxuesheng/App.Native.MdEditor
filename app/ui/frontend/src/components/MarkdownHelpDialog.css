@@ -47,30 +47,21 @@
   word-wrap: break-word;
 }
 
-/* 深色主题 */
-
-
-
-
 /* 浅色主题 */
-.theme-light .help-section h3 {
-  color: #24292f;
+.theme-light .markdown-help-dialog {
+  --text-primary: #24292f;
+  --code-bg: #f6f8fa;
+  --code-color: #0969da;
+  --code-inline-bg: #ffffff;
 }
 
-.theme-light .help-example {
-  background: #f6f8fa;
+/* 暗黑主题 */
+.theme-dark .markdown-help-dialog {
+  --text-primary: #c9d1d9;
+  --code-bg: #161b22;
+  --code-color: #58a6ff;
+  --code-inline-bg: #0d1117;
 }
-
-.theme-light .help-example code {
-  color: #0969da;
-  background: #ffffff;
-}
-
-.theme-light .help-example pre {
-  color: #24292f;
-}
-
-/* MD3 主题 */
 
 
 

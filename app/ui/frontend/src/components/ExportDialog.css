@@ -136,8 +136,6 @@
   line-height: 1.4;
 }
 
-/* 深色主题 */
-
 /* 浅色主题 */
 .theme-light .export-dialog {
   --bg-secondary: #f6f8fa;
@@ -147,6 +145,17 @@
   --text-primary: #24292f;
   --text-secondary: #57606a;
   --primary-color: #0969da;
+}
+
+/* 暗黑主题 */
+.theme-dark .export-dialog {
+  --bg-secondary: #161b22;
+  --bg-hover: #21262d;
+  --primary-bg: rgba(88, 166, 255, 0.1);
+  --border-color: #30363d;
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --primary-color: #58a6ff;
 }
 
 @media (max-width: 768px) {
@@ -176,6 +185,12 @@
   color: #0969da;
 }
 
+.theme-dark .status-message {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: rgba(88, 166, 255, 0.3);
+  color: #58a6ff;
+}
+
 .error-message {
   padding: 12px 16px;
   background: rgba(248, 81, 73, 0.1);
@@ -189,6 +204,12 @@
   background: #ffebe9;
   border-color: #cf222e;
   color: #cf222e;
+}
+
+.theme-dark .error-message {
+  background: rgba(248, 81, 73, 0.1);
+  border-color: rgba(248, 81, 73, 0.3);
+  color: #f85149;
 }
 
 
@@ -245,4 +266,23 @@
 
 .theme-light .file-extension {
   color: #57606a;
+}
+
+.theme-dark .file-name-input {
+  background: #0d1117;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+
+.theme-dark .file-name-input:focus {
+  border-color: #58a6ff;
+  background: #161b22;
+}
+
+.theme-dark .file-name-input::placeholder {
+  color: #6e7681;
+}
+
+.theme-dark .file-extension {
+  color: #8b949e;
 }

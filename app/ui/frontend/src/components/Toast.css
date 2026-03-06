@@ -94,12 +94,13 @@
   color: #ffffff;
 }
 
-/* 深色主题 */
-
 /* 浅色主题 */
 .theme-light .toast {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* MD3 主题 */
+/* 暗黑主题 */
+.theme-dark .toast {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
 

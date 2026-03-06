@@ -77,7 +77,7 @@ const SettingsDialog = ({
   };
 
   return (
-    <div className="dialog-overlay theme-light" onClick={onClose}>
+    <div className={`dialog-overlay theme-${theme}`} onClick={onClose}>
       <div className="dialog-content settings-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>设置</h2>
@@ -101,8 +101,7 @@ const SettingsDialog = ({
                   className="form-select"
                 >
                   <option value="light">浅色</option>
-                  <option value="vs-dark">深色</option>
-                  <option value="md3">MD3 紫色</option>
+                  <option value="dark">深色</option>
                 </select>
               </div>
             </div>

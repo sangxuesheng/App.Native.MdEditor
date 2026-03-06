@@ -7,7 +7,8 @@ import './RenameDialog.css'
 function RenameDialog({ 
   node,
   onConfirm, 
-  onCancel
+  onCancel,
+  theme = 'light'
 }) {
   const [newName, setNewName] = useState(node?.name || '')
   const [error, setError] = useState('')
@@ -58,7 +59,7 @@ function RenameDialog({
   if (!node) return null
 
   return (
-    <div className="dialog-overlay" onClick={onCancel}>
+    <div className={`dialog-overlay theme-${theme}`} onClick={onCancel}>
       <div className="dialog-content rename-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>重命名</h2>

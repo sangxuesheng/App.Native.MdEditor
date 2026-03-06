@@ -709,47 +709,207 @@ html, body {
   background: rgba(0, 0, 0, 0.4);
 }
 
+/* 浅色主题状态栏按钮 */
+.app.theme-light .statusbar-btn {
+  border-color: #d0d7de;
+  color: #57606a;
+}
+
+.app.theme-light .statusbar-btn:hover {
+  background: #f6f8fa;
+  border-color: #0969da;
+  color: #0969da;
+}
+
+/* 浅色主题拖拽样式 */
+.app.theme-light .editor-pane.drag-over {
+  background: rgba(9, 105, 218, 0.1);
+  border-color: #0969da;
+}
+
+.app.theme-light .editor-pane.drag-over::after {
+  color: #0969da;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #0969da;
+}
+
+/* ==================== 暗黑主题 ==================== */
+.app.theme-dark {
+  background: #0d1117;
+  color: #c9d1d9;
+}
+
+.app.theme-dark .toolbar {
+  background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+  border-bottom-color: #30363d;
+}
+
+.app.theme-dark .title {
+  color: #58a6ff;
+}
+
+.app.theme-dark .file-path {
+  color: #8b949e;
+}
+
+.app.theme-dark .btn-icon {
+  border-color: #30363d;
+  color: #8b949e;
+}
+
+.app.theme-dark .btn-icon:hover {
+  background: #21262d;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+.app.theme-dark .btn-icon.active {
+  background: #007acc;
+  border-color: #007acc;
+  color: #fff;
+}
+
+.app.theme-dark .editor-pane,
+.app.theme-dark .preview-pane {
+  background: #0d1117;
+  border-color: #21262d;
+}
+
+.app.theme-dark .preview-pane {
+  background: #0d1117;
+}
+
+/* 暗黑主题滚动条 */
+.app.theme-dark .preview-pane::-webkit-scrollbar-thumb {
+  background: #30363d;
+}
+
+.app.theme-dark .preview-pane::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}
+
+.app.theme-dark .editor-pane .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(121, 121, 121, 0.4) !important;
+}
+
+.app.theme-dark .editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(100, 100, 100, 0.7) !important;
+}
+
+.app.theme-dark .markdown-body {
+  color: #c9d1d9 !important;
+}
+
+.app.theme-dark .markdown-body h1,
+.app.theme-dark .markdown-body h2 {
+  border-bottom-color: #21262d !important;
+}
+
+.app.theme-dark .markdown-body code {
+  background: #161b22 !important;
+  color: #79c0ff !important;
+}
+
+.app.theme-dark .markdown-body pre {
+  background: #161b22 !important;
+  border-color: #30363d;
+}
+
+.app.theme-dark .markdown-body table th,
+.app.theme-dark .markdown-body table td {
+  border-color: #30363d !important;
+}
+
+.app.theme-dark .markdown-body table th {
+  background: #161b22 !important;
+}
+
+.app.theme-dark .markdown-body table tr:nth-child(even) {
+  background: #0d1117 !important;
+}
+
+.app.theme-dark .markdown-body blockquote {
+  border-left-color: #58a6ff !important;
+  color: #8b949e !important;
+}
+
+.app.theme-dark .markdown-body a {
+  color: #58a6ff !important;
+}
+
+.app.theme-dark .mermaid {
+  background: #161b22;
+}
+
+.app.theme-dark .statusbar {
+  background: #161b22;
+  border-top-color: #21262d;
+  color: #8b949e;
+}
+
+.app.theme-dark ::-webkit-scrollbar-track {
+  background: #0d1117;
+}
+
+.app.theme-dark ::-webkit-scrollbar-thumb {
+  background: #30363d;
+}
+
+.app.theme-dark ::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}
+
+/* 暗黑主题预览区滚动条 */
+.app.theme-dark .preview-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app.theme-dark .preview-pane::-webkit-scrollbar-thumb {
+  background: rgba(121, 121, 121, 0.4);
+  border-radius: 5px;
+}
+
+.app.theme-dark .preview-pane::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.7);
+}
+
+/* 暗黑主题状态栏按钮 */
+.app.theme-dark .statusbar-btn {
+  border-color: #30363d;
+  color: #8b949e;
+}
+
+.app.theme-dark .statusbar-btn:hover {
+  background: #21262d;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+/* 暗黑主题拖拽样式 */
+.app.theme-dark .editor-pane.drag-over {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: #58a6ff;
+}
+
+.app.theme-dark .editor-pane.drag-over::after {
+  color: #58a6ff;
+  background: rgba(13, 17, 23, 0.9);
+  border-color: #58a6ff;
+}
+
+/* 暗黑主题高亮文本 */
+.app.theme-dark mark {
+  background-color: #ffd700;
+  color: #000000;
+}
+
+/* 暗黑主题注脚 */
+.app.theme-dark .markdown-body .footnotes {
+  border-top-color: #30363d;
+}
+
 /* ==================== Material Design 3 主题 ==================== */
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* MD3 主题滚动条 */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* MD3 主题预览区滚动条 */
-
-
-
-/* MD3 特殊效果 */
+/* MD3 主题已移除 */
 
 /* 状态栏按钮 */
 .statusbar-left,
@@ -791,9 +951,6 @@ html, body {
   border-color: #0969da;
   color: #0969da;
 }
-
-/* MD3 主题状态栏按钮 */
-
 
 /* 修复工具栏下拉菜单被遮挡的问题 */
 .editor-toolbar {
@@ -843,13 +1000,6 @@ html, body {
   --text-primary: #333333;
 }
 
-.theme-md3 .toggle-filetree-btn {
-  --border-color: #79747e;
-  --hover-bg: #e8def8;
-  --primary-color: #6750a4;
-  --text-primary: #1c1b1f;
-}
-
 /* 文件夹图标 */
 .icon-folder-open-dot,
 .icon-folder-closed-dot {
@@ -889,15 +1039,6 @@ html, body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23ccc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
 }
 
-/* MD3 主题 */
-.theme-md3 .icon-folder-open-dot::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236750a4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'%3E%3C/path%3E%3Cpath d='M2 9h20'%3E%3C/path%3E%3C/svg%3E");
-}
-
-.theme-md3 .icon-folder-closed-dot::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236750a4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
-}
-
 /* ==================== 编辑器工具栏样式 ==================== */
 
 /* 工具栏基础样式 */
@@ -906,14 +1047,6 @@ html, body {
   width: 100%;
   z-index: 10;
 }
-
-/* 浅色主题 */
-.app.theme-light .editor-preview-wrapper > .editor-toolbar {
-  /* 工具栏自身样式在 EditorToolbar.css 中定义 */
-}
-
-/* MD3 主题 */
-
 
 /* ==================== 行号右对齐 ==================== */
 .monaco-editor .line-numbers {
@@ -1041,9 +1174,6 @@ html, body {
   color: #d32f2f !important;
 }
 
-/* MD3 主题 */
-
-
 /* ==================== 完全隐藏 Escape 提示 ==================== */
 
 /* 隐藏所有可能的快捷键显示 */
@@ -1085,9 +1215,16 @@ mark {
   border-radius: 2px;
 }
 
-/* 暗色主题下的高亮 */
+/* 暗黑主题高亮文本 */
+.app.theme-dark mark {
+  background-color: #ffd700;
+  color: #000000;
+}
 
-/* MD3 主题下的高亮 */
+/* 暗黑主题注脚 */
+.app.theme-dark .markdown-body .footnotes {
+  border-top-color: #30363d;
+}
 
 /* ==================== 注脚样式优化 ==================== */
 
@@ -1164,9 +1301,6 @@ mark {
   background: rgba(255, 255, 255, 0.95);
   border-color: #0969da;
 }
-
-/* MD3 主题拖拽样式 */
-
 
 /* ==================== 文件树布局 ==================== */
 

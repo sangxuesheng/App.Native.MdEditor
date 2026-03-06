@@ -125,53 +125,29 @@
   margin: 4px 0;
 }
 
-/* 深色主题 */
-
-
-
-
-
-
-
-
 /* 浅色主题 */
-.theme-light .app-name {
-  color: #24292f;
+.theme-light .about-dialog {
+  --text-primary: #24292f;
+  --text-secondary: #57606a;
+  --text-tertiary: #6e7781;
+  --item-bg: #f6f8fa;
+  --item-hover-bg: #eaeef2;
+  --tag-bg: #f6f8fa;
+  --tag-color: #0969da;
+  --border-color: #d0d7de;
 }
 
-.theme-light .app-version,
-.theme-light .app-description {
-  color: #57606a;
+/* 暗黑主题 */
+.theme-dark .about-dialog {
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --text-tertiary: #6e7681;
+  --item-bg: #161b22;
+  --item-hover-bg: #21262d;
+  --tag-bg: #161b22;
+  --tag-color: #58a6ff;
+  --border-color: #30363d;
 }
-
-.theme-light .about-features h4,
-.theme-light .about-tech h4 {
-  color: #24292f;
-}
-
-.theme-light .about-features li {
-  background: #f6f8fa;
-  color: #24292f;
-}
-
-.theme-light .about-features li:hover {
-  background: #eaeef2;
-}
-
-.theme-light .tech-tag {
-  background: #f6f8fa;
-  color: #0969da;
-}
-
-.theme-light .about-footer-info {
-  border-top-color: #d0d7de;
-}
-
-.theme-light .about-footer-info p {
-  color: #6e7781;
-}
-
-/* MD3 主题 */
 
 
 

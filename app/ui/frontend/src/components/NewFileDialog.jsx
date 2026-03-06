@@ -202,7 +202,7 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
   const selectedTemplateData = TEMPLATES.find(t => t.id === selectedTemplate);
 
   return (
-    <div className="dialog-overlay theme-light" onClick={onClose}>
+    <div className={`dialog-overlay theme-${theme}`} onClick={onClose}>
       <div className="dialog-content new-file-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>新建文件</h2>

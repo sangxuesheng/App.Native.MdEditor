@@ -119,7 +119,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
   };
 
   return (
-    <div className="dialog-overlay theme-light" onClick={onClose}>
+    <div className={`dialog-overlay theme-${theme}`} onClick={onClose}>
       <div className="dialog-content save-as-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>{isSaveAs ? '另存为' : '保存到'}</h2>
@@ -132,7 +132,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
               <div className="file-browser-container">
                 <FileBrowser 
                   rootDirs={rootDirs}
-                  theme="light"
+                  theme={theme}
                   onPathSelect={handlePathSelect}
                   selectedPath={selectedPath}
                 />

@@ -22,9 +22,16 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
+/* 浅色主题 */
+.table-insert-dialog.light {
+  background: #ffffff;
+  color: #24292f;
+}
+
+/* 暗黑主题 */
 .table-insert-dialog.dark {
-  background: #2d2d2d;
-  color: #e0e0e0;
+  background: #0d1117;
+  color: #c9d1d9;
 }
 
 /* 头部 */
@@ -37,7 +44,7 @@
 }
 
 .table-insert-dialog.dark .table-insert-header {
-  border-bottom-color: #444;
+  border-bottom-color: #30363d;
 }
 
 .table-insert-header h3 {
@@ -65,12 +72,12 @@
 }
 
 .table-insert-dialog.dark .table-insert-header .close-button {
-  color: #aaa;
+  color: #8b949e;
 }
 
 .table-insert-dialog.dark .table-insert-header .close-button:hover {
-  background: #444;
-  color: #fff;
+  background: #21262d;
+  color: #c9d1d9;
 }
 
 /* 行列控制 */
@@ -95,7 +102,7 @@
 }
 
 .table-insert-dialog.dark .size-control label {
-  color: #aaa;
+  color: #8b949e;
 }
 
 .counter {
@@ -110,7 +117,7 @@
 }
 
 .table-insert-dialog.dark .counter {
-  background: #3a3a3a;
+  background: #161b22;
 }
 
 .counter button {
@@ -139,14 +146,14 @@
 }
 
 .table-insert-dialog.dark .counter button {
-  background: #2d2d2d;
-  border-color: #555;
-  color: #e0e0e0;
+  background: #0d1117;
+  border-color: #30363d;
+  color: #c9d1d9;
 }
 
 .table-insert-dialog.dark .counter button:hover:not(:disabled) {
-  background: #444;
-  border-color: #777;
+  background: #21262d;
+  border-color: #58a6ff;
 }
 
 .counter span {
@@ -165,7 +172,7 @@
 }
 
 .table-insert-dialog.dark .table-preview {
-  background: #252525;
+  background: #161b22;
 }
 
 .table-preview table {
@@ -177,7 +184,7 @@
 }
 
 .table-insert-dialog.dark .table-preview table {
-  background: #2d2d2d;
+  background: #161b22;
 }
 
 .table-preview th,
@@ -188,7 +195,7 @@
 
 .table-insert-dialog.dark .table-preview th,
 .table-insert-dialog.dark .table-preview td {
-  border-color: #444;
+  border-color: #30363d;
 }
 
 .table-preview th {
@@ -197,7 +204,7 @@
 }
 
 .table-insert-dialog.dark .table-preview th {
-  background: #3a3a3a;
+  background: #21262d;
 }
 
 .table-preview input {
@@ -230,7 +237,7 @@
 }
 
 .table-insert-dialog.dark .table-insert-footer {
-  border-top-color: #444;
+  border-top-color: #30363d;
 }
 
 .table-insert-footer button {

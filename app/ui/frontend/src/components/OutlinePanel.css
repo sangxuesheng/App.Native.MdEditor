@@ -114,3 +114,23 @@
 .outline-panel::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
+
+/* 浅色主题 */
+.theme-light .outline-panel {
+  --text-primary: #24292f;
+  --text-secondary: #57606a;
+  --bg-hover: #f6f8fa;
+  --primary-color: #0969da;
+  --scrollbar-thumb: #d0d7de;
+  --scrollbar-thumb-hover: #afb8c1;
+}
+
+/* 暗黑主题 */
+.theme-dark .outline-panel {
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --bg-hover: #21262d;
+  --primary-color: #58a6ff;
+  --scrollbar-thumb: #30363d;
+  --scrollbar-thumb-hover: #484f58;
+}

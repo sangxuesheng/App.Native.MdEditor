@@ -53,6 +53,12 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
+.theme-dark .dialog-content {
+  background: #0d1117;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid #30363d;
+}
+
 @keyframes slideUp {
   from {
     transform: translateY(20px);
@@ -88,7 +94,11 @@
 }
 
 .theme-light .dialog-header {
-  border-bottom-color: #e1e4e8;
+  border-bottom-color: #d0d7de;
+}
+
+.theme-dark .dialog-header {
+  border-bottom-color: #30363d;
 }
 
 .dialog-header h2 {
@@ -100,6 +110,10 @@
 
 .theme-light .dialog-header h2 {
   color: #24292f;
+}
+
+.theme-dark .dialog-header h2 {
+  color: #c9d1d9;
 }
 
 .dialog-close {
@@ -128,12 +142,26 @@
   color: #24292f;
 }
 
+.theme-dark .dialog-close:hover {
+  background: #21262d;
+  color: #c9d1d9;
+}
+
 /* 对话框主体 */
-.dialog-body {
+.new-file-dialog .dialog-body {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  background: #0d1117;
+}
+
+.theme-light .new-file-dialog .dialog-body {
+  background: #ffffff;
+}
+
+.theme-dark .new-file-dialog .dialog-body {
+  background: #0d1117;
 }
 
 .dialog-body h3 {
@@ -147,6 +175,10 @@
 
 .theme-light .dialog-body h3 {
   color: #57606a;
+}
+
+.theme-dark .dialog-body h3 {
+  color: #8b949e;
 }
 
 /* 模板选择 */
@@ -173,6 +205,11 @@
   border-color: #d0d7de;
 }
 
+.theme-dark .template-card {
+  background: #161b22;
+  border-color: #30363d;
+}
+
 .template-card:hover {
   border-color: #58a6ff;
   background: #1c2128;
@@ -183,6 +220,11 @@
   background: #eaeef2;
 }
 
+.theme-dark .template-card:hover {
+  border-color: #58a6ff;
+  background: #21262d;
+}
+
 .template-card.selected {
   border-color: #58a6ff;
   background: #1c2128;
@@ -191,6 +233,11 @@
 .theme-light .template-card.selected {
   border-color: #0969da;
   background: #ddf4ff;
+}
+
+.theme-dark .template-card.selected {
+  border-color: #58a6ff;
+  background: #1c2d41;
 }
 
 .template-icon {
@@ -213,6 +260,10 @@
   color: #24292f;
 }
 
+.theme-dark .template-info h4 {
+  color: #c9d1d9;
+}
+
 .template-info p {
   margin: 0;
   font-size: 12px;
@@ -222,6 +273,10 @@
 
 .theme-light .template-info p {
   color: #57606a;
+}
+
+.theme-dark .template-info p {
+  color: #8b949e;
 }
 
 .template-check {
@@ -380,17 +435,24 @@
 }
 
 /* 对话框底部 */
-.dialog-footer {
+.new-file-dialog .dialog-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid #333;
+  border-top: 1px solid #30363d;
+  background: #0d1117;
 }
 
-.theme-light .dialog-footer {
-  border-top-color: #e1e4e8;
+.theme-light .new-file-dialog .dialog-footer {
+  border-top-color: #d0d7de;
+  background: #ffffff;
+}
+
+.theme-dark .new-file-dialog .dialog-footer {
+  border-top-color: #30363d;
+  background: #0d1117;
 }
 
 .btn-secondary,
@@ -415,12 +477,21 @@
   color: #24292f;
 }
 
+.theme-dark .btn-secondary {
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+
 .btn-secondary:hover {
   background: #30363d;
 }
 
 .theme-light .btn-secondary:hover {
   background: #f6f8fa;
+}
+
+.theme-dark .btn-secondary:hover {
+  background: #21262d;
 }
 
 .btn-primary {

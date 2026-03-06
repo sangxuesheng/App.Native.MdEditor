@@ -10,7 +10,7 @@ import rehypeStringify from 'rehype-stringify'
 import rehypeRaw from 'rehype-raw'
 import rehypeHighlight from 'rehype-highlight'
 import 'katex/dist/katex.min.css'
-import 'github-markdown-css/github-markdown-light.css'
+// github-markdown-css 将根据主题动态加载
 
 import FileTree from './components/FileTree'
 import Resizer from './components/Resizer'
@@ -35,7 +35,7 @@ import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
-import { FolderArchive, Sun, Columns, FileText, Eye } from 'lucide-react'
+import { FolderArchive, Sun, Moon, Columns, FileText, Eye } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { restoreFullState, clearContent as clearPersistedContent } from './utils/localPersistence'
 
@@ -87,7 +87,7 @@ function App() {
   const [status, setStatus] = useState('就绪')
   const [statusType, setStatusType] = useState('normal') // normal, success, error
   const [showTableDialog, setShowTableDialog] = useState(false)
-  const [editorTheme, setEditorTheme] = useState(savedState?.theme || 'light')
+  const [editorTheme, setEditorTheme] = useState(savedState?.theme || localStorage.getItem('md-editor-theme') || 'light')
   const [layout, setLayout] = useState(savedState?.layout || 'vertical')
   const [showFileTree, setShowFileTree] = useState(savedState?.showFileTree || false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
@@ -164,21 +164,39 @@ function App() {
 
   // 初始化主题
   useEffect(() => {
-    // 始终使用 light 主题
-    setEditorTheme('light')
-    localStorage.setItem('md-editor-theme', 'light')
+    const savedTheme = localStorage.getItem('md-editor-theme') || 'light'
+    setEditorTheme(savedTheme)
   }, [])
 
   // 当主题变化时，应用到 Monaco Editor
   useEffect(() => {
-    if (editorRef.current && monaco) {
+    if (editorRef.current && window.monaco) {
       try {
-        monaco.editor.setTheme('light')
+        const monacoTheme = editorTheme === 'dark' ? 'vs-dark' : 'vs'
+        window.monaco.editor.setTheme(monacoTheme)
       } catch (error) {
         console.error('Failed to set Monaco theme:', error)
       }
     }
-  }, [])
+  }, [editorTheme])
+
+  // 动态加载 github-markdown CSS
+  useEffect(() => {
+    // 移除旧的样式表
+    const oldLink = document.querySelector('link[data-github-markdown]')
+    if (oldLink) {
+      oldLink.remove()
+    }
+
+    // 添加新的样式表
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.setAttribute('data-github-markdown', 'true')
+    link.href = editorTheme === 'dark' 
+      ? 'https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-dark.min.css'
+      : 'https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css'
+    document.head.appendChild(link)
+  }, [editorTheme])
 
   // 处理文件树宽度调整
   const handleFileTreeResize = useCallback((delta) => {
@@ -203,18 +221,18 @@ function App() {
   }, [showFileTree, fileTreeWidth])
 
   const toggleEditorTheme = async () => {
-    // 只使用 light 主题，但保留切换按钮
-    const newTheme = 'light'
+    // 在 light 和 dark 之间切换
+    const newTheme = editorTheme === 'light' ? 'dark' : 'light'
     
     // 保存主题设置
     setEditorTheme(newTheme)
     localStorage.setItem('md-editor-theme', newTheme)
     
-    // 如果 Mermaid 已加载，使用 default 主题
+    // 如果 Mermaid 已加载，根据主题设置
     if (mermaidLoaded && mermaidModule) {
       mermaidModule.initialize({ 
         startOnLoad: false,
-        theme: 'default',
+        theme: newTheme === 'dark' ? 'dark' : 'default',
         securityLevel: 'loose'
       })
       setTimeout(() => renderMarkdown(), 100)
@@ -1404,7 +1422,8 @@ HTML
     })
     
     // 应用主题
-    monaco.editor.setTheme('light')
+    const monacoTheme = editorTheme === 'dark' ? 'vs-dark' : 'vs'
+    monaco.editor.setTheme(monacoTheme)
     
     // 监听粘贴事件，处理图片粘贴
     const domNode = editor.getDomNode()
@@ -1884,13 +1903,13 @@ HTML
 
 
   return (
-    <div className="app theme-light">
+    <div className={`app theme-${editorTheme}`}>
       {showNewFileDialog && (
         <NewFileDialog
           onClose={() => setShowNewFileDialog(false)}
           onConfirm={handleNewFileConfirm}
           rootDirs={rootDirs}
-          theme="light"
+          theme={editorTheme}
         />
       )}
 
@@ -1900,7 +1919,7 @@ HTML
           onConfirm={handleSaveAsConfirm}
           rootDirs={rootDirs}
           currentPath={currentPath}
-          theme="light"
+          theme={editorTheme}
           initialFileName={initialFileName}
           isSaveAs={isSaveAsMode}
         />
@@ -1911,7 +1930,7 @@ HTML
           onClose={() => setShowExportDialog(false)}
           content={content}
           currentPath={currentPath}
-          theme="light"
+          theme={editorTheme}
           previewHtml={previewRef.current?.innerHTML}
         />
       )}
@@ -1919,7 +1938,7 @@ HTML
       {showSettingsDialog && (
         <SettingsDialog
           onClose={() => setShowSettingsDialog(false)}
-          theme="light"
+          theme={editorTheme}
           onThemeChange={toggleEditorTheme}
         />
       )}
@@ -1927,21 +1946,21 @@ HTML
       {showMarkdownHelp && (
         <MarkdownHelpDialog
           onClose={() => setShowMarkdownHelp(false)}
-          theme="light"
+          theme={editorTheme}
         />
       )}
 
       {showShortcuts && (
         <ShortcutsDialog
           onClose={() => setShowShortcuts(false)}
-          theme="light"
+          theme={editorTheme}
         />
       )}
 
       {showAbout && (
         <AboutDialog
           onClose={() => setShowAbout(false)}
-          theme="light"
+          theme={editorTheme}
         />
       )}
 
@@ -1953,7 +1972,7 @@ HTML
           onRestore={handleRestoreHistory}
           onDelete={handleDeleteHistory}
           onClose={() => setShowHistory(false)}
-          theme="light"
+          theme={editorTheme}
         />
       )}
 
@@ -2004,7 +2023,7 @@ HTML
             onOpenRecentFile={handleOpenRecentFile}
             onClearRecentFiles={handleClearRecentFiles}
             disabled={!currentPath}
-            theme="light"
+            theme={editorTheme}
           />
         
         </div>
@@ -2034,6 +2053,7 @@ HTML
                 onHeadingClick={handleHeadingClick}
                 onVersionRestore={handleVersionRestore}
                 style={{ width: `${fileTreeWidth}px`, flexShrink: 0 }}
+                theme={editorTheme}
               />
               <Resizer direction="vertical" onResize={handleFileTreeResize} />
             </>
@@ -2056,7 +2076,7 @@ HTML
               <Editor
                 height="100%"
                 defaultLanguage="markdown"
-                theme="light"
+                theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
                 value={content}
                 onChange={(value) => setContent(value || '')}
                 onMount={handleEditorMount}
@@ -2120,7 +2140,7 @@ HTML
             onClick={toggleEditorTheme}
             title="主题 (Ctrl+T)"
           >
-            <Sun size={16} />
+            {editorTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
           </button>
           <span className={`status-text status-${statusType}`}>{status}</span>
         </div>
@@ -2154,7 +2174,7 @@ HTML
           isOpen={showImageManager}
           onClose={() => setShowImageManager(false)}
           onInsertImage={handleImageInsert}
-          theme="light"
+          theme={editorTheme}
           onNotify={(message, type) => {
             setStatus(message)
             setStatusType(type || 'normal')
@@ -2171,7 +2191,7 @@ HTML
           isOpen={showTableDialog}
           onClose={() => setShowTableDialog(false)}
           onInsert={insertTable}
-          theme="light"
+          theme={editorTheme}
         />
       )}
 

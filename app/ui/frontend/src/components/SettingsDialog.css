@@ -179,8 +179,6 @@
   gap: 8px;
 }
 
-/* 深色主题 */
-
 /* 浅色主题 */
 .theme-light .settings-dialog {
   --bg-secondary: #f6f8fa;
@@ -190,6 +188,17 @@
   --primary-color: #0969da;
   --toggle-bg: #d0d7de;
   --focus-ring: rgba(9, 105, 218, 0.3);
+}
+
+/* 暗黑主题 */
+.theme-dark .settings-dialog {
+  --bg-secondary: #161b22;
+  --border-color: #30363d;
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --primary-color: #58a6ff;
+  --toggle-bg: #30363d;
+  --focus-ring: rgba(88, 166, 255, 0.3);
 }
 
 /* 滚动条样式 */
