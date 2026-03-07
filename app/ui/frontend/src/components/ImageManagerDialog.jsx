@@ -141,7 +141,10 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
 
       // 压缩图片 - 使用当前设置
       try {
-        if (imageSettings.imageCompression) {
+        // 检查是否是 HEIC/HEIF 文件
+        const isHEIC = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+        
+        if (imageSettings.imageCompression && !isHEIC) {
           const originalSize = file.size
           
           // 如果是按文件大小压缩，计算目标大小
@@ -163,7 +166,13 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
           console.log(`压缩设置: 模式=${imageSettings.imageCompressionMode === 'quality' ? '按质量' : '按文件大小'}, 质量=${imageSettings.imageQuality}%, 最大尺寸=${imageSettings.imageMaxWidth}x${imageSettings.imageMaxHeight}`)
           console.log(`压缩结果: ${(originalSize / 1024).toFixed(1)}KB -> ${(file.size / 1024).toFixed(1)}KB`)
         } else {
-          console.log('图片压缩已禁用')
+          if (isHEIC) {
+            console.log('HEIC 文件跳过压缩（将在服务器端转换）')
+            // 通知用户 HEIC 文件将在服务器端转换
+            onNotify?.('HEIC 文件将在服务器端自动转换为 JPEG', 'info')
+          } else {
+            console.log('图片压缩已禁用')
+          }
         }
       } catch (error) {
         console.error('图片压缩失败:', error)

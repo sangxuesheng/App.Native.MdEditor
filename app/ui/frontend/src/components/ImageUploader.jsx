@@ -48,8 +48,11 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       
-      // 验证文件类型
-      if (!file.type.startsWith('image/')) {
+      // 验证文件类型（支持 HEIC/HEIF）
+      const isImage = file.type.startsWith('image/');
+      const isHEIC = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+      
+      if (!isImage && !isHEIC) {
         setError(`${file.name} 不是图片文件`);
         continue;
       }
@@ -71,15 +74,18 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
 
         const result = await response.json();
 
-        if (result.ok) {
+        if (response.ok && result.ok) {
           setProgress(((i + 1) / files.length) * 100);
-          if (onUploadSuccess) {
-            onUploadSuccess(result.data);
+          if (onUploadSuccess && result.images && result.images.length > 0) {
+            // 后端返回的是 images 数组，取第一个图片
+            onUploadSuccess(result.images[0]);
           }
         } else {
-          setError(result.message || '上传失败');
+          console.error('Upload failed:', response.status, result);
+          setError(result.message || `上传失败 (${response.status})`);
         }
       } catch (err) {
+        console.error('Upload error:', err);
         setError('上传失败：' + err.message);
       }
     }
@@ -148,12 +154,12 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.heic,.heif"
                   multiple
                   style={{ display: 'none' }}
                   onChange={handleFileSelect}
                 />
-                <p className="drop-zone-hint">支持 JPG, PNG, GIF, WebP（最大 10MB）</p>
+                <p className="drop-zone-hint">支持 JPG, PNG, GIF, WebP, HEIC（最大 10MB）</p>
               </>
             )}
           </div>

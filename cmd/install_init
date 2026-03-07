@@ -32,6 +32,49 @@ else
 fi
 
 echo "端口 ${PORT} 可用，继续安装..."
+
+# 检查并安装 FFmpeg（用于 HEIC 图片格式转换）
+echo "检查 FFmpeg 是否已安装..."
+if ! command -v ffmpeg >/dev/null 2>&1; then
+    echo "FFmpeg 未安装，正在安装..."
+    
+    # 检测操作系统并安装 FFmpeg
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        case "$ID" in
+            debian|ubuntu)
+                apt-get update && apt-get install -y ffmpeg
+                ;;
+            centos|rhel|fedora)
+                if command -v dnf >/dev/null 2>&1; then
+                    dnf install -y ffmpeg
+                else
+                    yum install -y epel-release && yum install -y ffmpeg
+                fi
+                ;;
+            alpine)
+                apk add --no-cache ffmpeg
+                ;;
+            *)
+                echo "警告：无法自动安装 FFmpeg，HEIC 图片格式转换功能将不可用。"
+                echo "请手动安装 FFmpeg: https://ffmpeg.org/download.html"
+                ;;
+        esac
+    fi
+    
+    # 验证安装
+    if command -v ffmpeg >/dev/null 2>&1; then
+        echo "✓ FFmpeg 安装成功"
+        ffmpeg -version | head -1
+    else
+        echo "警告：FFmpeg 安装失败，HEIC 图片格式转换功能将不可用。"
+    fi
+else
+    echo "✓ FFmpeg 已安装"
+    ffmpeg -version | head -1
+fi
+
 exit 0
+
 
 

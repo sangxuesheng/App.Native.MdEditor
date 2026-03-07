@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HEIC 上传测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-area { border: 2px dashed #ccc; padding: 20px; margin: 20px 0; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>HEIC 图片上传测试</h1>
+    
+    <div class="test-area">
+        <h2>测试 1: 直接上传到后端 (18080)</h2>
+        <input type="file" id="file1" accept="image/*,.heic,.heif">
+        <button onclick="testUpload1()">上传到后端</button>
+        <div id="log1" class="log"></div>
+    </div>
+    
+    <div class="test-area">
+        <h2>测试 2: 通过 Vite 代理上传 (3000)</h2>
+        <input type="file" id="file2" accept="image/*,.heic,.heif">
+        <button onclick="testUpload2()">上传到代理</button>
+        <div id="log2" class="log"></div>
+    </div>
+    
+    <div class="test-area">
+        <h2>测试 3: 检查 API 状态</h2>
+        <button onclick="checkStatus()">检查状态</button>
+        <div id="log3" class="log"></div>
+    </div>
+
+    <script>
+        function log(id, message) {
+            const logDiv = document.getElementById(id);
+            logDiv.textContent += message + '\n';
+        }
+
+        async function testUpload1() {
+            const file = document.getElementById('file1').files[0];
+            const logDiv = document.getElementById('log1');
+            logDiv.textContent = '';
+            
+            if (!file) {
+                log('log1', '请选择文件');
+                return;
+            }
+            
+            log('log1', `文件: ${file.name}`);
+            log('log1', `大小: ${file.size} bytes`);
+            log('log1', `类型: ${file.type}`);
+            log('log1', '');
+            
+            try {
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                log('log1', '发送请求到: http://localhost:18080/api/image/upload');
+                
+                const response = await fetch('http://localhost:18080/api/image/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                log('log1', `响应状态: ${response.status} ${response.statusText}`);
+                log('log1', `Content-Type: ${response.headers.get('content-type')}`);
+                
+                const result = await response.json();
+                log('log1', '响应内容:');
+                log('log1', JSON.stringify(result, null, 2));
+                
+            } catch (err) {
+                log('log1', `错误: ${err.message}`);
+                console.error(err);
+            }
+        }
+
+        async function testUpload2() {
+            const file = document.getElementById('file2').files[0];
+            const logDiv = document.getElementById('log2');
+            logDiv.textContent = '';
+            
+            if (!file) {
+                log('log2', '请选择文件');
+                return;
+            }
+            
+            log('log2', `文件: ${file.name}`);
+            log('log2', `大小: ${file.size} bytes`);
+            log('log2', `类型: ${file.type}`);
+            log('log2', '');
+            
+            try {
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                log('log2', '发送请求到: /api/image/upload (通过 Vite 代理)');
+                
+                const response = await fetch('/api/image/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                log('log2', `响应状态: ${response.status} ${response.statusText}`);
+                log('log2', `Content-Type: ${response.headers.get('content-type')}`);
+                
+                const result = await response.json();
+                log('log2', '响应内容:');
+                log('log2', JSON.stringify(result, null, 2));
+                
+            } catch (err) {
+                log('log2', `错误: ${err.message}`);
+                console.error(err);
+            }
+        }
+
+        async function checkStatus() {
+            const logDiv = document.getElementById('log3');
+            logDiv.textContent = '';
+            
+            try {
+                // 测试后端
+                log('log3', '测试后端 (18080):');
+                const res1 = await fetch('http://localhost:18080/api/image/converter/status');
+                const data1 = await res1.json();
+                log('log3', JSON.stringify(data1, null, 2));
+                log('log3', '');
+                
+                // 测试代理
+                log('log3', '测试代理 (3000):');
+                const res2 = await fetch('/api/image/converter/status');
+                const data2 = await res2.json();
+                log('log3', JSON.stringify(data2, null, 2));
+                
+            } catch (err) {
+                log('log3', `错误: ${err.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -12,6 +12,7 @@ const url = require('url');
 const fs = require('fs');
 const path = require('path');
 const historyManager = require('./historyManager');
+const imageConverter = require('./imageConverter');
 
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
 const STATIC_DIR = path.join(__dirname, '../ui/frontend/dist');
@@ -61,7 +62,7 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
 
   // 健康检查
@@ -560,7 +561,19 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 文件保存：POST /api/file  // 图片列表：GET /api/image/list
+  // 图片转换器状态：GET /api/image/converter/status
+  if (parsed.pathname === '/api/image/converter/status' && req.method === 'GET') {
+    try {
+      const status = await imageConverter.getConverterStatus();
+      sendJson(res, 200, status);
+    } catch (err) {
+      console.error('Converter status error:', err);
+      sendJson(res, 500, { ok: false, message: '获取转换器状态失败' });
+    }
+    return;
+  }
+
+  // 图片列表：GET /api/image/list
   if (parsed.pathname === '/api/image/list' && req.method === 'GET') {
     try {
       // 使用共享目录存储图片
@@ -701,7 +714,7 @@ const server = http.createServer((req, res) => {
       }
     });
     
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         // 使用 Buffer 处理，避免编码问题
         const boundaryBuffer = Buffer.from('--' + boundary);
@@ -786,19 +799,26 @@ const server = http.createServer((req, res) => {
           console.log('=== 文件名解码结束 ===');
 
           
-          const ext = path.extname(originalFilename);
+          const ext = path.extname(originalFilename).toLowerCase();
+          
+          // 检查是否是 HEIC/HEIF 格式
+          const isHEIC = ['.heic', '.heif'].includes(ext);
           
           // 验证文件类型
-          if (!['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext.toLowerCase())) {
+          if (!isHEIC && !['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
             continue;
           }
           
-          // 生成唯一文件名 - 保留原始文件名（支持中文）
+          // 生成唯一文件名 - 清理特殊字符
           const timestamp = Date.now();
           const random = Math.random().toString(36).substring(2, 8);
           const baseFilename = path.basename(originalFilename, ext);
-          const safeFilename = `${timestamp}_${random}_${baseFilename}${ext}`;
-          const filepath = path.join(imagesDir, safeFilename);
+          
+          // 清理文件名：移除特殊字符，替换空格为下划线
+          const cleanBaseFilename = baseFilename
+            .replace(/[^\w\u4e00-\u9fa5.-]/g, '_')  // 保留字母、数字、中文、点和横线
+            .replace(/_{2,}/g, '_')  // 多个下划线替换为一个
+            .replace(/^_|_$/g, '');  // 移除首尾下划线
           
           // 提取文件内容
           const contentStart = headerEnd + 4; // \r\n\r\n 的长度
@@ -806,27 +826,60 @@ const server = http.createServer((req, res) => {
           
           if (contentStart >= part.length) continue;
           
-          const fileContent = part.slice(contentStart, contentEnd);
+          let fileContent = part.slice(contentStart, contentEnd);
+          let finalExt = ext;
+          let convertedFrom = null;
+          
+          // 如果是 HEIC/HEIF，转换为 JPEG
+          if (isHEIC) {
+            try {
+              console.log(`检测到 HEIC/HEIF 文件: ${originalFilename}，开始转换...`);
+              const convertResult = await imageConverter.convertImage(fileContent, originalFilename, {
+                format: 'jpeg',
+                quality: 85
+              });
+              
+              fileContent = convertResult.buffer;
+              finalExt = '.jpg';
+              convertedFrom = 'HEIC';
+              
+              console.log(`HEIC 转换完成: ${convertResult.originalSize} -> ${convertResult.convertedSize} bytes`);
+            } catch (convertErr) {
+              console.error('HEIC 转换失败:', convertErr);
+              // 转换失败，跳过此文件
+              continue;
+            }
+          }
+          
+          const safeFilename = `${timestamp}_${random}_${cleanBaseFilename}${finalExt}`;
+          const filepath = path.join(imagesDir, safeFilename);
           
           // 保存文件
           fs.writeFileSync(filepath, fileContent);
           
-          // 生成相对 URL
-          const relativeUrl = `/images/${year}/${month}/${day}/${encodeURIComponent(safeFilename)}`;
+          // 生成相对 URL（不需要 encodeURIComponent，因为文件名已经清理过）
+          const relativeUrl = `/images/${year}/${month}/${day}/${safeFilename}`;
           
-          uploadedImages.push({
+          const imageInfo = {
             url: relativeUrl,
             filename: originalFilename,
             size: fileContent.length,
             alt: baseFilename
-          });
+          };
+          
+          // 如果是转换的文件，添加标记
+          if (convertedFrom) {
+            imageInfo.convertedFrom = convertedFrom;
+          }
+          
+          uploadedImages.push(imageInfo);
           
           console.log('添加到上传列表:', {
             url: relativeUrl,
             filename: originalFilename,
+            cleanFilename: safeFilename,
             alt: baseFilename,
-            filenameBytes: Buffer.from(originalFilename).toString('hex'),
-            altBytes: Buffer.from(baseFilename).toString('hex')
+            convertedFrom: convertedFrom
           });
         }
         
@@ -1064,8 +1117,10 @@ const server = http.createServer((req, res) => {
   // 图片静态文件服务：/images/...
   if (parsed.pathname.startsWith('/images/')) {
     try {
+      // 解码 URL 路径以处理中文文件名
+      const decodedPathname = decodeURIComponent(parsed.pathname);
       // 使用共享目录提供图片服务
-      const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares', parsed.pathname);
+      const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares', decodedPathname);
       
       if (fs.existsSync(imagePath) && fs.statSync(imagePath).isFile()) {
         const ext = path.extname(imagePath).toLowerCase();
