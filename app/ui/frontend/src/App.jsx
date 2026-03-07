@@ -229,12 +229,38 @@ function App() {
 
   // 检测预览区的图片
   const detectPreviewImage = useCallback((target) => {
-    const imgElement = target.closest('img') || (target.tagName === 'IMG' ? target : null)
+    console.log('[detectPreviewImage] 开始检测，target:', target, 'tagName:', target.tagName)
+    
+    // 尝试多种方式找到图片元素
+    let imgElement = null
+    
+    // 方式1: 直接是 img 标签
+    if (target.tagName === 'IMG') {
+      imgElement = target
+      console.log('[detectPreviewImage] 方式1: 直接是 IMG 标签')
+    }
+    // 方式2: 使用 closest 查找父级 img
+    else {
+      imgElement = target.closest('img')
+      if (imgElement) {
+        console.log('[detectPreviewImage] 方式2: 通过 closest 找到 IMG')
+      }
+    }
+    
+    // 方式3: 如果还没找到，检查子元素
+    if (!imgElement && target.querySelector) {
+      imgElement = target.querySelector('img')
+      if (imgElement) {
+        console.log('[detectPreviewImage] 方式3: 通过 querySelector 找到 IMG')
+      }
+    }
     
     if (imgElement && previewRef.current) {
       // 获取预览区所有图片
       const allImages = Array.from(previewRef.current.querySelectorAll('img'))
       const imageIndex = allImages.indexOf(imgElement)
+      
+      console.log('[detectPreviewImage] 找到图片，索引:', imageIndex, '总数:', allImages.length)
       
       // 从 style 属性中提取缩放比例
       let scale = 1
@@ -246,7 +272,7 @@ function App() {
         }
       }
       
-      return {
+      const result = {
         alt: imgElement.alt || '',
         src: imgElement.src,
         title: imgElement.title || '',
@@ -255,8 +281,12 @@ function App() {
         element: imgElement,
         imageIndex: imageIndex // 添加图片索引
       }
+      
+      console.log('[detectPreviewImage] 返回结果:', result)
+      return result
     }
     
+    console.log('[detectPreviewImage] 未找到图片元素')
     return null
   }, [])
 
@@ -277,6 +307,7 @@ function App() {
     console.log('查找图片:', { imageSrc, srcPath, fileName, targetIndex })
     
     let matchCount = 0 // 记录匹配次数
+    let firstMatch = null // 保存第一个匹配的结果
     
     for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
       const lineContent = model.getLineContent(lineNumber)
@@ -298,22 +329,32 @@ function App() {
           (matchedSrc.startsWith('http') && imageSrc.includes(matchedSrc.split('/').pop())) // URL 文件名匹配
         
         if (isMatch) {
+          const result = {
+            alt: match[1] || '',
+            src: matchedSrc,
+            title: match[3] || '',
+            scale: 1,
+            isLocal: matchedSrc.startsWith('/uploads/') || matchedSrc.startsWith('./'),
+            range: {
+              startLineNumber: lineNumber,
+              startColumn: match.index + 1,
+              endLineNumber: lineNumber,
+              endColumn: match.index + match[0].length + 1
+            }
+          }
+          
+          console.log(`找到 Markdown 匹配 ${matchCount}:`, { lineNumber, matchedSrc, targetIndex })
+          
+          // 保存第一个匹配
+          if (!firstMatch) {
+            firstMatch = result
+            console.log('保存第一个匹配:', firstMatch)
+          }
+          
           // 检查是否是目标索引的匹配
           if (matchCount === targetIndex) {
-            console.log('找到 Markdown 图片:', { lineNumber, matchedSrc, matchIndex: matchCount })
-            return {
-              alt: match[1] || '',
-              src: matchedSrc,
-              title: match[3] || '',
-              scale: 1,
-              isLocal: matchedSrc.startsWith('/uploads/') || matchedSrc.startsWith('./'),
-              range: {
-                startLineNumber: lineNumber,
-                startColumn: match.index + 1,
-                endLineNumber: lineNumber,
-                endColumn: match.index + match[0].length + 1
-              }
-            }
+            console.log('找到 Markdown 图片（精确索引）:', { lineNumber, matchedSrc, matchIndex: matchCount })
+            return result
           }
           matchCount++
         }
@@ -336,28 +377,44 @@ function App() {
           (matchedSrc.startsWith('http') && imageSrc.includes(matchedSrc.split('/').pop()))
         
         if (isMatch) {
+          const altMatch = match[0].match(/alt=["']([^"']*)["']/)
+          const titleMatch = match[0].match(/title=["']([^"']*)["']/)
+          const result = {
+            alt: altMatch ? altMatch[1] : '',
+            src: matchedSrc,
+            title: titleMatch ? titleMatch[1] : '',
+            scale: 1,
+            isLocal: matchedSrc.startsWith('/uploads/') || matchedSrc.startsWith('./'),
+            range: {
+              startLineNumber: lineNumber,
+              startColumn: match.index + 1,
+              endLineNumber: lineNumber,
+              endColumn: match.index + match[0].length + 1
+            }
+          }
+          
+          console.log(`找到 HTML 匹配 ${matchCount}:`, { lineNumber, matchedSrc, targetIndex })
+          
+          // 保存第一个匹配
+          if (!firstMatch) {
+            firstMatch = result
+            console.log('保存第一个匹配 (HTML):', firstMatch)
+          }
+          
           // 检查是否是目标索引的匹配
           if (matchCount === targetIndex) {
-            console.log('找到 HTML 图片:', { lineNumber, matchedSrc, matchIndex: matchCount })
-            const altMatch = match[0].match(/alt=["']([^"']*)["']/)
-            const titleMatch = match[0].match(/title=["']([^"']*)["']/)
-            return {
-              alt: altMatch ? altMatch[1] : '',
-              src: matchedSrc,
-              title: titleMatch ? titleMatch[1] : '',
-              scale: 1,
-              isLocal: matchedSrc.startsWith('/uploads/') || matchedSrc.startsWith('./'),
-              range: {
-                startLineNumber: lineNumber,
-                startColumn: match.index + 1,
-                endLineNumber: lineNumber,
-                endColumn: match.index + match[0].length + 1
-              }
-            }
+            console.log('找到 HTML 图片（精确索引）:', { lineNumber, matchedSrc, matchIndex: matchCount })
+            return result
           }
           matchCount++
         }
       }
+    }
+    
+    // 如果没有找到精确索引匹配，但有匹配的图片，返回第一个匹配
+    if (firstMatch) {
+      console.log('未找到精确索引匹配，返回第一个匹配，总匹配数:', matchCount)
+      return firstMatch
     }
     
     console.log('未找到匹配的图片，总匹配数:', matchCount)
@@ -388,6 +445,8 @@ function App() {
     e.preventDefault()
     e.stopPropagation()
     
+    console.log('[handlePreviewContextMenu] 触发，target:', e.target, 'tagName:', e.target.tagName)
+    
     // 在"仅预览"模式下，完全禁用右键菜单
     if (layout === 'preview-only') {
       return
@@ -397,6 +456,7 @@ function App() {
     const previewImage = detectPreviewImage(e.target)
     
     console.log('预览区右键菜单 - 检测到的图片:', previewImage)
+    console.log('预览区右键菜单 - 选中的文本:', selectedText)
     
     // 如果在预览区检测到图片，尝试在编辑器中找到对应的语法
     let selectedImage = null
@@ -411,6 +471,8 @@ function App() {
         console.log('最终的 selectedImage:', selectedImage)
       }
     }
+    
+    console.log('[handlePreviewContextMenu] 设置菜单，type: preview, selectedImage:', selectedImage)
     
     setContextMenu({
       x: e.clientX,
@@ -2910,7 +2972,10 @@ HTML
           <div 
             className="preview-pane" 
             style={(layout === 'vertical') ? { flex: 1, minHeight: 0 } : { flex: 1, minHeight: 0 }}
-            onContextMenu={handlePreviewContextMenu}
+            onContextMenu={(e) => {
+              console.log('[preview-pane] onContextMenu 触发，target:', e.target, 'currentTarget:', e.currentTarget)
+              handlePreviewContextMenu(e)
+            }}
           >
             <div 
               ref={previewRef}

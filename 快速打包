@@ -80,3 +80,12 @@ ln -s /var/apps/python312/target/bin/python3 /usr/local/bin/python
 开发服务
 
 cd /vol4/1000/开发文件夹/mac/app/ui/frontend && export PATH=/var/apps/nodejs_v22/target/bin:$PATH && npm run dev
+
+
+
+
+
+
+
+快速构建并部署：
+cd /vol4/1000/开发文件夹/mac && ./build-frontend.sh 2>&1 | tail -3 && fnpack build 2>&1 | tail -2 && appcenter-cli stop App.Native.MdEditor2 && sleep 2 && appcenter-cli start App.Native.MdEditor2 && sleep 5 && curl -s http://localhost:18080/health

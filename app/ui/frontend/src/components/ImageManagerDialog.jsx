@@ -123,11 +123,31 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
     setUploading(true)
     const formData = new FormData()
     
+    // 统计 HEIC 文件数量
+    let heicCount = 0;
+    for (let i = 0; i < files.length; i++) {
+      const fileName = files[i].name.toLowerCase();
+      if (fileName.endsWith('.heic') || fileName.endsWith('.heif')) {
+        heicCount++;
+      }
+    }
+    
+    // 如果有 HEIC 文件，提前通知用户
+    if (heicCount > 0) {
+      console.log(`[HEIC] 检测到 ${heicCount} 个 HEIC 文件，准备通知用户`);
+      console.log('[HEIC] onNotify 函数:', typeof onNotify, onNotify);
+      onNotify?.(`检测到 ${heicCount} 个 HEIC 文件，将在服务器端自动转换为 JPEG`, 'info');
+      console.log('[HEIC] 通知已调用');
+    }
+    
     for (let i = 0; i < files.length; i++) {
       let file = files[i]
       
-      // 验证文件类型
-      if (!file.type.startsWith('image/')) {
+      // 检查是否是 HEIC/HEIF 文件
+      const isHEIC = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+      
+      // 验证文件类型（HEIC 文件可能没有正确的 MIME 类型，所以特殊处理）
+      if (!file.type.startsWith('image/') && !isHEIC) {
         onNotify?.(`文件 ${file.name} 不是图片格式`, 'error')
         continue
       }
@@ -168,8 +188,6 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
         } else {
           if (isHEIC) {
             console.log('HEIC 文件跳过压缩（将在服务器端转换）')
-            // 通知用户 HEIC 文件将在服务器端转换
-            onNotify?.('HEIC 文件将在服务器端自动转换为 JPEG', 'info')
           } else {
             console.log('图片压缩已禁用')
           }
