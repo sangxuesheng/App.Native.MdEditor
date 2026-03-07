@@ -14,6 +14,10 @@ export default defineConfig({
       '/health': {
         target: 'http://localhost:18080',
         changeOrigin: true
+      },
+      '/images': {
+        target: 'http://localhost:18080',
+        changeOrigin: true
       }
     }
   },

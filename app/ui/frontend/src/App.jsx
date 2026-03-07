@@ -1745,6 +1745,42 @@ HTML
     }
   }, [previewRef])
 
+  // 处理图片链接点击，防止跳转到 about:blank#blocked
+  useEffect(() => {
+    const handleImageLinkClick = (e) => {
+      // 检查是否点击了包含图片的链接
+      const link = e.target.closest('a')
+      if (!link) return
+      
+      // 检查链接内是否包含图片
+      const img = link.querySelector('img')
+      if (!img) return
+      
+      // 检查是否是图片包裹链接（没有有效的 href 或 href 为空）
+      const href = link.getAttribute('href')
+      if (!href || href === '' || href === '#' || href.startsWith('about:')) {
+        e.preventDefault()
+        e.stopPropagation()
+        console.log('阻止图片链接跳转:', href)
+        return
+      }
+      
+      // 如果是有效的外部链接，允许在新窗口打开
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        e.preventDefault()
+        window.open(href, '_blank')
+      }
+    }
+    
+    const previewElement = previewRef.current
+    if (previewElement) {
+      previewElement.addEventListener('click', handleImageLinkClick, true)
+      return () => {
+        previewElement.removeEventListener('click', handleImageLinkClick, true)
+      }
+    }
+  }, [previewRef])
+
   // 预览区右键菜单事件监听 - 已改为直接在 JSX 中使用 onContextMenu
   // useEffect 已移除，避免重复绑定
 
