@@ -703,7 +703,23 @@ const server = http.createServer((req, res) => {
     
     req.on('end', () => {
       try {
-        const parts = rawData.toString('binary').split('--' + boundary);
+        // 使用 Buffer 处理，避免编码问题
+        const boundaryBuffer = Buffer.from('--' + boundary);
+        const parts = [];
+        let start = 0;
+        
+        // 分割 multipart 数据
+        while (true) {
+          const boundaryIndex = rawData.indexOf(boundaryBuffer, start);
+          if (boundaryIndex === -1) break;
+          
+          const nextBoundaryIndex = rawData.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
+          if (nextBoundaryIndex === -1) break;
+          
+          parts.push(rawData.slice(boundaryIndex + boundaryBuffer.length, nextBoundaryIndex));
+          start = nextBoundaryIndex;
+        }
+        
         const uploadedImages = [];
         
         // 创建图片存储目录
@@ -721,13 +737,55 @@ const server = http.createServer((req, res) => {
         }
         
         for (const part of parts) {
-          if (!part.includes('Content-Disposition')) continue;
+          // 查找 Content-Disposition 头
+          const headerEnd = part.indexOf(Buffer.from('\r\n\r\n'));
+          if (headerEnd === -1) continue;
           
-          // 提取文件名
-          const filenameMatch = part.match(/filename="([^"]+)"/);
+          const headerSection = part.slice(0, headerEnd).toString('utf8');
+          
+          console.log('Header section:', headerSection);
+          
+          if (!headerSection.includes('Content-Disposition')) continue;
+          
+          // 提取文件名 - 处理编码问题
+          // 注意：headerSection 已经是 UTF-8 字符串，但文件名可能是 Latin-1 编码的
+          const filenameMatch = headerSection.match(/filename="([^"]+)"|filename\*=UTF-8''([^;\r\n]+)/);
           if (!filenameMatch) continue;
           
-          const originalFilename = filenameMatch[1];
+          // 优先使用 RFC 5987 编码的文件名（filename*），否则使用普通文件名
+          let originalFilename = filenameMatch[2] ? decodeURIComponent(filenameMatch[2]) : filenameMatch[1];
+          
+          console.log('=== 文件名解码开始 ===');
+          console.log('原始匹配:', originalFilename);
+          
+          // 浏览器的 FormData 使用 Latin-1 编码发送文件名
+          // 但是 headerSection.toString('utf8') 已经尝试用 UTF-8 解码了
+          // 我们需要从原始 Buffer 中重新提取文件名
+          try {
+            // 在原始 Buffer 中查找 filename="
+            const filenameStart = part.indexOf(Buffer.from('filename="'));
+            if (filenameStart !== -1) {
+              const nameStart = filenameStart + 10; // 'filename="' 的长度
+              const nameEnd = part.indexOf(Buffer.from('"'), nameStart);
+              
+              if (nameEnd !== -1) {
+                // 提取文件名的原始字节
+                const filenameBytes = part.slice(nameStart, nameEnd);
+                console.log('文件名字节:', filenameBytes.toString('hex'));
+                
+                // 用 UTF-8 解码
+                originalFilename = filenameBytes.toString('utf8');
+                console.log('UTF-8 解码后:', originalFilename);
+              }
+            }
+          } catch (e) {
+            console.error('文件名解码错误:', e);
+          }
+          
+          console.log('最终文件名:', originalFilename);
+          console.log('=== 文件名解码结束 ===');
+
+          
           const ext = path.extname(originalFilename);
           
           // 验证文件类型
@@ -735,30 +793,40 @@ const server = http.createServer((req, res) => {
             continue;
           }
           
-          // 生成唯一文件名
+          // 生成唯一文件名 - 保留原始文件名（支持中文）
           const timestamp = Date.now();
           const random = Math.random().toString(36).substring(2, 8);
-          const filename = `${timestamp}_${random}${ext}`;
-          const filepath = path.join(imagesDir, filename);
+          const baseFilename = path.basename(originalFilename, ext);
+          const safeFilename = `${timestamp}_${random}_${baseFilename}${ext}`;
+          const filepath = path.join(imagesDir, safeFilename);
           
           // 提取文件内容
-          const contentStart = part.indexOf('\r\n\r\n') + 4;
-          const contentEnd = part.lastIndexOf('\r\n');
-          if (contentStart < 4 || contentEnd < 0) continue;
+          const contentStart = headerEnd + 4; // \r\n\r\n 的长度
+          const contentEnd = part.length - 2; // 去掉末尾的 \r\n
           
-          const fileContent = Buffer.from(part.substring(contentStart, contentEnd), 'binary');
+          if (contentStart >= part.length) continue;
+          
+          const fileContent = part.slice(contentStart, contentEnd);
           
           // 保存文件
           fs.writeFileSync(filepath, fileContent);
           
           // 生成相对 URL
-          const relativeUrl = `/images/${year}/${month}/${day}/${filename}`;
+          const relativeUrl = `/images/${year}/${month}/${day}/${encodeURIComponent(safeFilename)}`;
           
           uploadedImages.push({
             url: relativeUrl,
             filename: originalFilename,
             size: fileContent.length,
-            alt: originalFilename.replace(/\.[^.]+$/, '')
+            alt: baseFilename
+          });
+          
+          console.log('添加到上传列表:', {
+            url: relativeUrl,
+            filename: originalFilename,
+            alt: baseFilename,
+            filenameBytes: Buffer.from(originalFilename).toString('hex'),
+            altBytes: Buffer.from(baseFilename).toString('hex')
           });
         }
         
@@ -767,10 +835,13 @@ const server = http.createServer((req, res) => {
           return;
         }
         
+        console.log('准备返回 JSON，图片数量:', uploadedImages.length);
+        console.log('JSON 字符串:', JSON.stringify({ ok: true, images: uploadedImages }));
+        
         sendJson(res, 200, { ok: true, images: uploadedImages });
       } catch (err) {
         console.error('Image upload error:', err);
-        sendJson(res, 500, { ok: false, code: 'UPLOAD_ERROR', message: '上传失败' });
+        sendJson(res, 500, { ok: false, code: 'UPLOAD_ERROR', message: '上传失败: ' + err.message });
       }
     });
     return;

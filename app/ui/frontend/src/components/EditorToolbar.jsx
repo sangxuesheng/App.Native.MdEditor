@@ -18,7 +18,8 @@ import {
   Table,
   Minus,
   BarChart3,
-  ChevronDown
+  ChevronDown,
+  ImageIcon
 } from 'lucide-react'
 import './EditorToolbar.css'
 
@@ -46,7 +47,8 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
   
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (chartMenuRef.current && !chartMenuRef.current.contains(event.target)) {
+      if (chartMenuRef.current && !chartMenuRef.current.contains(event.target) &&
+          !chartButtonRef.current?.contains(event.target)) {
         setShowChartMenu(false)
       }
     }
@@ -205,6 +207,7 @@ ${'```'}`
     { id: 'er', label: '实体关系图', icon: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="8" height="10" rx="1"/><rect x="14" y="7" width="8" height="10" rx="1"/><path d="M10 12h4"/></svg>) }
   ]
 
+
   return (
     <div className="editor-toolbar">
       <div className="toolbar-group">
@@ -218,6 +221,7 @@ ${'```'}`
         <button className="toolbar-btn" onClick={insertItalic} disabled={disabled} title="斜体 (Ctrl+I)"><Italic size={iconSize} /></button>
         <button className="toolbar-btn" onClick={insertStrikethrough} disabled={disabled} title="删除线"><Strikethrough size={iconSize} /></button>
       </div>
+      <div className="toolbar-divider"></div>
       <div className="toolbar-divider"></div>
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={insertUnorderedList} disabled={disabled} title="无序列表"><List size={iconSize} /></button>

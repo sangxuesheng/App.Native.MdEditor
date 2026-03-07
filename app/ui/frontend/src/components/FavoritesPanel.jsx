@@ -145,7 +145,7 @@ function FavoritesPanel({
       </div>
 
       {isExpanded && (
-        <div className="favorites-content">
+        <div className="favorites-content" onContextMenu={handleHeaderContextMenu}>
           {favorites.length === 0 ? (
             <div className="favorites-empty">
               <span className="empty-icon"><Star size={48} /></span>

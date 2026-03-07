@@ -423,6 +423,40 @@ html, body {
   text-decoration: underline;
 }
 
+.markdown-body .image-figure {
+  margin: 16px 0;
+  text-align: center;
+}
+
+.markdown-body .image-figure img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* 支持内联样式的图片缩放 - 使用更高优先级 */
+.markdown-body img[style*="width"],
+.markdown-body .image-figure img[style*="width"],
+.markdown-body p img[style*="width"] {
+  max-width: none !important;
+  display: inline-block !important;
+}
+
+/* 确保内联样式的 width 生效 */
+img[style*="width"] {
+  max-width: none !important;
+}
+
+.markdown-body .image-caption,
+.markdown-body figcaption {
+  font-size: 14px;
+  color: #8b949e;
+  text-align: center;
+  margin-top: 8px;
+  font-style: normal;
+}
+
 /* 任务列表样式 */
 .markdown-body .task-list-item {
   list-style-type: none;
@@ -673,6 +707,11 @@ html, body {
   color: #0969da !important;
 }
 
+.app.theme-light .markdown-body .image-caption,
+.app.theme-light .markdown-body figcaption {
+  color: #57606a;
+}
+
 .app.theme-light .mermaid {
   background: #f6f8fa;
 }
@@ -835,6 +874,11 @@ html, body {
 
 .app.theme-dark .markdown-body a {
   color: #58a6ff !important;
+}
+
+.app.theme-dark .markdown-body .image-caption,
+.app.theme-dark .markdown-body figcaption {
+  color: #8b949e;
 }
 
 .app.theme-dark .mermaid {

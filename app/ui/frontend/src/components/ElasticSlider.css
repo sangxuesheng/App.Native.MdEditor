@@ -1,0 +1,154 @@
+.elastic-slider {
+  position: relative;
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.elastic-slider-track {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: visible;
+  transition: height 0.2s ease;
+}
+
+.image-manager-dialog.dark .elastic-slider-track {
+  background: #30363d;
+}
+
+.elastic-slider.dragging .elastic-slider-track {
+  height: 10px;
+}
+
+.elastic-slider-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 4px;
+  transition: width 0.1s ease-out;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
+}
+
+.elastic-slider.dragging .elastic-slider-fill {
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.5);
+}
+
+.elastic-slider-thumb {
+  position: absolute;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  cursor: grab;
+  z-index: 10;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.elastic-slider.dragging .elastic-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.3);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.elastic-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.elastic-slider.dragging .elastic-slider-thumb:hover {
+  transform: scale(1.3);
+}
+
+.elastic-slider-thumb-inner {
+  width: 100%;
+  height: 100%;
+  background: white;
+  border: 3px solid #2563eb;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 0 rgba(37, 99, 235, 0.4);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.elastic-slider.dragging .elastic-slider-thumb-inner {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 8px rgba(37, 99, 235, 0.2);
+  border-width: 4px;
+}
+
+.elastic-slider-thumb:hover .elastic-slider-thumb-inner {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18), 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.image-manager-dialog.dark .elastic-slider-thumb-inner {
+  background: #0d1117;
+  border-color: #58a6ff;
+}
+
+.image-manager-dialog.dark .elastic-slider-fill {
+  background: linear-gradient(90deg, #58a6ff 0%, #1f6feb 100%);
+  box-shadow: 0 0 8px rgba(88, 166, 255, 0.3);
+}
+
+.image-manager-dialog.dark .elastic-slider.dragging .elastic-slider-fill {
+  box-shadow: 0 0 12px rgba(88, 166, 255, 0.5);
+}
+
+.image-manager-dialog.dark .elastic-slider.dragging .elastic-slider-thumb-inner {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 8px rgba(88, 166, 255, 0.2);
+}
+
+/* 添加弹性动画 */
+@keyframes elastic-bounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.elastic-slider-thumb.bounce {
+  animation: elastic-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 轨道点击波纹效果 */
+.elastic-slider-track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.3);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.elastic-slider-track.ripple::before {
+  animation: ripple 0.6s ease-out;
+}
+
+@keyframes ripple {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.5;
+  }
+  100% {
+    width: 100px;
+    height: 100px;
+    opacity: 0;
+  }
+}

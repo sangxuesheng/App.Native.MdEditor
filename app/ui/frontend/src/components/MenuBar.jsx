@@ -149,6 +149,8 @@ function MenuBar({
   onShowShortcuts,
   onShowAbout,
   onShowHistory,
+  imageCaptionFormat,
+  onImageCaptionFormatChange,
   disabled,
   theme
 }) {
@@ -272,6 +274,47 @@ function MenuBar({
     {
       name: '样式',
       items: [
+        { 
+          icon: 'image', 
+          label: '图注格式', 
+          submenu: [
+            { 
+              label: 'title 优先', 
+              icon: 'image', 
+              action: () => onImageCaptionFormatChange('title-first'),
+              checked: imageCaptionFormat === 'title-first',
+              description: '显示 alt 文本作为图注'
+            },
+            { 
+              label: 'alt 优先', 
+              icon: 'image', 
+              action: () => onImageCaptionFormatChange('alt-first'),
+              checked: imageCaptionFormat === 'alt-first',
+              description: '优先显示 title 属性'
+            },
+            { 
+              label: '只显示 title', 
+              icon: 'image', 
+              action: () => onImageCaptionFormatChange('title-only'),
+              checked: imageCaptionFormat === 'title-only',
+              description: '仅显示 alt 文本'
+            },
+            { 
+              label: '只显示 alt', 
+              icon: 'image', 
+              action: () => onImageCaptionFormatChange('alt-only'),
+              checked: imageCaptionFormat === 'alt-only',
+              description: '仅显示 alt 属性'
+            },
+            { 
+              label: '不显示', 
+              icon: 'image', 
+              action: () => onImageCaptionFormatChange('no-caption'),
+              checked: imageCaptionFormat === 'no-caption',
+              description: '不显示图注'
+            }
+          ]
+        }
       ]
     },
     {
@@ -367,10 +410,12 @@ function MenuBar({
                           return (
                             <button
                               key={subItem.label || `item-${subIdx}`}
-                              className="menu-dropdown-item"
+                              className={`menu-dropdown-item ${subItem.checked ? 'checked' : ''}`}
                               onClick={() => handleMenuItemClick(subItem.action)}
                               disabled={subItem.disabled}
+                              title={subItem.description}
                             >
+                              {subItem.checked && <span className="menu-check">✓</span>}
                               <>{subItem.icon && <MenuItemIcon type={subItem.icon} />}<span className="menu-label">{subItem.label}</span></>
                               {subItem.shortcut && (
                                 <span className="menu-shortcut">{subItem.shortcut}</span>

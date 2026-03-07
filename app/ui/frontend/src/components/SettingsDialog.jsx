@@ -14,11 +14,7 @@ const SettingsDialog = ({
     wordWrap: true,
     minimap: false,
     lineNumbers: true,
-    fontFamily: 'JetBrains Mono',
-    imageCompression: true,
-    imageQuality: 80,
-    imageMaxWidth: 1920,
-    imageMaxHeight: 1080
+    fontFamily: 'JetBrains Mono'
   });
 
   const [hasChanges, setHasChanges] = useState(false);
@@ -66,11 +62,7 @@ const SettingsDialog = ({
       wordWrap: true,
       minimap: false,
       lineNumbers: true,
-      fontFamily: 'JetBrains Mono',
-      imageCompression: true,
-      imageQuality: 80,
-      imageMaxWidth: 1920,
-      imageMaxHeight: 1080
+      fontFamily: 'JetBrains Mono'
     };
     setSettings(defaultSettings);
     setHasChanges(true);
@@ -220,83 +212,6 @@ const SettingsDialog = ({
                   <span className="toggle-slider"></span>
                 </label>
               </div>
-            </div>
-
-            {/* 图片设置 */}
-            <div className="settings-section">
-              <h3 className="section-title">图片</h3>
-              
-              <div className="setting-item">
-                <div className="setting-label">
-                  <label>自动压缩图片</label>
-                  <p className="setting-description">上传图片时自动压缩以节省空间</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.imageCompression}
-                    onChange={(e) => handleChange('imageCompression', e.target.checked)}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
-
-              {settings.imageCompression && (
-                <>
-                  <div className="setting-item">
-                    <div className="setting-label">
-                      <label>压缩质量</label>
-                      <p className="setting-description">图片压缩质量（0-100，值越大质量越好）</p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <input
-                        type="range"
-                        min="50"
-                        max="100"
-                        value={settings.imageQuality}
-                        onChange={(e) => handleChange('imageQuality', parseInt(e.target.value))}
-                        className="form-range"
-                        style={{ flex: 1 }}
-                      />
-                      <span style={{ minWidth: '40px', textAlign: 'right' }}>{settings.imageQuality}%</span>
-                    </div>
-                  </div>
-
-                  <div className="setting-item">
-                    <div className="setting-label">
-                      <label>最大宽度</label>
-                      <p className="setting-description">图片最大宽度（像素）</p>
-                    </div>
-                    <input
-                      type="number"
-                      min="800"
-                      max="4096"
-                      step="100"
-                      value={settings.imageMaxWidth}
-                      onChange={(e) => handleChange('imageMaxWidth', parseInt(e.target.value))}
-                      className="form-input"
-                      style={{ width: '120px' }}
-                    />
-                  </div>
-
-                  <div className="setting-item">
-                    <div className="setting-label">
-                      <label>最大高度</label>
-                      <p className="setting-description">图片最大高度（像素）</p>
-                    </div>
-                    <input
-                      type="number"
-                      min="600"
-                      max="4096"
-                      step="100"
-                      value={settings.imageMaxHeight}
-                      onChange={(e) => handleChange('imageMaxHeight', parseInt(e.target.value))}
-                      className="form-input"
-                      style={{ width: '120px' }}
-                    />
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </div>

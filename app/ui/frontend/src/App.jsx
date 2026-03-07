@@ -27,6 +27,7 @@ import ImageManagerDialog from './components/ImageManagerDialog'
 import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
 import FileHistoryDialog from './components/FileHistoryDialog'
+import EditorContextMenu from './components/EditorContextMenu'
 import { ToastContainer } from './components/Toast'
 import { useDebounce } from './hooks/useDebounce'
 import { saveFileHistory } from './utils/fileHistoryManagerV2'
@@ -49,7 +50,10 @@ const createMarkdownProcessor = () => {
     .use(rehypeRaw)
     .use(rehypeKatex)
     .use(rehypeHighlight)
-    .use(rehypeStringify)
+    .use(rehypeStringify, {
+      allowDangerousHtml: true,
+      allowDangerousCharacters: true
+    })
 }
 
 // Mermaid 懒加载 - 使用预加载的 CDN
@@ -103,6 +107,11 @@ function App() {
   const [editorFontSize, setEditorFontSize] = useState(savedState?.fontSize || 14)
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
+  const [imageCaptionFormat, setImageCaptionFormat] = useState(savedState?.imageCaptionFormat || 'title-first')
+
+  // 右键菜单状态
+  const [contextMenu, setContextMenu] = useState(null)
+  const [clipboardContent, setClipboardContent] = useState(null)
 
   const [rootDirs, setRootDirs] = useState([])
   const [mermaidLoaded, setMermaidLoaded] = useState(false)
@@ -131,6 +140,287 @@ function App() {
     setToasts(prev => prev.filter(toast => toast.id !== id))
   }, [])
 
+  // ============================================
+  // 右键菜单辅助函数
+  // ============================================
+  
+  // 获取编辑器选中的文本
+  const getSelectedText = useCallback(() => {
+    if (!editorRef.current) return ''
+    const editor = editorRef.current
+    const selection = editor.getSelection()
+    const model = editor.getModel()
+    return model.getValueInRange(selection)
+  }, [])
+
+  // 检测光标处的图片
+  const detectImageAtCursor = useCallback(() => {
+    if (!editorRef.current) return null
+    
+    const editor = editorRef.current
+    const model = editor.getModel()
+    const position = editor.getPosition()
+    const lineContent = model.getLineContent(position.lineNumber)
+    
+    // 匹配 Markdown 图片语法: ![alt](src "title")
+    const mdImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g
+    let match
+    
+    while ((match = mdImageRegex.exec(lineContent)) !== null) {
+      const startCol = match.index + 1
+      const endCol = match.index + match[0].length + 1
+      
+      if (position.column >= startCol && position.column <= endCol) {
+        return {
+          alt: match[1] || '',
+          src: match[2],
+          title: match[3] || '',
+          scale: 1,
+          isLocal: match[2].startsWith('/uploads/') || match[2].startsWith('./'),
+          range: {
+            startLineNumber: position.lineNumber,
+            startColumn: startCol,
+            endLineNumber: position.lineNumber,
+            endColumn: endCol
+          }
+        }
+      }
+    }
+    
+    // 匹配 HTML 图片语法: <img src="..." alt="..." style="width:50%;" />
+    const htmlImageRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi
+    match = null
+    
+    while ((match = htmlImageRegex.exec(lineContent)) !== null) {
+      const startCol = match.index + 1
+      const endCol = match.index + match[0].length + 1
+      
+      if (position.column >= startCol && position.column <= endCol) {
+        const altMatch = match[0].match(/alt=["']([^"']*)["']/)
+        const styleMatch = match[0].match(/style=["']([^"']*)["']/)
+        
+        // 从 style 中提取 width 百分比
+        let scale = 1
+        if (styleMatch) {
+          const widthMatch = styleMatch[1].match(/width:\s*(\d+)%/)
+          if (widthMatch) {
+            scale = parseInt(widthMatch[1]) / 100
+          }
+        }
+        
+        return {
+          alt: altMatch ? altMatch[1] : '',
+          src: match[1],
+          title: '',
+          scale: scale,
+          isLocal: match[1].startsWith('/uploads/') || match[1].startsWith('./'),
+          range: {
+            startLineNumber: position.lineNumber,
+            startColumn: startCol,
+            endLineNumber: position.lineNumber,
+            endColumn: endCol
+          }
+        }
+      }
+    }
+    
+    return null
+  }, [])
+
+  // 检测预览区的图片
+  const detectPreviewImage = useCallback((target) => {
+    const imgElement = target.closest('img') || (target.tagName === 'IMG' ? target : null)
+    
+    if (imgElement && previewRef.current) {
+      // 获取预览区所有图片
+      const allImages = Array.from(previewRef.current.querySelectorAll('img'))
+      const imageIndex = allImages.indexOf(imgElement)
+      
+      // 从 style 属性中提取缩放比例
+      let scale = 1
+      const style = imgElement.getAttribute('style')
+      if (style) {
+        const widthMatch = style.match(/width:\s*(\d+)%/)
+        if (widthMatch) {
+          scale = parseInt(widthMatch[1]) / 100
+        }
+      }
+      
+      return {
+        alt: imgElement.alt || '',
+        src: imgElement.src,
+        title: imgElement.title || '',
+        scale: scale,
+        isLocal: imgElement.src.includes('/uploads/') || imgElement.src.startsWith('./'),
+        element: imgElement,
+        imageIndex: imageIndex // 添加图片索引
+      }
+    }
+    
+    return null
+  }, [])
+
+  // 在编辑器中查找图片语法的位置（通过 src）
+  const findImageInEditor = useCallback((imageSrc, targetIndex = 0) => {
+    if (!editorRef.current) return null
+    
+    const editor = editorRef.current
+    const model = editor.getModel()
+    const lineCount = model.getLineCount()
+    
+    // 提取纯 URL（去掉域名前缀，只保留路径）
+    const srcPath = imageSrc.replace(/^https?:\/\/[^\/]+/, '')
+    
+    // 提取文件名（最后一部分）
+    const fileName = imageSrc.split('/').pop()
+    
+    console.log('查找图片:', { imageSrc, srcPath, fileName, targetIndex })
+    
+    let matchCount = 0 // 记录匹配次数
+    
+    for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
+      const lineContent = model.getLineContent(lineNumber)
+      
+      // 匹配 Markdown 图片语法: ![alt](src "title")
+      const mdImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g
+      let match
+      
+      while ((match = mdImageRegex.exec(lineContent)) !== null) {
+        const matchedSrc = match[2]
+        
+        // 多种匹配方式
+        const isMatch = 
+          matchedSrc === imageSrc ||                    // 完全匹配
+          matchedSrc === srcPath ||                     // 路径匹配
+          imageSrc.includes(matchedSrc) ||              // 包含匹配
+          matchedSrc.includes(fileName) ||              // 文件名匹配
+          imageSrc.endsWith(matchedSrc) ||              // 结尾匹配
+          (matchedSrc.startsWith('http') && imageSrc.includes(matchedSrc.split('/').pop())) // URL 文件名匹配
+        
+        if (isMatch) {
+          // 检查是否是目标索引的匹配
+          if (matchCount === targetIndex) {
+            console.log('找到 Markdown 图片:', { lineNumber, matchedSrc, matchIndex: matchCount })
+            return {
+              alt: match[1] || '',
+              src: matchedSrc,
+              title: match[3] || '',
+              scale: 1,
+              isLocal: matchedSrc.startsWith('/uploads/') || matchedSrc.startsWith('./'),
+              range: {
+                startLineNumber: lineNumber,
+                startColumn: match.index + 1,
+                endLineNumber: lineNumber,
+                endColumn: match.index + match[0].length + 1
+              }
+            }
+          }
+          matchCount++
+        }
+      }
+      
+      // 匹配 HTML 图片语法: <img src="..." alt="..." />
+      const htmlImageRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi
+      match = null
+      
+      while ((match = htmlImageRegex.exec(lineContent)) !== null) {
+        const matchedSrc = match[1]
+        
+        // 多种匹配方式
+        const isMatch = 
+          matchedSrc === imageSrc ||
+          matchedSrc === srcPath ||
+          imageSrc.includes(matchedSrc) ||
+          matchedSrc.includes(fileName) ||
+          imageSrc.endsWith(matchedSrc) ||
+          (matchedSrc.startsWith('http') && imageSrc.includes(matchedSrc.split('/').pop()))
+        
+        if (isMatch) {
+          // 检查是否是目标索引的匹配
+          if (matchCount === targetIndex) {
+            console.log('找到 HTML 图片:', { lineNumber, matchedSrc, matchIndex: matchCount })
+            const altMatch = match[0].match(/alt=["']([^"']*)["']/)
+            const titleMatch = match[0].match(/title=["']([^"']*)["']/)
+            return {
+              alt: altMatch ? altMatch[1] : '',
+              src: matchedSrc,
+              title: titleMatch ? titleMatch[1] : '',
+              scale: 1,
+              isLocal: matchedSrc.startsWith('/uploads/') || matchedSrc.startsWith('./'),
+              range: {
+                startLineNumber: lineNumber,
+                startColumn: match.index + 1,
+                endLineNumber: lineNumber,
+                endColumn: match.index + match[0].length + 1
+              }
+            }
+          }
+          matchCount++
+        }
+      }
+    }
+    
+    console.log('未找到匹配的图片，总匹配数:', matchCount)
+    return null
+  }, [])
+
+  // 编辑器右键事件处理
+  const handleEditorContextMenu = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const selectedText = getSelectedText()
+    const selectedImage = detectImageAtCursor()
+    
+    console.log('编辑器右键菜单:', { selectedText, selectedImage })
+    
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      type: 'editor',
+      selectedText,
+      selectedImage
+    })
+  }, [getSelectedText, detectImageAtCursor])
+
+  // 预览区右键事件处理
+  const handlePreviewContextMenu = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // 在"仅预览"模式下，完全禁用右键菜单
+    if (layout === 'preview-only') {
+      return
+    }
+    
+    const selectedText = window.getSelection()?.toString() || ''
+    const previewImage = detectPreviewImage(e.target)
+    
+    console.log('预览区右键菜单 - 检测到的图片:', previewImage)
+    
+    // 如果在预览区检测到图片，尝试在编辑器中找到对应的语法
+    let selectedImage = null
+    if (previewImage) {
+      // 使用图片索引来查找对应的编辑区图片
+      selectedImage = findImageInEditor(previewImage.src, previewImage.imageIndex)
+      // 如果找到了，保留预览区的信息（可能更完整）
+      if (selectedImage) {
+        selectedImage.alt = previewImage.alt || selectedImage.alt
+        selectedImage.title = previewImage.title || selectedImage.title
+        selectedImage.scale = previewImage.scale  // 使用预览区检测到的 scale
+        console.log('最终的 selectedImage:', selectedImage)
+      }
+    }
+    
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      type: 'preview',
+      selectedText,
+      selectedImage
+    })
+  }, [layout, detectPreviewImage, findImageInEditor])
+
   // 本地持久化自动保存
   const persistenceState = {
     content,
@@ -141,7 +431,8 @@ function App() {
     layout,
     showFileTree,
     showToolbar,
-    fontSize: editorFontSize
+    fontSize: editorFontSize,
+    imageCaptionFormat
   }
   
   // 启用自动保存（防抖 500ms）
@@ -195,6 +486,54 @@ function App() {
     link.href = editorTheme === 'dark' 
       ? 'https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-dark.min.css'
       : 'https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css'
+    
+    console.log('开始加载 github-markdown-css:', link.href)
+    
+    // 在 github-markdown-css 加载完成后，添加我们的覆盖样式
+    link.onload = () => {
+      console.log('github-markdown-css 加载完成，注入覆盖样式')
+      
+      // 移除旧的覆盖样式
+      const oldOverride = document.querySelector('style[data-image-scale-override]')
+      if (oldOverride) {
+        console.log('移除旧的覆盖样式')
+        oldOverride.remove()
+      }
+      
+      // 添加新的覆盖样式
+      const style = document.createElement('style')
+      style.setAttribute('data-image-scale-override', 'true')
+      style.textContent = `
+        /* 覆盖 github-markdown-css 的图片样式 */
+        .markdown-body img[style*="width"],
+        .markdown-body .image-figure img[style*="width"],
+        .markdown-body p img[style*="width"] {
+          max-width: none !important;
+          display: inline-block !important;
+        }
+        
+        /* 全局覆盖 */
+        img[style*="width"] {
+          max-width: none !important;
+        }
+      `
+      document.head.appendChild(style)
+      console.log('覆盖样式已注入:', style.textContent.substring(0, 100))
+      
+      // 验证样式是否真的在 DOM 中
+      setTimeout(() => {
+        const injected = document.querySelector('style[data-image-scale-override]')
+        console.log('验证注入的样式:', injected ? '存在' : '不存在')
+        if (injected) {
+          console.log('样式内容:', injected.textContent.substring(0, 100))
+        }
+      }, 100)
+    }
+    
+    link.onerror = () => {
+      console.error('github-markdown-css 加载失败')
+    }
+    
     document.head.appendChild(link)
   }, [editorTheme])
 
@@ -1069,6 +1408,62 @@ HTML
     setShowSettingsDialog(true)
   }
 
+  // 应用图注格式到 HTML
+  const applyImageCaptionFormat = (html, format) => {
+    // 匹配 <img> 标签，提取 src, alt, title 属性
+    const imgRegex = /<img([^>]*?)>/g
+    
+    return html.replace(imgRegex, (match, attrs) => {
+      // 提取属性
+      const srcMatch = attrs.match(/src="([^"]*)"/)
+      const altMatch = attrs.match(/alt="([^"]*)"/)
+      const titleMatch = attrs.match(/title="([^"]*)"/)
+      
+      const src = srcMatch ? srcMatch[1] : ''
+      const alt = altMatch ? altMatch[1] : ''
+      const title = titleMatch ? titleMatch[1] : ''
+      
+      // 根据格式设置决定显示什么
+      let caption = ''
+      
+      switch (format) {
+        case 'title-first':
+          // title 优先：显示 alt 文本作为图注
+          caption = alt
+          break
+        case 'alt-first':
+          // alt 优先：优先显示 title，如果没有则显示 alt
+          caption = title || alt
+          break
+        case 'title-only':
+          // 只显示 title：仅显示 alt 文本
+          caption = alt
+          break
+        case 'alt-only':
+          // 只显示 alt：仅显示 alt 属性
+          caption = alt
+          break
+        case 'no-caption':
+          // 不显示图注
+          caption = ''
+          break
+        default:
+          caption = alt
+      }
+      
+      // 如果有图注，包装成 figure 元素
+      if (caption) {
+        return `<figure class="image-figure">
+          <img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}>
+          <figcaption class="image-caption">${caption}</figcaption>
+        </figure>`
+      } else {
+        // 没有图注，返回原始 img 标签
+        return `<img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}>`
+      }
+    })
+  }
+
   const renderMarkdown = useCallback(async () => {
     if (!previewRef.current) return
 
@@ -1094,6 +1489,9 @@ HTML
       const processor = createMarkdownProcessor()
       const file = await processor.process(processedContent)
       let html = String(file)
+
+      // 根据图注格式设置处理图片标签
+      html = applyImageCaptionFormat(html, imageCaptionFormat)
 
       
       // 提取 Mermaid 代码块
@@ -1137,6 +1535,51 @@ HTML
       )
 
       previewRef.current.innerHTML = html
+
+      // 恢复图片的 style 属性（因为 rehypeRaw 会过滤掉）
+      // 从原始内容中提取图片的 style 属性
+      const imageStylesArray = []  // 使用数组而不是 Map，因为可能有相同 src 的图片
+      
+      // 提取所有图片标签
+      const imgRegex = /<img[^>]*>/gi
+      let imgMatch
+      
+      while ((imgMatch = imgRegex.exec(processedContent)) !== null) {
+        const imgTag = imgMatch[0]
+        
+        // 提取 src
+        const srcMatch = imgTag.match(/src=["']([^"']+)["']/)
+        // 提取 style
+        const styleMatch = imgTag.match(/style=["']([^"']+)["']/)
+        
+        if (srcMatch) {
+          const src = srcMatch[1]
+          const style = styleMatch ? styleMatch[1] : null
+          imageStylesArray.push({ src, style })
+          if (style) {
+            console.log(`提取图片 ${imageStylesArray.length} 样式:`, { src: src.substring(0, 50), style })
+          }
+        }
+      }
+      
+      // 应用 style 到渲染后的图片（按顺序匹配）
+      if (imageStylesArray.length > 0) {
+        console.log('恢复图片样式，总数:', imageStylesArray.length)
+        const images = previewRef.current.querySelectorAll('img')
+        
+        // 按顺序匹配图片
+        images.forEach((img, index) => {
+          if (index < imageStylesArray.length) {
+            const { src, style } = imageStylesArray[index]
+            if (style) {
+              img.setAttribute('style', style)
+              console.log(`恢复样式到图片 ${index + 1}:`, { src: src.substring(0, 50), style })
+            }
+          }
+        })
+      } else {
+        console.log('没有找到需要恢复的图片样式')
+      }
 
       // 只有在有 Mermaid 图表时才加载 Mermaid
       if (mermaidBlocks.length > 0) {
@@ -1217,7 +1660,7 @@ HTML
       }
     }
 
-  }, [content, mermaidLoaded])
+  }, [content, mermaidLoaded, imageCaptionFormat])
 
   // 使用 debounce 优化 Markdown 渲染性能
   const debouncedContent = useDebounce(content, 500) // 500ms 延迟
@@ -1301,6 +1744,9 @@ HTML
       }
     }
   }, [previewRef])
+
+  // 预览区右键菜单事件监听 - 已改为直接在 JSX 中使用 onContextMenu
+  // useEffect 已移除，避免重复绑定
 
   const handleToolbarInsert = (before, after, mode) => {
     if (!editorRef.current) return
@@ -1428,6 +1874,9 @@ HTML
     // 监听粘贴事件，处理图片粘贴
     const domNode = editor.getDomNode()
     if (domNode) {
+      // 添加右键菜单事件监听
+      domNode.addEventListener('contextmenu', handleEditorContextMenu)
+      
       domNode.addEventListener('paste', async (e) => {
         const items = e.clipboardData?.items
         if (!items) return
@@ -1791,6 +2240,24 @@ HTML
     setShowToolbar(!showToolbar)
   }
 
+  // 图注格式处理函数
+  const handleImageCaptionFormatChange = (format) => {
+    setImageCaptionFormat(format)
+    showToast(`图注格式已切换为: ${getImageCaptionFormatLabel(format)}`, 'success')
+  }
+
+  const getImageCaptionFormatLabel = (format) => {
+    const labels = {
+      'title-first': 'title 优先',
+      'alt-first': 'alt 优先',
+      'title-only': '只显示 title',
+      'alt-only': '只显示 alt',
+      'no-caption': '不显示',
+      'html-figure': 'HTML figure'
+    }
+    return labels[format] || format
+  }
+
   const handleZoomIn = () => {
     setEditorFontSize(prev => Math.min(prev + 2, 32))
   }
@@ -1900,6 +2367,287 @@ HTML
       loadFile(path)
     }
   }
+
+  // ============================================
+  // 右键菜单操作处理函数
+  // ============================================
+  const handleContextMenuAction = useCallback(async (action, data) => {
+    const editor = editorRef.current
+    if (!editor && action !== 'save-image-as' && action !== 'copy-image') return
+    
+    switch (action) {
+      // ========== 图片操作 ==========
+      case 'upload-image':
+        setShowImageManager(true)
+        break
+        
+      case 'scale-image':
+        if (contextMenu?.selectedImage && data?.scale) {
+          const image = contextMenu.selectedImage
+          const model = editor.getModel()
+          
+          let newText = ''
+          const widthPercent = Math.round(data.scale * 100)
+          
+          // 构建新的 HTML 图片标签，使用 style="width:XX%;height:auto;"
+          const titleAttr = image.title ? ` title="${image.title}"` : ''
+          newText = `<img src="${image.src}" alt="${image.alt}"${titleAttr} style="width:${widthPercent}%;height:auto;" />`
+          
+          editor.executeEdits('scale-image', [{
+            range: image.range,
+            text: newText
+          }])
+          
+          showToast(`图片已缩放至 ${widthPercent}%`, 'success')
+        }
+        break
+        
+      case 'convert-syntax':
+        if (contextMenu?.selectedImage && data?.syntax) {
+          const image = contextMenu.selectedImage
+          const model = editor.getModel()
+          let newText = ''
+          
+          if (data.syntax === 'markdown') {
+            newText = `![${image.alt}](${image.src}${image.title ? ` "${image.title}"` : ''})`
+          } else if (data.syntax === 'html') {
+            newText = `<img src="${image.src}" alt="${image.alt}" />`
+          }
+          
+          editor.executeEdits('convert-syntax', [{
+            range: image.range,
+            text: newText
+          }])
+          
+          showToast(`已转换为 ${data.syntax.toUpperCase()} 语法`, 'success')
+        }
+        break
+        
+      case 'delete-image':
+        if (contextMenu?.selectedImage?.isLocal) {
+          const confirmed = window.confirm('确定要删除这个图片文件吗？')
+          if (confirmed) {
+            try {
+              const image = contextMenu.selectedImage
+              const response = await fetch(`/api/image/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: image.src })
+              })
+              
+              const result = await response.json()
+              if (result.ok) {
+                const model = editor.getModel()
+                editor.executeEdits('delete-image', [{
+                  range: image.range,
+                  text: ''
+                }])
+                showToast('图片已删除', 'success')
+              } else {
+                showToast('删除图片失败', 'error')
+              }
+            } catch (error) {
+              console.error('删除图片失败:', error)
+              showToast('删除图片失败', 'error')
+            }
+          }
+        }
+        break
+        
+      case 'copy-image':
+        if (contextMenu?.selectedImage) {
+          const markdown = `![${contextMenu.selectedImage.alt}](${contextMenu.selectedImage.src})`
+          try {
+            await navigator.clipboard.writeText(markdown)
+            showToast('图片标记已复制', 'success')
+          } catch (error) {
+            console.error('复制失败:', error)
+            showToast('复制失败', 'error')
+          }
+        }
+        break
+        
+      case 'save-image-as':
+        if (contextMenu?.selectedImage) {
+          try {
+            // 获取图片文件名
+            const fileName = contextMenu.selectedImage.src.split('/').pop() || 'image.png'
+            
+            // 对于跨域图片，需要先获取 blob
+            const response = await fetch(contextMenu.selectedImage.src)
+            const blob = await response.blob()
+            
+            // 创建 blob URL
+            const blobUrl = URL.createObjectURL(blob)
+            
+            // 创建下载链接
+            const link = document.createElement('a')
+            link.href = blobUrl
+            link.download = fileName
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            
+            // 释放 blob URL
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
+            
+            showToast('图片下载已开始', 'success')
+          } catch (error) {
+            console.error('图片下载失败:', error)
+            // 如果 fetch 失败，尝试在新窗口打开
+            window.open(contextMenu.selectedImage.src, '_blank')
+            showToast('已在新窗口打开图片', 'info')
+          }
+        }
+        break
+        
+      // ========== 编辑操作 ==========
+      case 'cut':
+        if (contextMenu?.selectedText) {
+          try {
+            await navigator.clipboard.writeText(contextMenu.selectedText)
+            const selection = editor.getSelection()
+            editor.executeEdits('cut', [{
+              range: selection,
+              text: ''
+            }])
+            showToast('已剪切', 'success')
+          } catch (error) {
+            editor.trigger('keyboard', 'editor.action.clipboardCutAction')
+          }
+        }
+        break
+        
+      case 'copy':
+        if (contextMenu?.selectedText) {
+          try {
+            await navigator.clipboard.writeText(contextMenu.selectedText)
+            showToast('已复制', 'success')
+          } catch (error) {
+            editor.trigger('keyboard', 'editor.action.clipboardCopyAction')
+          }
+        }
+        break
+        
+      case 'paste':
+        try {
+          const text = await navigator.clipboard.readText()
+          const selection = editor.getSelection()
+          editor.executeEdits('paste', [{
+            range: selection,
+            text: text
+          }])
+          showToast('已粘贴', 'success')
+        } catch (error) {
+          editor.trigger('keyboard', 'editor.action.clipboardPasteAction')
+        }
+        break
+        
+      case 'delete':
+        if (contextMenu?.selectedText) {
+          const selection = editor.getSelection()
+          editor.executeEdits('delete', [{
+            range: selection,
+            text: ''
+          }])
+        }
+        break
+        
+      // ========== 格式化操作 ==========
+      case 'bold':
+        handleToolbarInsert('**', '**', 'wrap')
+        break
+        
+      case 'italic':
+        handleToolbarInsert('*', '*', 'wrap')
+        break
+        
+      case 'inline-code':
+        handleToolbarInsert('`', '`', 'wrap')
+        break
+        
+      case 'link':
+        handleToolbarInsert('[', '](https://)', 'wrap')
+        break
+        
+      case 'quote':
+        handleToolbarInsert('> ', '', 'line')
+        break
+        
+      case 'list':
+        handleToolbarInsert('- ', '', 'line')
+        break
+        
+      // ========== 段落操作 ==========
+      case 'heading1':
+        handleToolbarInsert('# ', '', 'heading')
+        break
+        
+      case 'heading2':
+        handleToolbarInsert('## ', '', 'heading')
+        break
+        
+      case 'heading3':
+        handleToolbarInsert('### ', '', 'heading')
+        break
+        
+      case 'paragraph':
+        const model = editor.getModel()
+        const selection = editor.getSelection()
+        const lineContent = model.getLineContent(selection.startLineNumber)
+        const cleanLine = lineContent.replace(/^#+\s*/, '')
+        editor.executeEdits('paragraph', [{
+          range: {
+            startLineNumber: selection.startLineNumber,
+            startColumn: 1,
+            endLineNumber: selection.startLineNumber,
+            endColumn: lineContent.length + 1
+          },
+          text: cleanLine
+        }])
+        break
+        
+      // ========== 插入操作 ==========
+      case 'insert-image':
+        setShowImageManager(true)
+        break
+        
+      case 'insert-link':
+        handleToolbarInsert('[', '](https://)', 'wrap')
+        break
+        
+      case 'insert-codeblock':
+        handleToolbarInsert('```\n', '\n```', 'wrap')
+        break
+        
+      case 'insert-table':
+        setShowTableDialog(true)
+        break
+        
+      case 'insert-ul':
+        handleToolbarInsert('- ', '', 'line')
+        break
+        
+      case 'insert-ol':
+        handleToolbarInsert('1. ', '', 'line')
+        break
+        
+      case 'insert-task':
+        handleToolbarInsert('- [ ] ', '', 'line')
+        break
+        
+      case 'insert-hr':
+        handleToolbarInsert('\n---\n', '', 'insert')
+        break
+        
+      default:
+        console.log('未处理的操作:', action, data)
+    }
+    
+    if (editor) {
+      setTimeout(() => editor.focus(), 100)
+    }
+  }, [contextMenu, handleToolbarInsert, showToast])
 
 
   return (
@@ -2019,6 +2767,8 @@ HTML
             onShowShortcuts={handleShowShortcuts}
             onShowAbout={handleShowAbout}
             onShowHistory={handleShowHistory}
+            imageCaptionFormat={imageCaptionFormat}
+            onImageCaptionFormatChange={handleImageCaptionFormatChange}
             recentFiles={recentFiles}
             onOpenRecentFile={handleOpenRecentFile}
             onClearRecentFiles={handleClearRecentFiles}
@@ -2090,6 +2840,7 @@ HTML
                   tabSize: 2,
                   fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                   fontLigatures: true,
+                  contextmenu: false, // 禁用默认右键菜单
                   // 行号配置
                   lineNumbers: 'on',
                   lineNumbersMinChars: 2,
@@ -2120,7 +2871,11 @@ HTML
         )}
 
         {(layout === 'vertical' || layout === 'preview-only') && (
-          <div className="preview-pane" style={(layout === 'vertical') ? { flex: 1, minHeight: 0 } : { flex: 1, minHeight: 0 }}>
+          <div 
+            className="preview-pane" 
+            style={(layout === 'vertical') ? { flex: 1, minHeight: 0 } : { flex: 1, minHeight: 0 }}
+            onContextMenu={handlePreviewContextMenu}
+          >
             <div 
               ref={previewRef}
               className="markdown-body"
@@ -2197,6 +2952,20 @@ HTML
 
       {/* Toast 通知容器 */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <EditorContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          selectedText={contextMenu.selectedText}
+          selectedImage={contextMenu.selectedImage}
+          theme={editorTheme}
+          clipboardHasContent={!!clipboardContent}
+          onAction={handleContextMenuAction}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }

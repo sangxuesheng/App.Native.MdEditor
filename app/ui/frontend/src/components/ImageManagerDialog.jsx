@@ -1,13 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2, CheckSquare, Square, Star } from 'lucide-react'
+import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2, CheckSquare, Square, Star, ImageUp } from 'lucide-react'
 import './ImageManagerDialog.css'
 import { compressImage } from '../utils/imageCompressor'
 import ImagePreviewDialog from './ImagePreviewDialog'
+import ElasticSlider from './ElasticSlider'
 
 function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify }) {
-  const [activeTab, setActiveTab] = useState('upload') // upload, link, library, settings
+  const [activeTab, setActiveTab] = useState('upload') // upload, link, library, settings, compression
   const [imageUrl, setImageUrl] = useState('')
   const [imageAlt, setImageAlt] = useState('')
+  const [imageTitle, setImageTitle] = useState('')
   const [dragActive, setDragActive] = useState(false)
   const [uploadedImages, setUploadedImages] = useState([])
   const [uploading, setUploading] = useState(false)
@@ -18,6 +20,65 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   const [selectedImages, setSelectedImages] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
   const fileInputRef = useRef(null)
+  const recentUploadsRef = useRef(null)
+  
+  // 图片压缩设置
+  const [imageSettings, setImageSettings] = useState({
+    imageCompression: true,
+    imageCompressionMode: 'quality', // 'quality' 或 'size'
+    imageQuality: 80,
+    imageTargetSizePercent: 30, // 目标文件大小百分比
+    imageMaxWidth: 1920,
+    imageMaxHeight: 1080,
+    maxFileSize: 10 // 最大文件大小（MB）
+  })
+  const [hasSettingsChanges, setHasSettingsChanges] = useState(false)
+
+  // 加载图片设置
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('md-editor-settings')
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings)
+        setImageSettings({
+          imageCompression: parsed.imageCompression ?? true,
+          imageCompressionMode: parsed.imageCompressionMode || 'quality',
+          imageQuality: parsed.imageQuality ?? 80,
+          imageTargetSizePercent: parsed.imageTargetSizePercent ?? 30,
+          imageMaxWidth: parsed.imageMaxWidth ?? 1920,
+          imageMaxHeight: parsed.imageMaxHeight ?? 1080,
+          maxFileSize: parsed.maxFileSize ?? 10
+        })
+      } catch (err) {
+        console.error('Failed to load image settings:', err)
+      }
+    }
+  }, [])
+
+  // 处理图片设置变更
+  const handleImageSettingChange = (key, value) => {
+    setImageSettings(prev => ({ ...prev, [key]: value }))
+    setHasSettingsChanges(true)
+  }
+
+  // 保存图片设置
+  const handleSaveImageSettings = () => {
+    const savedSettings = localStorage.getItem('md-editor-settings')
+    let allSettings = {}
+    
+    if (savedSettings) {
+      try {
+        allSettings = JSON.parse(savedSettings)
+      } catch (err) {
+        console.error('Failed to parse settings:', err)
+      }
+    }
+    
+    const updatedSettings = { ...allSettings, ...imageSettings }
+    localStorage.setItem('md-editor-settings', JSON.stringify(updatedSettings))
+    setHasSettingsChanges(false)
+    onNotify?.('图片设置已保存', 'success')
+  }
 
   // 加载图片库
   const loadLibraryImages = useCallback(async () => {
@@ -45,6 +106,15 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
     }
   }, [isOpen, activeTab, loadLibraryImages])
 
+  // 当对话框关闭时清空输入
+  useEffect(() => {
+    if (!isOpen) {
+      setImageUrl('')
+      setImageAlt('')
+      setImageTitle('')
+    }
+  }, [isOpen])
+
 
   // 处理文件上传
   const handleFileUpload = useCallback(async (files) => {
@@ -62,38 +132,80 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
         continue
       }
 
-      // 验证文件大小（10MB）
-      if (file.size > 10 * 1024 * 1024) {
-        onNotify?.(`文件 ${file.name} 超过 10MB 限制`, 'error')
+      // 验证文件大小（使用配置的最大值）
+      const maxSizeBytes = imageSettings.maxFileSize * 1024 * 1024
+      if (file.size > maxSizeBytes) {
+        onNotify?.(`文件 ${file.name} 超过 ${imageSettings.maxFileSize}MB 限制`, 'error')
         continue
       }
 
-      // 压缩图片
+      // 压缩图片 - 使用当前设置
       try {
-        file = await compressImage(file)
+        if (imageSettings.imageCompression) {
+          const originalSize = file.size
+          
+          // 如果是按文件大小压缩，计算目标大小
+          let targetSize = undefined
+          if (imageSettings.imageCompressionMode === 'size') {
+            targetSize = Math.round((originalSize / 1024) * (imageSettings.imageTargetSizePercent / 100))
+            console.log(`原始文件: ${(originalSize / 1024).toFixed(1)}KB, 目标百分比: ${imageSettings.imageTargetSizePercent}%, 目标大小: ${targetSize}KB`)
+          }
+          
+          file = await compressImage(file, {
+            enabled: true,
+            mode: imageSettings.imageCompressionMode,
+            quality: imageSettings.imageQuality / 100,
+            targetSize: targetSize,
+            maxWidth: imageSettings.imageMaxWidth,
+            maxHeight: imageSettings.imageMaxHeight
+          })
+          
+          console.log(`压缩设置: 模式=${imageSettings.imageCompressionMode === 'quality' ? '按质量' : '按文件大小'}, 质量=${imageSettings.imageQuality}%, 最大尺寸=${imageSettings.imageMaxWidth}x${imageSettings.imageMaxHeight}`)
+          console.log(`压缩结果: ${(originalSize / 1024).toFixed(1)}KB -> ${(file.size / 1024).toFixed(1)}KB`)
+        } else {
+          console.log('图片压缩已禁用')
+        }
       } catch (error) {
         console.error('图片压缩失败:', error)
         // 压缩失败，使用原文件
       }
 
       formData.append('images', file)
+      console.log(`添加文件到 FormData: ${file.name}, 大小: ${file.size}`)
     }
 
     try {
+      console.log('开始上传图片...')
       const response = await fetch('/api/image/upload', {
         method: 'POST',
         body: formData
       })
 
       const result = await response.json()
+      console.log('服务器返回:', result)
       
       if (result.ok) {
+        // 打印每个上传的图片信息
+        result.images.forEach(img => {
+          console.log(`上传成功: filename="${img.filename}", alt="${img.alt}", url="${img.url}"`)
+        })
+        
         setUploadedImages(prev => [...result.images, ...prev])
         // 如果当前在图片库标签页，刷新图片库
         if (activeTab === 'library') {
           loadLibraryImages()
         }
         onNotify?.(`成功上传 ${result.images.length} 张图片`, 'success')
+        
+        // 自动滚动到上传的图片位置
+        setTimeout(() => {
+          if (recentUploadsRef.current) {
+            recentUploadsRef.current.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'nearest' 
+            })
+          }
+        }, 100)
       } else {
         onNotify?.(`上传失败: ${result.error}`, 'error')
       }
@@ -103,7 +215,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
     } finally {
       setUploading(false)
     }
-  }, [])
+  }, [imageSettings, activeTab, loadLibraryImages, onNotify])
 
   // 拖拽处理
   const handleDrag = useCallback((e) => {
@@ -137,6 +249,54 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
     }
   }
 
+  // 处理粘贴事件
+  const handlePaste = useCallback((e) => {
+    // 只在上传标签页处理粘贴
+    if (activeTab !== 'upload') return
+
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    // 检查是否有图片文件
+    let hasImage = false
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.type.startsWith('image/')) {
+        hasImage = true
+        const file = item.getAsFile()
+        if (file) {
+          handleFileUpload([file])
+        }
+        break
+      }
+    }
+
+    // 如果没有图片文件，检查是否有文本（可能是图片链接）
+    if (!hasImage) {
+      const text = e.clipboardData?.getData('text')
+      if (text && text.trim()) {
+        // 简单判断是否是图片链接
+        const imageUrlPattern = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i
+        if (imageUrlPattern.test(text.trim())) {
+          // 切换到图片链接标签页并填入链接
+          setActiveTab('link')
+          setImageUrl(text.trim())
+          onNotify?.('已自动填入图片链接', 'success')
+        }
+      }
+    }
+  }, [activeTab, handleFileUpload, onNotify])
+
+  // 添加粘贴事件监听
+  useEffect(() => {
+    if (isOpen && activeTab === 'upload') {
+      window.addEventListener('paste', handlePaste)
+      return () => {
+        window.removeEventListener('paste', handlePaste)
+      }
+    }
+  }, [isOpen, activeTab, handlePaste])
+
   // 插入图片链接
   const handleInsertLink = () => {
     if (!imageUrl.trim()) {
@@ -145,7 +305,14 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
     }
 
     const alt = imageAlt.trim() || '图片'
-    onInsertImage(`![${alt}](${imageUrl})`)
+    const title = imageTitle.trim()
+    
+    // 如果有标题，使用 Markdown 的 title 语法
+    const markdown = title 
+      ? `![${alt}](${imageUrl} "${title}")`
+      : `![${alt}](${imageUrl})`
+    
+    onInsertImage(markdown)
     onClose()
   }
 
@@ -300,6 +467,13 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
             <Settings size={18} />
             <span>图床设置</span>
           </button>
+          <button
+            className={`tab-button ${activeTab === 'compression' ? 'active' : ''}`}
+            onClick={() => setActiveTab('compression')}
+          >
+            <ImageUp size={18} />
+            <span>图片设置</span>
+          </button>
         </div>
 
         {/* 内容区域 */}
@@ -307,16 +481,6 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
           {/* 上传图片标签页 */}
           {activeTab === 'upload' && (
             <div className="upload-tab">
-              <div className="current-storage">
-                <Folder size={16} />
-                <span>当前图床：</span>
-                <strong>本地存储</strong>
-                <span className="star"><Star size={16} fill="currentColor" /></span>
-                <button className="settings-icon-btn">
-                  <Settings size={16} />
-                </button>
-              </div>
-
               <div
                 className={`upload-area ${dragActive ? 'drag-active' : ''}`}
                 onDragEnter={handleDrag}
@@ -328,7 +492,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                   <Upload size={48} />
                 </div>
                 <h3>上传图片</h3>
-                <p>拖拽图片到此处或点击选择文件</p>
+                <p>拖拽图片到此处、点击选择文件或按 Ctrl+V 粘贴</p>
                 <button 
                   className="select-button"
                   onClick={handleSelectClick}
@@ -338,7 +502,8 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                   {uploading ? '上传中...' : '选择图片'}
                 </button>
                 <p className="upload-hint">
-                  支持 JPG、PNG、GIF、WebP 格式，单个文件最大 10MB
+                  支持 JPG、PNG、GIF、WebP 格式，单个文件最大 {imageSettings.maxFileSize}MB<br />
+                  粘贴图片链接将自动跳转到"图片链接"标签页
                 </p>
                 <input
                   ref={fileInputRef}
@@ -350,9 +515,19 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                 />
               </div>
 
+              <div className="current-storage">
+                <Folder size={16} />
+                <span>当前图床：</span>
+                <strong>本地存储</strong>
+                <span className="star"><Star size={16} fill="currentColor" /></span>
+                <button className="settings-icon-btn">
+                  <Settings size={16} />
+                </button>
+              </div>
+
               {/* 最近上传 */}
               {uploadedImages.length > 0 && (
-                <div className="recent-uploads">
+                <div className="recent-uploads" ref={recentUploadsRef}>
                   <h4>最近上传</h4>
                   <div className="image-grid">
                     {uploadedImages.map((image, index) => (
@@ -394,13 +569,15 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                   onKeyPress={(e) => e.key === 'Enter' && handleInsertLink()}
                 />
               </div>
-              <div className="button-group">
-                <button className="cancel-button" onClick={onClose}>
-                  取消
-                </button>
-                <button className="insert-button" onClick={handleInsertLink}>
-                  插入图片
-                </button>
+              <div className="form-group">
+                <label>图片标题（可选）</label>
+                <input
+                  type="text"
+                  placeholder="图片标题"
+                  value={imageTitle}
+                  onChange={(e) => setImageTitle(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleInsertLink()}
+                />
               </div>
             </div>
           )}
@@ -514,6 +691,140 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
               </div>
             </div>
           )}
+
+          {/* 图片设置标签页 */}
+          {activeTab === 'compression' && (
+            <div className="compression-tab">
+              <div className="compression-settings">
+                <h3 className="section-title">图片压缩设置</h3>
+                
+                <div className="setting-item">
+                  <div className="setting-label">
+                    <label>自动压缩图片</label>
+                    <p className="setting-description">上传图片时自动压缩以节省空间</p>
+                  </div>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={imageSettings.imageCompression}
+                      onChange={(e) => handleImageSettingChange('imageCompression', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+
+                {imageSettings.imageCompression && (
+                  <>
+                    <div className="setting-item">
+                      <div className="setting-label">
+                        <label>压缩模式</label>
+                        <p className="setting-description">选择按质量或按文件大小压缩</p>
+                      </div>
+                      <select 
+                        value={imageSettings.imageCompressionMode} 
+                        onChange={(e) => handleImageSettingChange('imageCompressionMode', e.target.value)}
+                        className="form-select"
+                      >
+                        <option value="quality">按质量压缩</option>
+                        <option value="size">按文件大小压缩</option>
+                      </select>
+                    </div>
+
+                    {imageSettings.imageCompressionMode === 'quality' ? (
+                      <div className="setting-item slider-item">
+                        <div className="setting-label">
+                          <label>压缩质量</label>
+                          <p className="setting-description">图片压缩质量（50-100，值越大质量越好，文件越大）</p>
+                        </div>
+                        <div className="slider-control">
+                          <ElasticSlider
+                            min={50}
+                            max={100}
+                            value={imageSettings.imageQuality}
+                            onChange={(value) => handleImageSettingChange('imageQuality', value)}
+                            className="quality-slider"
+                          />
+                          <span className="slider-value">
+                            {imageSettings.imageQuality}%
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="setting-item slider-item">
+                        <div className="setting-label">
+                          <label>目标文件大小</label>
+                          <p className="setting-description">压缩到原始文件大小的百分比（例如：30% 表示压缩到原大小的30%）</p>
+                        </div>
+                        <div className="slider-control">
+                          <ElasticSlider
+                            min={5}
+                            max={80}
+                            value={imageSettings.imageTargetSizePercent}
+                            onChange={(value) => handleImageSettingChange('imageTargetSizePercent', value)}
+                            className="quality-slider"
+                          />
+                          <span className="slider-value">
+                            {imageSettings.imageTargetSizePercent}%
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="setting-item">
+                      <div className="setting-label">
+                        <label>最大宽度</label>
+                        <p className="setting-description">图片最大宽度（像素）</p>
+                      </div>
+                      <input
+                        type="number"
+                        min="800"
+                        max="4096"
+                        step="100"
+                        value={imageSettings.imageMaxWidth}
+                        onChange={(e) => handleImageSettingChange('imageMaxWidth', parseInt(e.target.value))}
+                        className="form-input"
+                        style={{ width: '120px' }}
+                      />
+                    </div>
+
+                    <div className="setting-item">
+                      <div className="setting-label">
+                        <label>最大高度</label>
+                        <p className="setting-description">图片最大高度（像素）</p>
+                      </div>
+                      <input
+                        type="number"
+                        min="600"
+                        max="4096"
+                        step="100"
+                        value={imageSettings.imageMaxHeight}
+                        onChange={(e) => handleImageSettingChange('imageMaxHeight', parseInt(e.target.value))}
+                        className="form-input"
+                        style={{ width: '120px' }}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="setting-item">
+                  <div className="setting-label">
+                    <label>最大文件大小</label>
+                    <p className="setting-description">单个上传文件的最大大小（MB）</p>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="1"
+                    value={imageSettings.maxFileSize}
+                    onChange={(e) => handleImageSettingChange('maxFileSize', parseInt(e.target.value))}
+                    className="form-input"
+                    style={{ width: '120px' }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 底部按钮 */}
@@ -562,9 +873,33 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
               )}
             </div>
           )}
-          <button className="close-footer-button" onClick={onClose}>
-            关闭
-          </button>
+          <div className="footer-right-actions">
+            {activeTab === 'link' ? (
+              <>
+                <button className="cancel-button" onClick={onClose}>
+                  取消
+                </button>
+                <button className="insert-button" onClick={handleInsertLink}>
+                  插入图片
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="close-footer-button" onClick={onClose}>
+                  关闭
+                </button>
+                {activeTab === 'compression' && (
+                  <button 
+                    className="save-settings-button"
+                    onClick={handleSaveImageSettings}
+                    disabled={!hasSettingsChanges}
+                  >
+                    保存设置
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
