@@ -79,4 +79,5 @@ const OutlinePanel = ({ content, onHeadingClick }) => {
   );
 };
 
-export default OutlinePanel;
+// 使用 React.memo 优化性能
+export default React.memo(OutlinePanel);

@@ -218,4 +218,5 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
   )
 }
 
-export default HistoryPanel
+// 使用 React.memo 优化性能
+export default React.memo(HistoryPanel)

@@ -450,4 +450,5 @@ function MenuBar({
   )
 }
 
-export default MenuBar
+// 使用 React.memo 优化性能，避免不必要的重渲染
+export default React.memo(MenuBar)

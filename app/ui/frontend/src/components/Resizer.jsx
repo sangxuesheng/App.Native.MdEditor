@@ -59,5 +59,6 @@ function Resizer({ direction = 'vertical', onResize }) {
   )
 }
 
-export default Resizer
+// 使用 React.memo 优化性能
+export default React.memo(Resizer)
 

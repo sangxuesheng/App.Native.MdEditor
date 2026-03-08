@@ -256,4 +256,5 @@ function FavoritesPanel({
   )
 }
 
-export default FavoritesPanel
+// 使用 React.memo 优化性能
+export default React.memo(FavoritesPanel)
