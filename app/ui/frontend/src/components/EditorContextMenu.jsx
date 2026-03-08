@@ -110,10 +110,10 @@ function EditorContextMenu({
     items.push({
       type: 'toolbar',
       buttons: [
-        { icon: <Scissors size={16} />, action: 'cut', disabled: !selectedText },
-        { icon: <Copy size={16} />, action: 'copy', disabled: !selectedText },
-        { icon: <Clipboard size={16} />, action: 'paste', disabled: !clipboardHasContent },
-        { icon: <Trash2 size={16} />, action: 'delete', disabled: !selectedText }
+        { icon: <Scissors size={16} />, action: 'cut', disabled: !selectedText, title: '剪切' },
+        { icon: <Copy size={16} />, action: 'copy', disabled: !selectedText, title: '复制' },
+        { icon: <Clipboard size={16} />, action: 'paste', disabled: false, title: '粘贴' }, // 始终启用粘贴
+        { icon: <Trash2 size={16} />, action: 'delete', disabled: !selectedText, title: '删除' }
       ]
     })
     items.push({ divider: true })
@@ -419,7 +419,7 @@ function EditorContextMenu({
                         onClose()
                       }
                     }}
-                    title={btn.action}
+                    title={btn.title || btn.action}
                   >
                     {btn.icon}
                   </div>

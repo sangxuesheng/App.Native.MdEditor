@@ -1,5 +1,5 @@
 appname=App.Native.MdEditor2
-version=1.27.0
+version=1.27.2
 display_name=Markdown 编辑器 v2
 desc=飞牛 NAS 专用 Markdown 编辑器。v1.27.0 更新：完善 HEIC/HEIF 支持，使用 heic-convert 库实现可靠转换，自动跳过前端压缩，优化用户体验。
 platform=x86

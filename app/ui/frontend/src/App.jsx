@@ -431,12 +431,17 @@ function App() {
     
     console.log('编辑器右键菜单:', { selectedText, selectedImage })
     
+    // 始终启用粘贴功能（使用 Monaco Editor 的内置功能作为后备）
+    // 不依赖剪贴板 API 的权限检测，因为 Monaco 有自己的剪贴板处理
+    const hasClipboard = true
+    
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       type: 'editor',
       selectedText,
-      selectedImage
+      selectedImage,
+      hasClipboard
     })
   }, [getSelectedText, detectImageAtCursor])
 
@@ -472,6 +477,9 @@ function App() {
       }
     }
     
+    // 始终启用粘贴功能（使用 Monaco Editor 的内置功能作为后备）
+    const hasClipboard = true
+    
     console.log('[handlePreviewContextMenu] 设置菜单，type: preview, selectedImage:', selectedImage)
     
     setContextMenu({
@@ -479,7 +487,8 @@ function App() {
       y: e.clientY,
       type: 'preview',
       selectedText,
-      selectedImage
+      selectedImage,
+      hasClipboard
     })
   }, [layout, detectPreviewImage, findImageInEditor])
 
@@ -1339,6 +1348,271 @@ HTML
     setShowSaveAsDialog(true)
   }
 
+  // 转换为微信公众号专属格式
+  const convertToWechatFormat = (html) => {
+    // 创建临时容器
+    const container = document.createElement('div')
+    container.innerHTML = html
+    
+    // 处理图片：将 figure 转换为 section，使用内联样式
+    const figures = container.querySelectorAll('figure, .image-figure, .image-figure-no-caption')
+    figures.forEach(figure => {
+      const img = figure.querySelector('img')
+      const figcaption = figure.querySelector('figcaption, .image-caption')
+      
+      if (img) {
+        // 创建 section 容器（微信公众号兼容性更好）
+        const section = document.createElement('section')
+        section.setAttribute('style', 'text-align: center; margin: 10px 0;')
+        
+        // 克隆图片并设置内联样式
+        const newImg = img.cloneNode(true)
+        const imgStyle = img.getAttribute('style') || ''
+        newImg.setAttribute('style', `${imgStyle}; display: inline-block; max-width: 100%; height: auto;`)
+        
+        section.appendChild(newImg)
+        
+        // 如果有图注，添加到 section 中
+        if (figcaption && figcaption.textContent.trim()) {
+          const caption = document.createElement('p')
+          caption.setAttribute('style', 'text-align: center; color: #999; font-size: 14px; margin-top: 5px;')
+          caption.textContent = figcaption.textContent
+          section.appendChild(caption)
+        }
+        
+        // 替换原来的 figure
+        figure.parentNode.replaceChild(section, figure)
+      }
+    })
+    
+    // 处理直接在 p 标签中的图片
+    const paragraphsWithImg = container.querySelectorAll('p:has(img)')
+    paragraphsWithImg.forEach(p => {
+      p.setAttribute('style', 'text-align: center; margin: 10px 0;')
+      const img = p.querySelector('img')
+      if (img) {
+        const imgStyle = img.getAttribute('style') || ''
+        img.setAttribute('style', `${imgStyle}; display: inline-block; max-width: 100%; height: auto;`)
+      }
+    })
+    
+    // 处理所有独立的 img 标签
+    const standaloneImages = container.querySelectorAll('img:not(figure img):not(p img)')
+    standaloneImages.forEach(img => {
+      const section = document.createElement('section')
+      section.setAttribute('style', 'text-align: center; margin: 10px 0;')
+      const imgStyle = img.getAttribute('style') || ''
+      img.setAttribute('style', `${imgStyle}; display: inline-block; max-width: 100%; height: auto;`)
+      img.parentNode.insertBefore(section, img)
+      section.appendChild(img)
+    })
+    
+    // 微信公众号样式（简化版，主要依赖内联样式）
+    const wechatStyles = `
+      <style>
+        /* 微信公众号基础样式 */
+        section {
+          margin: 10px 0;
+          padding: 0;
+        }
+        
+        /* 标题样式 */
+        h1 {
+          font-size: 24px;
+          font-weight: bold;
+          color: #000;
+          margin: 20px 0 10px;
+          padding-bottom: 10px;
+          border-bottom: 2px solid #3daeff;
+        }
+        
+        h2 {
+          font-size: 22px;
+          font-weight: bold;
+          color: #000;
+          margin: 18px 0 8px;
+          padding-left: 10px;
+          border-left: 4px solid #3daeff;
+        }
+        
+        h3 {
+          font-size: 20px;
+          font-weight: bold;
+          color: #333;
+          margin: 16px 0 8px;
+        }
+        
+        /* 段落样式 */
+        p {
+          margin: 10px 0;
+          line-height: 1.75;
+          font-size: 16px;
+          color: #333;
+        }
+        
+        /* 引用样式 */
+        blockquote {
+          margin: 15px 0;
+          padding: 10px 15px;
+          background: #f7f7f7;
+          border-left: 4px solid #3daeff;
+          color: #666;
+          font-style: italic;
+        }
+        
+        /* 代码块样式 */
+        pre {
+          margin: 15px 0;
+          padding: 15px;
+          background: #f6f8fa;
+          border-radius: 4px;
+          overflow-x: auto;
+        }
+        
+        code {
+          padding: 2px 6px;
+          background: #f0f0f0;
+          border-radius: 3px;
+          font-size: 14px;
+          color: #e83e8c;
+        }
+        
+        pre code {
+          padding: 0;
+          background: transparent;
+          color: #333;
+        }
+        
+        /* 列表样式 */
+        ul, ol {
+          margin: 10px 0;
+          padding-left: 30px;
+        }
+        
+        li {
+          margin: 5px 0;
+          line-height: 1.75;
+        }
+        
+        /* 表格样式 */
+        table {
+          width: 100%;
+          margin: 15px 0;
+          border-collapse: collapse;
+        }
+        
+        table th {
+          background: #3daeff;
+          color: #fff;
+          padding: 10px;
+          text-align: left;
+        }
+        
+        table td {
+          padding: 10px;
+          border: 1px solid #ddd;
+        }
+        
+        table tr:nth-child(even) {
+          background: #f9f9f9;
+        }
+        
+        /* 链接样式 */
+        a {
+          color: #3daeff;
+          text-decoration: none;
+        }
+        
+        /* 分隔线 */
+        hr {
+          margin: 20px 0;
+          border: none;
+          border-top: 1px solid #ddd;
+        }
+      </style>
+    `
+    
+    // 返回处理后的 HTML
+    return wechatStyles + container.innerHTML
+  }
+
+  // 微信格式复制降级方案
+  const copyWechatHtmlFallback = (html) => {
+    // 创建临时容器
+    const container = document.createElement('div')
+    container.innerHTML = html
+    container.style.position = 'fixed'
+    container.style.left = '-9999px'
+    document.body.appendChild(container)
+    
+    try {
+      // 选中内容
+      const range = document.createRange()
+      range.selectNodeContents(container)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+      
+      // 执行复制
+      const success = document.execCommand('copy')
+      
+      // 清理
+      selection.removeAllRanges()
+      document.body.removeChild(container)
+      
+      if (success) {
+        setStatus('已复制微信公众号格式到剪贴板')
+        setStatusType('success')
+        showToast('已复制，可直接粘贴到公众号编辑器', 'success')
+        setTimeout(() => {
+          setStatus('就绪')
+          setStatusType('normal')
+        }, 3000)
+      } else {
+        setStatus('复制失败，请手动复制预览区内容')
+        setStatusType('error')
+        showToast('复制失败，请手动复制', 'error')
+      }
+    } catch (err) {
+      console.error('execCommand 失败:', err)
+      document.body.removeChild(container)
+      setStatus('复制失败，请手动复制预览区内容')
+      setStatusType('error')
+      showToast('复制失败，请手动复制', 'error')
+    }
+  }
+
+  // 剪贴板降级方案：使用 textarea + execCommand
+  const copyToClipboardFallback = (text) => {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    
+    try {
+      const success = document.execCommand('copy')
+      if (success) {
+        setStatus('已复制公众号格式到剪贴板')
+        setStatusType('success')
+        setTimeout(() => {
+          setStatus('就绪')
+          setStatusType('normal')
+        }, 2000)
+      } else {
+        setStatus('复制失败，请手动复制')
+        setStatusType('error')
+      }
+    } catch (err) {
+      console.error('execCommand 失败:', err)
+      setStatus('复制失败，请手动复制')
+      setStatusType('error')
+    } finally {
+      document.body.removeChild(textarea)
+    }
+  }
+
   const handleExport = (format) => {
     if (!format) {
       // 如果没有指定格式，打开导出对话框让用户选择
@@ -1435,19 +1709,45 @@ HTML
           break
 
         case 'wechat':
-          // 公众号格式 - 复制到剪贴板
-          const wechatHtml = previewRef.current?.innerHTML || ''
-          navigator.clipboard.writeText(wechatHtml).then(() => {
-            setStatus('已复制公众号格式到剪贴板')
-            setStatusType('success')
-            setTimeout(() => {
-              setStatus('就绪')
-              setStatusType('normal')
-            }, 2000)
-          }).catch(() => {
-            setStatus('复制失败')
-            setStatusType('error')
-          })
+          // 公众号格式 - 复制带样式的 HTML 到剪贴板
+          // 获取预览区的 HTML 内容
+          const previewHtml = previewRef.current?.innerHTML || ''
+          
+          // 转换为微信公众号专属格式
+          const wechatHtml = convertToWechatFormat(previewHtml)
+          
+          // 优先使用 Clipboard API（支持富文本）
+          if (navigator.clipboard && navigator.clipboard.write) {
+            try {
+              // 创建包含 HTML 和纯文本的 ClipboardItem
+              const htmlBlob = new Blob([wechatHtml], { type: 'text/html' })
+              const textBlob = new Blob([content], { type: 'text/plain' })
+              const clipboardItem = new ClipboardItem({
+                'text/html': htmlBlob,
+                'text/plain': textBlob
+              })
+              
+              navigator.clipboard.write([clipboardItem]).then(() => {
+                setStatus('已复制微信公众号格式到剪贴板')
+                setStatusType('success')
+                showToast('已复制，可直接粘贴到公众号编辑器', 'success')
+                setTimeout(() => {
+                  setStatus('就绪')
+                  setStatusType('normal')
+                }, 3000)
+              }).catch((error) => {
+                console.error('Clipboard.write 失败:', error)
+                // 降级方案：使用 writeText
+                copyWechatHtmlFallback(wechatHtml)
+              })
+            } catch (error) {
+              console.error('创建 ClipboardItem 失败:', error)
+              copyWechatHtmlFallback(wechatHtml)
+            }
+          } else {
+            // 降级方案
+            copyWechatHtmlFallback(wechatHtml)
+          }
           break
 
         case 'pdf':
@@ -1472,7 +1772,7 @@ HTML
 
   // 应用图注格式到 HTML
   const applyImageCaptionFormat = (html, format) => {
-    // 匹配 <img> 标签，提取 src, alt, title 属性
+    // 匹配 <img> 标签，提取 src, alt, title, style 属性
     const imgRegex = /<img([^>]*?)>/g
     
     return html.replace(imgRegex, (match, attrs) => {
@@ -1480,10 +1780,12 @@ HTML
       const srcMatch = attrs.match(/src="([^"]*)"/)
       const altMatch = attrs.match(/alt="([^"]*)"/)
       const titleMatch = attrs.match(/title="([^"]*)"/)
+      const styleMatch = attrs.match(/style="([^"]*)"/)
       
       const src = srcMatch ? srcMatch[1] : ''
       const alt = altMatch ? altMatch[1] : ''
       const title = titleMatch ? titleMatch[1] : ''
+      const style = styleMatch ? styleMatch[1] : ''
       
       // 根据格式设置决定显示什么
       let caption = ''
@@ -1516,12 +1818,14 @@ HTML
       // 如果有图注，包装成 figure 元素
       if (caption) {
         return `<figure class="image-figure">
-          <img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}>
+          <img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}${style ? ` style="${style}"` : ''}>
           <figcaption class="image-caption">${caption}</figcaption>
         </figure>`
       } else {
-        // 没有图注，返回原始 img 标签
-        return `<img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}>`
+        // 没有图注，包装成 figure 元素但不显示 figcaption，并添加居中样式
+        return `<figure class="image-figure image-figure-no-caption">
+          <img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}${style ? ` style="${style}"` : ''}>
+        </figure>`
       }
     })
   }
@@ -2556,11 +2860,38 @@ HTML
         if (contextMenu?.selectedImage) {
           const markdown = `![${contextMenu.selectedImage.alt}](${contextMenu.selectedImage.src})`
           try {
-            await navigator.clipboard.writeText(markdown)
-            showToast('图片标记已复制', 'success')
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(markdown)
+              showToast('图片标记已复制', 'success')
+            } else {
+              // Fallback: 使用传统方法
+              const textarea = document.createElement('textarea')
+              textarea.value = markdown
+              textarea.style.position = 'fixed'
+              textarea.style.opacity = '0'
+              document.body.appendChild(textarea)
+              textarea.select()
+              document.execCommand('copy')
+              document.body.removeChild(textarea)
+              showToast('图片标记已复制', 'success')
+            }
           } catch (error) {
-            console.error('复制失败:', error)
-            showToast('复制失败', 'error')
+            console.warn('Clipboard API 失败，使用 fallback:', error)
+            // Fallback: 使用传统方法
+            try {
+              const textarea = document.createElement('textarea')
+              textarea.value = markdown
+              textarea.style.position = 'fixed'
+              textarea.style.opacity = '0'
+              document.body.appendChild(textarea)
+              textarea.select()
+              document.execCommand('copy')
+              document.body.removeChild(textarea)
+              showToast('图片标记已复制', 'success')
+            } catch (fallbackError) {
+              console.error('复制失败:', fallbackError)
+              showToast('复制失败', 'error')
+            }
           }
         }
         break
@@ -2602,42 +2933,113 @@ HTML
       // ========== 编辑操作 ==========
       case 'cut':
         if (contextMenu?.selectedText) {
-          try {
-            await navigator.clipboard.writeText(contextMenu.selectedText)
-            const selection = editor.getSelection()
-            editor.executeEdits('cut', [{
-              range: selection,
-              text: ''
-            }])
-            showToast('已剪切', 'success')
-          } catch (error) {
-            editor.trigger('keyboard', 'editor.action.clipboardCutAction')
+          editor.focus()
+          const selection = editor.getSelection()
+          const text = editor.getModel().getValueInRange(selection)
+          
+          // 手动实现剪切：复制到剪贴板 + 删除选中内容
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+              editor.executeEdits('cut', [{
+                range: selection,
+                text: ''
+              }])
+              // 移动光标到删除位置
+              editor.setPosition({
+                lineNumber: selection.startLineNumber,
+                column: selection.startColumn
+              })
+              showToast('已剪切', 'success')
+            }).catch((error) => {
+              console.error('剪切失败:', error)
+              showToast('剪切失败，请使用 Ctrl+X', 'error')
+            })
+          } else {
+            // 降级方案：使用旧的 execCommand
+            const textarea = document.createElement('textarea')
+            textarea.value = text
+            textarea.style.position = 'fixed'
+            textarea.style.opacity = '0'
+            document.body.appendChild(textarea)
+            textarea.select()
+            try {
+              document.execCommand('copy')
+              editor.executeEdits('cut', [{
+                range: selection,
+                text: ''
+              }])
+              editor.setPosition({
+                lineNumber: selection.startLineNumber,
+                column: selection.startColumn
+              })
+              showToast('已剪切', 'success')
+            } catch (err) {
+              showToast('剪切失败，请使用 Ctrl+X', 'error')
+            } finally {
+              document.body.removeChild(textarea)
+            }
           }
         }
         break
         
       case 'copy':
         if (contextMenu?.selectedText) {
-          try {
-            await navigator.clipboard.writeText(contextMenu.selectedText)
-            showToast('已复制', 'success')
-          } catch (error) {
-            editor.trigger('keyboard', 'editor.action.clipboardCopyAction')
+          editor.focus()
+          
+          // 手动实现复制：复制到剪贴板
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(contextMenu.selectedText).then(() => {
+              showToast('已复制', 'success')
+            }).catch((error) => {
+              console.error('复制失败:', error)
+              showToast('复制失败，请使用 Ctrl+C', 'error')
+            })
+          } else {
+            // 降级方案：使用旧的 execCommand
+            const textarea = document.createElement('textarea')
+            textarea.value = contextMenu.selectedText
+            textarea.style.position = 'fixed'
+            textarea.style.opacity = '0'
+            document.body.appendChild(textarea)
+            textarea.select()
+            try {
+              document.execCommand('copy')
+              showToast('已复制', 'success')
+            } catch (err) {
+              showToast('复制失败，请使用 Ctrl+C', 'error')
+            } finally {
+              document.body.removeChild(textarea)
+            }
           }
         }
         break
         
       case 'paste':
-        try {
-          const text = await navigator.clipboard.readText()
-          const selection = editor.getSelection()
-          editor.executeEdits('paste', [{
-            range: selection,
-            text: text
-          }])
-          showToast('已粘贴', 'success')
-        } catch (error) {
-          editor.trigger('keyboard', 'editor.action.clipboardPasteAction')
+        editor.focus()
+        
+        // 手动实现粘贴：从剪贴板读取并插入
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          navigator.clipboard.readText().then(text => {
+            const selection = editor.getSelection()
+            editor.executeEdits('paste', [{
+              range: selection,
+              text: text,
+              forceMoveMarkers: true
+            }])
+            // 移动光标到插入内容的末尾
+            const lines = text.split('\n')
+            const lastLine = lines[lines.length - 1]
+            editor.setPosition({
+              lineNumber: selection.startLineNumber + lines.length - 1,
+              column: lines.length === 1 ? selection.startColumn + lastLine.length : lastLine.length + 1
+            })
+            showToast('已粘贴', 'success')
+          }).catch((error) => {
+            console.error('粘贴失败:', error)
+            showToast('粘贴失败，请使用 Ctrl+V', 'warning')
+          })
+        } else {
+          showToast('粘贴失败，请使用 Ctrl+V', 'warning')
         }
         break
         
@@ -3062,7 +3464,7 @@ HTML
           selectedText={contextMenu.selectedText}
           selectedImage={contextMenu.selectedImage}
           theme={editorTheme}
-          clipboardHasContent={!!clipboardContent}
+          clipboardHasContent={contextMenu.hasClipboard !== false}
           onAction={handleContextMenuAction}
           onClose={() => setContextMenu(null)}
         />

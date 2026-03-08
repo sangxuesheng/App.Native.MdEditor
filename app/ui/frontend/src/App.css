@@ -435,6 +435,19 @@ html, body {
   margin: 0 auto;
 }
 
+/* 无图注的图片居中显示 */
+.markdown-body .image-figure-no-caption {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 16px auto;
+}
+
+.markdown-body .image-figure-no-caption img {
+  display: block;
+  margin: 0;
+}
+
 /* 支持内联样式的图片缩放 - 使用更高优先级 */
 .markdown-body img[style*="width"],
 .markdown-body .image-figure img[style*="width"],
