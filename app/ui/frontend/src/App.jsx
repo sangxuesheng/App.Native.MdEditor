@@ -1361,27 +1361,59 @@ HTML
       const figcaption = figure.querySelector('figcaption, .image-caption')
       
       if (img) {
-        // 创建 section 容器（微信公众号兼容性更好）
-        const section = document.createElement('section')
-        section.setAttribute('style', 'text-align: center; margin: 10px 0;')
+        // 使用 p 标签包裹（微信公众号更兼容）
+        const p = document.createElement('p')
+        p.setAttribute('style', 'text-align: center; margin: 10px 0;')
         
-        // 克隆图片并设置内联样式
+        // 克隆图片
         const newImg = img.cloneNode(true)
         const imgStyle = img.getAttribute('style') || ''
-        newImg.setAttribute('style', `${imgStyle}; display: inline-block; max-width: 100%; height: auto;`)
         
-        section.appendChild(newImg)
+        console.log('[微信导出] 原始图片样式:', imgStyle)
         
-        // 如果有图注，添加到 section 中
+        // 检查是否有 width 百分比
+        const widthMatch = imgStyle.match(/width:\s*(\d+)%/)
+        
+        if (widthMatch) {
+          const widthPercent = parseInt(widthMatch[1])
+          console.log('[微信导出] 提取到 width 百分比:', widthPercent)
+          
+          // 获取图片的实际宽度
+          const actualWidth = img.naturalWidth || img.width
+          console.log('[微信导出] 图片实际宽度:', actualWidth)
+          
+          // 计算目标宽度（假设容器宽度为 677px，这是微信公众号的标准宽度）
+          const containerWidth = 677
+          const targetWidth = Math.round(containerWidth * widthPercent / 100)
+          
+          console.log('[微信导出] 计算目标宽度:', targetWidth)
+          
+          // 使用像素值而不是百分比
+          newImg.setAttribute('style', `width: ${targetWidth}px; display: block; margin: 0 auto;`)
+        } else {
+          // 没有 width，保留原样
+          console.log('[微信导出] 没有 width，保留原样')
+        }
+        
+        console.log('[微信导出] 最终图片 HTML:', newImg.outerHTML)
+        
+        p.appendChild(newImg)
+        
+        // 如果有图注，添加到 p 后面
         if (figcaption && figcaption.textContent.trim()) {
           const caption = document.createElement('p')
           caption.setAttribute('style', 'text-align: center; color: #999; font-size: 14px; margin-top: 5px;')
           caption.textContent = figcaption.textContent
-          section.appendChild(caption)
+          
+          // 创建容器包裹图片和图注
+          const container = document.createElement('div')
+          container.appendChild(p)
+          container.appendChild(caption)
+          figure.parentNode.replaceChild(container, figure)
+        } else {
+          // 没有图注，直接替换
+          figure.parentNode.replaceChild(p, figure)
         }
-        
-        // 替换原来的 figure
-        figure.parentNode.replaceChild(section, figure)
       }
     })
     
@@ -1392,7 +1424,20 @@ HTML
       const img = p.querySelector('img')
       if (img) {
         const imgStyle = img.getAttribute('style') || ''
-        img.setAttribute('style', `${imgStyle}; display: inline-block; max-width: 100%; height: auto;`)
+        const hasWidth = imgStyle.indexOf('width') >= 0 || imgStyle.indexOf('WIDTH') >= 0
+        
+        let finalStyle = imgStyle.trim()
+        if (finalStyle && !finalStyle.endsWith(';')) {
+          finalStyle += ';'
+        }
+        
+        if (hasWidth) {
+          finalStyle += ' display: inline-block;'
+        } else {
+          finalStyle += ' display: inline-block; max-width: 100%;'
+        }
+        
+        img.setAttribute('style', finalStyle)
       }
     })
     
@@ -1402,7 +1447,20 @@ HTML
       const section = document.createElement('section')
       section.setAttribute('style', 'text-align: center; margin: 10px 0;')
       const imgStyle = img.getAttribute('style') || ''
-      img.setAttribute('style', `${imgStyle}; display: inline-block; max-width: 100%; height: auto;`)
+      const hasWidth = imgStyle.indexOf('width') >= 0 || imgStyle.indexOf('WIDTH') >= 0
+      
+      let finalStyle = imgStyle.trim()
+      if (finalStyle && !finalStyle.endsWith(';')) {
+        finalStyle += ';'
+      }
+      
+      if (hasWidth) {
+        finalStyle += ' display: inline-block;'
+      } else {
+        finalStyle += ' display: inline-block; max-width: 100%;'
+      }
+      
+      img.setAttribute('style', finalStyle)
       img.parentNode.insertBefore(section, img)
       section.appendChild(img)
     })
@@ -1713,6 +1771,16 @@ HTML
           // 获取预览区的 HTML 内容
           const previewHtml = previewRef.current?.innerHTML || ''
           
+          // 调试：检查预览区 HTML 中的图片样式
+          console.log('[导出] 预览区 HTML 片段:', previewHtml.substring(0, 500))
+          const imgMatches = previewHtml.match(/<img[^>]*>/g)
+          if (imgMatches) {
+            console.log('[导出] 找到图片标签数量:', imgMatches.length)
+            imgMatches.forEach((img, index) => {
+              console.log(`[导出] 图片 ${index + 1}:`, img)
+            })
+          }
+          
           // 转换为微信公众号专属格式
           const wechatHtml = convertToWechatFormat(previewHtml)
           
@@ -1786,6 +1854,12 @@ HTML
       const alt = altMatch ? altMatch[1] : ''
       const title = titleMatch ? titleMatch[1] : ''
       const style = styleMatch ? styleMatch[1] : ''
+      
+      // 调试日志
+      if (style) {
+        console.log('[图注格式] 提取到图片样式:', { src: src.substring(0, 50), style })
+      }
+      
       
       // 根据格式设置决定显示什么
       let caption = ''

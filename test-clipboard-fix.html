@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>剪贴板功能测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+            border-radius: 4px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.show {
+            display: block;
+        }
+        .result.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .result.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        .info strong {
+            color: #1976D2;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 剪贴板功能测试页面</h1>
+        
+        <div class="info">
+            <strong>测试说明：</strong><br>
+            此页面用于测试剪贴板 API 的兼容性和 fallback 机制。<br>
+            在 HTTP 和 HTTPS 环境下测试，验证所有功能是否正常工作。
+        </div>
+
+        <!-- 测试 1: Clipboard API 可用性 -->
+        <div class="test-section">
+            <h2>测试 1: Clipboard API 检测</h2>
+            <p>检测浏览器是否支持 Clipboard API</p>
+            <button onclick="testClipboardAPI()">检测 Clipboard API</button>
+            <div id="result1" class="result"></div>
+        </div>
+
+        <!-- 测试 2: 复制功能 -->
+        <div class="test-section">
+            <h2>测试 2: 复制功能</h2>
+            <textarea id="copyText" placeholder="输入要复制的文本...">这是一段测试文本，用于测试复制功能。</textarea>
+            <button onclick="testCopy()">复制文本 (Clipboard API)</button>
+            <button onclick="testCopyFallback()">复制文本 (Fallback)</button>
+            <div id="result2" class="result"></div>
+        </div>
+
+        <!-- 测试 3: 粘贴功能 -->
+        <div class="test-section">
+            <h2>测试 3: 粘贴功能</h2>
+            <p>先复制一些文本，然后点击下面的按钮粘贴</p>
+            <button onclick="testPaste()">粘贴文本 (Clipboard API)</button>
+            <textarea id="pasteText" placeholder="粘贴的内容会显示在这里..." readonly></textarea>
+            <div id="result3" class="result"></div>
+        </div>
+
+        <!-- 测试 4: 剪切功能 -->
+        <div class="test-section">
+            <h2>测试 4: 剪切功能模拟</h2>
+            <textarea id="cutText" placeholder="输入文本，选中后点击剪切...">选中这段文本并剪切它。</textarea>
+            <button onclick="testCut()">剪切选中文本</button>
+            <div id="result4" class="result"></div>
+        </div>
+
+        <!-- 测试 5: 图片标记复制 -->
+        <div class="test-section">
+            <h2>测试 5: Markdown 图片标记复制</h2>
+            <p>模拟复制图片的 Markdown 标记</p>
+            <button onclick="testCopyImageMarkdown()">复制图片标记 (Clipboard API)</button>
+            <button onclick="testCopyImageMarkdownFallback()">复制图片标记 (Fallback)</button>
+            <div id="result5" class="result"></div>
+            <textarea id="imageMarkdown" placeholder="粘贴图片标记到这里验证..." style="margin-top: 10px;"></textarea>
+        </div>
+
+        <div class="info" style="margin-top: 30px;">
+            <strong>环境信息：</strong><br>
+            协议: <code id="protocol"></code><br>
+            User Agent: <code id="userAgent" style="font-size: 11px;"></code><br>
+            Clipboard API: <code id="clipboardSupport"></code>
+        </div>
+    </div>
+
+    <script>
+        // 显示环境信息
+        document.getElementById('protocol').textContent = window.location.protocol;
+        document.getElementById('userAgent').textContent = navigator.userAgent;
+        document.getElementById('clipboardSupport').textContent = 
+            (navigator.clipboard ? '✅ 支持' : '❌ 不支持');
+
+        function showResult(elementId, message, isSuccess = true) {
+            const result = document.getElementById(elementId);
+            result.textContent = message;
+            result.className = 'result show ' + (isSuccess ? 'success' : 'error');
+            setTimeout(() => {
+                result.classList.remove('show');
+            }, 5000);
+        }
+
+        // 测试 1: Clipboard API 检测
+        function testClipboardAPI() {
+            const hasClipboard = !!navigator.clipboard;
+            const hasWriteText = hasClipboard && typeof navigator.clipboard.writeText === 'function';
+            const hasReadText = hasClipboard && typeof navigator.clipboard.readText === 'function';
+            
+            let message = `Clipboard API: ${hasClipboard ? '✅ 支持' : '❌ 不支持'}\n`;
+            message += `writeText: ${hasWriteText ? '✅ 支持' : '❌ 不支持'}\n`;
+            message += `readText: ${hasReadText ? '✅ 支持' : '❌ 不支持'}`;
+            
+            showResult('result1', message, hasClipboard);
+        }
+
+        // 测试 2: 复制功能 (Clipboard API)
+        async function testCopy() {
+            const text = document.getElementById('copyText').value;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    showResult('result2', '✅ 复制成功 (Clipboard API)！现在可以粘贴测试。', true);
+                } else {
+                    showResult('result2', '❌ Clipboard API 不可用', false);
+                }
+            } catch (error) {
+                showResult('result2', `❌ 复制失败: ${error.message}`, false);
+            }
+        }
+
+        // 测试 2: 复制功能 (Fallback)
+        function testCopyFallback() {
+            const text = document.getElementById('copyText').value;
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                const success = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                
+                if (success) {
+                    showResult('result2', '✅ 复制成功 (Fallback execCommand)！', true);
+                } else {
+                    showResult('result2', '❌ execCommand 复制失败', false);
+                }
+            } catch (error) {
+                showResult('result2', `❌ Fallback 复制失败: ${error.message}`, false);
+            }
+        }
+
+        // 测试 3: 粘贴功能
+        async function testPaste() {
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    const text = await navigator.clipboard.readText();
+                    document.getElementById('pasteText').value = text;
+                    showResult('result3', '✅ 粘贴成功！', true);
+                } else {
+                    showResult('result3', '❌ Clipboard API 不可用。请手动粘贴 (Ctrl+V) 到文本框。', false);
+                }
+            } catch (error) {
+                showResult('result3', `❌ 粘贴失败: ${error.message}。请手动粘贴 (Ctrl+V)。`, false);
+            }
+        }
+
+        // 测试 4: 剪切功能
+        async function testCut() {
+            const textarea = document.getElementById('cutText');
+            const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+            
+            if (!selectedText) {
+                showResult('result4', '❌ 请先选中一些文本', false);
+                return;
+            }
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(selectedText);
+                    // 删除选中的文本
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    textarea.value = textarea.value.substring(0, start) + textarea.value.substring(end);
+                    showResult('result4', '✅ 剪切成功！文本已复制到剪贴板并删除。', true);
+                } else {
+                    showResult('result4', '❌ Clipboard API 不可用', false);
+                }
+            } catch (error) {
+                showResult('result4', `❌ 剪切失败: ${error.message}`, false);
+            }
+        }
+
+        // 测试 5: 图片标记复制 (Clipboard API)
+        async function testCopyImageMarkdown() {
+            const markdown = '![示例图片](https://example.com/image.png "图片标题")';
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(markdown);
+                    showResult('result5', '✅ 图片标记已复制 (Clipboard API)！粘贴到下方文本框验证。', true);
+                } else {
+                    showResult('result5', '❌ Clipboard API 不可用', false);
+                }
+            } catch (error) {
+                showResult('result5', `❌ 复制失败: ${error.message}`, false);
+            }
+        }
+
+        // 测试 5: 图片标记复制 (Fallback)
+        function testCopyImageMarkdownFallback() {
+            const markdown = '![示例图片](https://example.com/image.png "图片标题")';
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = markdown;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                const success = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                
+                if (success) {
+                    showResult('result5', '✅ 图片标记已复制 (Fallback)！粘贴到下方文本框验证。', true);
+                } else {
+                    showResult('result5', '❌ execCommand 复制失败', false);
+                }
+            } catch (error) {
+                showResult('result5', `❌ Fallback 复制失败: ${error.message}`, false);
+            }
+        }
+
+        // 页面加载时自动检测
+        window.onload = function() {
+            testClipboardAPI();
+        };
+    </script>
+</body>
+</html>
