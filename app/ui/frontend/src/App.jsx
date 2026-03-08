@@ -1136,18 +1136,18 @@ HTML
     }
   }
 
-  const handleFileSelect = (filePath) => {
+  const handleFileSelect = useCallback((filePath) => {
     setCurrentPath(filePath)
     loadFile(filePath)
-  }
+  }, []) // loadFile 是稳定的函数引用
 
-  const handleNewFile = () => {
+  const handleNewFile = useCallback(() => {
     setShowNewFileDialog(true)
-  }
+  }, [])
 
   const [initialFileName, setInitialFileName] = useState('')
 
-  const handleNewFileConfirm = (fileContent) => {
+  const handleNewFileConfirm = useCallback((fileContent) => {
     // 清除自动保存的内容（因为要创建新文件）
     clearPersistedContent()
     
@@ -1157,9 +1157,9 @@ HTML
     setInitialFileName('') // 清空初始文件名，用户保存时自己填写
     setStatus('新建文件 - 未保存')
     // 不再打开保存对话框，用户编辑完成后通过保存按钮触发
-  }
+  }, [])
 
-  const handleSaveAsConfirm = async (newPath) => {
+  const handleSaveAsConfirm = useCallback(async (newPath) => {
     // 使用当前编辑器内容进行保存
     const success = await saveFile(newPath, content)
     if (success) {
@@ -1179,7 +1179,7 @@ HTML
       
       setTimeout(() => setStatus('就绪'), 2000)
     }
-  }
+  }, [content]) // 依赖 content
 
   const handleImageUpload = useCallback(async (file) => {
     if (!file || !editorRef.current) return
@@ -1289,7 +1289,7 @@ HTML
     editor.focus()
   }, [])
 
-  const handleSaveClick = async () => {
+  const handleSaveClick = useCallback(async () => {
     if (currentPath) {
       // 清除自动保存定时器，避免冲突
       if (autoSaveTimerRef.current) {
@@ -1309,7 +1309,7 @@ HTML
       setIsSaveAsMode(false)
       setShowSaveAsDialog(true)
     }
-  }
+  }, [currentPath, content]) // 依赖 currentPath 和 content
 
   // 恢复历史版本
   const handleVersionRestore = useCallback(async (restoredContent, version) => {
@@ -1344,10 +1344,10 @@ HTML
     }
   }, [currentPath])
 
-  const handleSaveAs = () => {
+  const handleSaveAs = useCallback(() => {
     setIsSaveAsMode(true)
     setShowSaveAsDialog(true)
-  }
+  }, [])
 
   // 转换为微信公众号专属格式
   const convertToWechatFormat = async (html) => {
@@ -1800,7 +1800,7 @@ HTML
     }
   }
 
-  const handleExport = async (format) => {
+  const handleExport = useCallback(async (format) => {
     if (!format) {
       // 如果没有指定格式，打开导出对话框让用户选择
       setShowExportDialog(true)
@@ -1962,11 +1962,11 @@ HTML
       setStatusType('error')
       console.error('Export error:', error)
     }
-  }
+  }, [content, currentPath]) // 依赖 content 和 currentPath
 
-  const handleSettings = () => {
+  const handleSettings = useCallback(() => {
     setShowSettingsDialog(true)
-  }
+  }, [])
 
   // 应用图注格式到 HTML
   const applyImageCaptionFormat = (html, format) => {
@@ -2354,7 +2354,7 @@ HTML
   // 预览区右键菜单事件监听 - 已改为直接在 JSX 中使用 onContextMenu
   // useEffect 已移除，避免重复绑定
 
-  const handleToolbarInsert = (before, after, mode) => {
+  const handleToolbarInsert = useCallback((before, after, mode) => {
     if (!editorRef.current) return
 
     const editor = editorRef.current
@@ -2440,9 +2440,9 @@ HTML
     }
 
     editor.focus()
-  }
+  }, []) // 添加依赖数组
 
-  const handleImageInsert = (markdown) => {
+  const handleImageInsert = useCallback((markdown) => {
     if (editorRef.current) {
       const editor = editorRef.current
       const selection = editor.getSelection()
@@ -2454,9 +2454,9 @@ HTML
       editor.executeEdits('insert-image', [op])
       editor.focus()
     }
-  }
+  }, [])
 
-  const handleEditorMount = (editor) => {
+  const handleEditorMount = useCallback((editor) => {
     editorRef.current = editor
     
     // 定义自定义主题 - 修改标题颜色
@@ -2751,36 +2751,36 @@ HTML
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
       editor.trigger('keyboard', 'editor.action.startFindReplaceAction')
     })
-  }
+  }, [editorTheme]) // 依赖 editorTheme
 
   // MenuBar 处理函数
-  const handleMenuUndo = () => {
+  const handleMenuUndo = useCallback(() => {
     if (editorRef.current) {
       editorRef.current.trigger('keyboard', 'undo')
     }
-  }
+  }, [])
 
-  const handleMenuRedo = () => {
+  const handleMenuRedo = useCallback(() => {
     if (editorRef.current) {
       editorRef.current.trigger('keyboard', 'redo')
     }
-  }
+  }, [])
 
-  const handleMenuCopy = () => {
+  const handleMenuCopy = useCallback(() => {
     if (editorRef.current) {
       editorRef.current.focus()
       editorRef.current.trigger('keyboard', 'editor.action.clipboardCopyAction')
     }
-  }
+  }, [])
 
-  const handleMenuCut = () => {
+  const handleMenuCut = useCallback(() => {
     if (editorRef.current) {
       editorRef.current.focus()
       editorRef.current.trigger('keyboard', 'editor.action.clipboardCutAction')
     }
-  }
+  }, [])
 
-  const handleMenuPaste = async () => {
+  const handleMenuPaste = useCallback(async () => {
     if (editorRef.current) {
       editorRef.current.focus()
       
@@ -2801,24 +2801,24 @@ HTML
         editorRef.current.trigger('keyboard', 'editor.action.clipboardPasteAction')
       }
     }
-  }
-  const handleMenuFormatDocument = () => {
+  }, [])
+  const handleMenuFormatDocument = useCallback(() => {
     if (editorRef.current) {
       editorRef.current.getAction('editor.action.formatDocument').run()
     }
-  }
+  }, [])
 
-  const handleMenuFind = () => {
+  const handleMenuFind = useCallback(() => {
     if (editorRef.current) {
       editorRef.current.trigger('keyboard', 'actions.find')
     }
-  }
+  }, [])
 
-  const handleMenuReplace = () => {
+  const handleMenuReplace = useCallback(() => {
     if (editorRef.current) {
       editorRef.current.trigger('keyboard', 'editor.action.startFindReplaceAction')
     }
-  }
+  }, [])
 
   const handleInsertCode = (type) => {
     if (!editorRef.current) return
