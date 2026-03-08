@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import Editor from '@monaco-editor/react'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
