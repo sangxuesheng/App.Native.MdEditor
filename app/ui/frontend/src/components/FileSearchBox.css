@@ -7,6 +7,7 @@
   position: relative;
   display: flex;
   align-items: center;
+  height: 32px;
   background: var(--search-bg);
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -19,19 +20,24 @@
 }
 
 .search-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 8px;
   font-size: 14px;
   opacity: 0.6;
+  flex-shrink: 0;
 }
 
 .search-input {
   flex: 1;
-  padding: 4px 8px 4px 0;
+  padding: 0 8px;
   background: transparent;
   border: none;
   outline: none;
   color: var(--text-color);
   font-size: 12px;
+  height: 100%;
 }
 
 .search-input::placeholder {
@@ -46,7 +52,7 @@
   padding: 0;
   width: 24px;
   height: 24px;
-  margin-right: 4px;
+  margin: 0 4px 0 0;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -54,12 +60,14 @@
   line-height: 1;
   cursor: pointer;
   opacity: 0.6;
-  transition: opacity 0.15s;
+  transition: all 0.15s;
   flex-shrink: 0;
+  border-radius: 4px;
 }
 
 .search-clear-btn:hover {
   opacity: 1;
+  background: var(--hover-bg, rgba(0, 0, 0, 0.05));
 }
 
 /* 搜索历史下拉框 */
