@@ -1,7 +1,7 @@
 appname=App.Native.MdEditor2
-version=1.27.4
+version=1.27.6
 display_name=Markdown 编辑器 v2
-desc=飞牛 NAS 专用 Markdown 编辑器。v1.27.4 更新：修复微信公众号格式导出时图片缩放样式丢失问题，将百分比宽度转换为像素值以兼容微信编辑器。
+desc=飞牛 NAS 专用 Markdown 编辑器。v1.27.6 更新：完善微信公众号导出功能，支持 Mermaid 流程图转 SVG 图片，数学公式使用 CodeCogs API 渲染为高清 PNG（300 DPI），图片缩放百分比转像素。
 platform=x86
 source=thirdparty
 maintainer=YourName

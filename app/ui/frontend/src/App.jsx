@@ -9,6 +9,7 @@ import rehypeKatex from 'rehype-katex'
 import rehypeStringify from 'rehype-stringify'
 import rehypeRaw from 'rehype-raw'
 import rehypeHighlight from 'rehype-highlight'
+import html2canvas from 'html2canvas'
 import 'katex/dist/katex.min.css'
 // github-markdown-css 将根据主题动态加载
 
@@ -1349,12 +1350,140 @@ HTML
   }
 
   // 转换为微信公众号专属格式
-  const convertToWechatFormat = (html) => {
+  const convertToWechatFormat = async (html) => {
     // 创建临时容器
     const container = document.createElement('div')
     container.innerHTML = html
     
-    // 处理图片：将 figure 转换为 section，使用内联样式
+    // ========== 1. 处理 Mermaid SVG → 图片 ==========
+    console.log('[微信导出] 开始处理 Mermaid 图表')
+    const mermaidElements = container.querySelectorAll('.mermaid')
+    
+    for (let index = 0; index < mermaidElements.length; index++) {
+      const mermaidEl = mermaidElements[index]
+      try {
+        // 查找 SVG 元素
+        const svgElement = mermaidEl.querySelector('svg')
+        if (svgElement) {
+          console.log(`[微信导出] 找到 Mermaid SVG ${index + 1}`)
+          
+          // 获取 SVG 的实际尺寸
+          const width = svgElement.getAttribute('width') || svgElement.viewBox?.baseVal?.width || 800
+          const height = svgElement.getAttribute('height') || svgElement.viewBox?.baseVal?.height || 600
+          
+          console.log(`[微信导出] Mermaid ${index + 1} 尺寸:`, { width, height })
+          
+          // 获取 SVG 的完整 HTML（包括所有样式）
+          const svgString = new XMLSerializer().serializeToString(svgElement)
+          
+          // 转换为 Data URL
+          const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString)
+          
+          // 创建 img 标签
+          const img = document.createElement('img')
+          img.src = svgDataUrl
+          img.alt = `Mermaid Diagram ${index + 1}`
+          img.setAttribute('style', `max-width: 100%; height: auto; display: block; margin: 20px auto;`)
+          
+          // 用 p 标签包裹
+          const p = document.createElement('p')
+          p.setAttribute('style', 'text-align: center; margin: 20px 0;')
+          p.appendChild(img)
+          
+          // 替换原始元素
+          mermaidEl.parentNode.replaceChild(p, mermaidEl)
+          
+          console.log(`[微信导出] Mermaid ${index + 1} 转换为图片成功`)
+        }
+      } catch (err) {
+        console.error(`[微信导出] Mermaid ${index + 1} 处理失败:`, err)
+      }
+    }
+    
+    // ========== 2. 处理数学公式 (KaTeX) → PNG 图片（使用第三方 API）==========
+    console.log('[微信导出] 开始处理数学公式')
+    
+    // 辅助函数：将 LaTeX 转换为图片 URL（使用 CodeCogs API）
+    const latexToImageUrl = (latex, isDisplay) => {
+      // 清理 LaTeX 代码
+      const cleanLatex = latex.trim()
+      
+      const encodedLatex = encodeURIComponent(cleanLatex)
+      
+      // 使用高 DPI 的 PNG 格式（微信编辑器不支持 SVG）
+      const dpi = isDisplay ? 300 : 250  // 块级 300 DPI，行内 250 DPI
+      return `https://latex.codecogs.com/png.latex?\\dpi{${dpi}}\\bg_white ${encodedLatex}`
+    }
+    
+    // 从预览区获取数学公式元素
+    const previewMathElements = previewRef.current.querySelectorAll('.katex, .katex-display')
+    console.log(`[微信导出] 找到 ${previewMathElements.length} 个数学公式`)
+    
+    // 提取 LaTeX 代码
+    const mathDataMap = []
+    
+    previewMathElements.forEach((mathEl, index) => {
+      try {
+        const isDisplay = mathEl.classList.contains('katex-display')
+        
+        // 从 KaTeX 渲染的 HTML 中提取原始 LaTeX
+        // KaTeX 会在 annotation 标签中保存原始 LaTeX
+        const annotation = mathEl.querySelector('annotation[encoding="application/x-tex"]')
+        
+        if (annotation) {
+          const latex = annotation.textContent
+          console.log(`[微信导出] 公式 ${index + 1} LaTeX:`, latex.substring(0, 50))
+          
+          const imageUrl = latexToImageUrl(latex, isDisplay)
+          
+          mathDataMap.push({
+            isDisplay,
+            imageUrl
+          })
+          
+          console.log(`[微信导出] 公式 ${index + 1} 将使用在线渲染`)
+        } else {
+          console.warn(`[微信导出] 公式 ${index + 1} 未找到 LaTeX 源码`)
+          mathDataMap.push(null)
+        }
+      } catch (err) {
+        console.error(`[微信导出] 公式 ${index + 1} 处理失败:`, err)
+        mathDataMap.push(null)
+      }
+    })
+    
+    // 在 container 中替换数学公式为图片
+    const containerMathElements = container.querySelectorAll('.katex, .katex-display')
+    containerMathElements.forEach((mathEl, index) => {
+      if (mathDataMap[index]) {
+        const { isDisplay, imageUrl } = mathDataMap[index]
+        
+        // 创建 img 标签
+        const img = document.createElement('img')
+        img.src = imageUrl
+        img.alt = isDisplay ? `Math Formula ${index + 1}` : 'Math'
+        
+        if (isDisplay) {
+          // 块级公式：居中显示
+          img.setAttribute('style', 'max-width: 100%; display: block; margin: 20px auto;')
+          
+          // 用 p 标签包裹
+          const p = document.createElement('p')
+          p.setAttribute('style', 'text-align: center; margin: 20px 0;')
+          p.appendChild(img)
+          
+          mathEl.parentNode.replaceChild(p, mathEl)
+        } else {
+          // 行内公式：内联显示
+          img.setAttribute('style', 'display: inline-block; vertical-align: middle; max-height: 1.5em;')
+          mathEl.parentNode.replaceChild(img, mathEl)
+        }
+      }
+    })
+    
+    console.log(`[微信导出] 数学公式处理完成，成功: ${mathDataMap.filter(m => m).length}/${mathDataMap.length}`)
+    
+    // ========== 3. 处理图片 ==========
     const figures = container.querySelectorAll('figure, .image-figure, .image-figure-no-caption')
     figures.forEach(figure => {
       const img = figure.querySelector('img')
@@ -1671,7 +1800,7 @@ HTML
     }
   }
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     if (!format) {
       // 如果没有指定格式，打开导出对话框让用户选择
       setShowExportDialog(true)
@@ -1782,7 +1911,7 @@ HTML
           }
           
           // 转换为微信公众号专属格式
-          const wechatHtml = convertToWechatFormat(previewHtml)
+          const wechatHtml = await convertToWechatFormat(previewHtml)
           
           // 优先使用 Clipboard API（支持富文本）
           if (navigator.clipboard && navigator.clipboard.write) {
@@ -1805,6 +1934,7 @@ HTML
                 }, 3000)
               }).catch((error) => {
                 console.error('Clipboard.write 失败:', error)
+                console.error('错误详情:', error.message, error.stack)
                 // 降级方案：使用 writeText
                 copyWechatHtmlFallback(wechatHtml)
               })
