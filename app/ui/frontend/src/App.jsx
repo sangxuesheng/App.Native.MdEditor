@@ -3628,6 +3628,15 @@ HTML
         )}
             </div>
           </div>
+          
+          {/* 导出配置面板 */}
+          {showExportConfigPanel && (
+            <ExportConfigPanel
+              config={exportConfig}
+              onChange={setExportConfig}
+              onClose={() => setShowExportConfigPanel(false)}
+            />
+          )}
         </div>
 
       </main>
@@ -3696,15 +3705,6 @@ HTML
 
       {/* Toast 通知容器 */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-
-      {/* 导出配置面板 */}
-      {showExportConfigPanel && (
-        <ExportConfigPanel
-          config={exportConfig}
-          onChange={setExportConfig}
-          onClose={() => setShowExportConfigPanel(false)}
-        />
-      )}
 
       {/* 右键菜单 */}
       {contextMenu && (

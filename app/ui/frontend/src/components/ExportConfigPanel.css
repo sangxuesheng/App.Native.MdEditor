@@ -1,16 +1,14 @@
 /* 导出配置面板 */
 .export-config-panel {
-  position: fixed;
-  right: 0;
-  top: 56px;
   width: 320px;
-  height: calc(100vh - 56px);
+  min-width: 280px;
+  max-width: 400px;
+  height: 100%;
   background: var(--bg-primary);
   border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  z-index: 100;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 /* 面板头部 */
