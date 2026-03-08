@@ -114,6 +114,11 @@ function App() {
   const [contextMenu, setContextMenu] = useState(null)
   const [clipboardContent, setClipboardContent] = useState(null)
 
+  // 使用 useMemo 缓存 Markdown 处理器，避免每次渲染都重新创建
+  const markdownProcessor = useMemo(() => {
+    return createMarkdownProcessor()
+  }, []) // 空依赖数组，只创建一次
+
   const [rootDirs, setRootDirs] = useState([])
   const [mermaidLoaded, setMermaidLoaded] = useState(false)
   const previewRef = useRef(null)
@@ -2055,9 +2060,8 @@ HTML
       // 预处理：将 ==高亮== 转换为 <mark>高亮</mark>
       let processedContent = content.replace(/==([^=\n]+)==/g, '<mark>$1</mark>')
       
-      // 使用 unified 处理器渲染 Markdown
-      const processor = createMarkdownProcessor()
-      const file = await processor.process(processedContent)
+      // 使用缓存的 unified 处理器渲染 Markdown
+      const file = await markdownProcessor.process(processedContent)
       let html = String(file)
 
       // 根据图注格式设置处理图片标签
