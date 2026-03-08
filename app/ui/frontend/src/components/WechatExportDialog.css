@@ -1,0 +1,376 @@
+/* 微信导出对话框样式 */
+.wechat-export-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.wechat-export-dialog {
+  background: var(--bg-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 1200px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 头部 */
+.wechat-export-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.wechat-export-dialog .dialog-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.wechat-export-dialog .close-btn {
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.wechat-export-dialog .close-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+/* 内容区 */
+.wechat-export-dialog .dialog-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 设置面板 */
+.wechat-export-dialog .settings-panel {
+  width: 400px;
+  padding: 24px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-color);
+}
+
+.wechat-export-dialog .setting-section {
+  margin-bottom: 32px;
+}
+
+.wechat-export-dialog .setting-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.wechat-export-dialog .reset-btn {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wechat-export-dialog .reset-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* 主题网格 */
+.wechat-export-dialog .theme-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.wechat-export-dialog .theme-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wechat-export-dialog .theme-card:hover {
+  background: var(--hover-bg);
+  border-color: var(--border-color);
+}
+
+.wechat-export-dialog .theme-card.active {
+  background: var(--primary-bg);
+  border-color: var(--primary-color);
+}
+
+.wechat-export-dialog .theme-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.wechat-export-dialog .theme-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.wechat-export-dialog .theme-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 4px;
+}
+
+.wechat-export-dialog .theme-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 颜色设置 */
+.wechat-export-dialog .color-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.wechat-export-dialog .color-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wechat-export-dialog .color-item label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.wechat-export-dialog .color-item input[type="color"] {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--bg-secondary);
+}
+
+.wechat-export-dialog .color-item input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 4px;
+}
+
+.wechat-export-dialog .color-item input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+/* 导出按钮 */
+.wechat-export-dialog .export-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wechat-export-dialog .export-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wechat-export-dialog .export-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.wechat-export-dialog .export-btn.primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.wechat-export-dialog .export-btn.primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+}
+
+.wechat-export-dialog .export-status {
+  margin-top: 12px;
+  padding: 10px;
+  background: var(--success-bg);
+  border: 1px solid var(--success-color);
+  border-radius: 6px;
+  color: var(--success-color);
+  font-size: 13px;
+  text-align: center;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 预览面板 */
+.wechat-export-dialog .preview-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.wechat-export-dialog .preview-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.wechat-export-dialog .preview-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.wechat-export-dialog .preview-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+/* 滚动条样式 */
+.wechat-export-dialog .settings-panel::-webkit-scrollbar,
+.wechat-export-dialog .preview-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.wechat-export-dialog .settings-panel::-webkit-scrollbar-track,
+.wechat-export-dialog .preview-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wechat-export-dialog .settings-panel::-webkit-scrollbar-thumb,
+.wechat-export-dialog .preview-content::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.wechat-export-dialog .settings-panel::-webkit-scrollbar-thumb:hover,
+.wechat-export-dialog .preview-content::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* 响应式 */
+@media (max-width: 900px) {
+  .wechat-export-dialog {
+    width: 95%;
+    height: 90vh;
+  }
+
+  .wechat-export-dialog .dialog-content {
+    flex-direction: column;
+  }
+
+  .wechat-export-dialog .settings-panel {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    max-height: 50%;
+  }
+
+  .wechat-export-dialog .preview-panel {
+    display: none;
+  }
+}
+
+/* 深色主题 */
+.theme-dark {
+  --success-bg: rgba(82, 196, 26, 0.1);
+  --success-color: #52c41a;
+  --primary-bg: rgba(14, 99, 156, 0.1);
+  --scrollbar-thumb: #424242;
+  --scrollbar-thumb-hover: #4e4e4e;
+}
+
+/* 浅色主题 */
+.theme-light {
+  --success-bg: rgba(82, 196, 26, 0.1);
+  --success-color: #52c41a;
+  --primary-bg: rgba(0, 120, 212, 0.1);
+  --scrollbar-thumb: #c1c1c1;
+  --scrollbar-thumb-hover: #a8a8a8;
+}

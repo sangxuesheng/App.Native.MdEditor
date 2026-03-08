@@ -28,6 +28,7 @@ import ImageManagerDialog from './components/ImageManagerDialog'
 import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
 import FileHistoryDialog from './components/FileHistoryDialog'
+import WechatExportDialog from './components/WechatExportDialog'
 import EditorContextMenu from './components/EditorContextMenu'
 import { ToastContainer } from './components/Toast'
 import { useDebounce } from './hooks/useDebounce'
@@ -104,6 +105,7 @@ function App() {
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showWechatThemeDialog, setShowWechatThemeDialog] = useState(false)
   const [showToolbar, setShowToolbar] = useState(savedState?.showToolbar !== false)
   const [editorFontSize, setEditorFontSize] = useState(savedState?.fontSize || 14)
   const [recentFiles, setRecentFiles] = useState([])
@@ -1812,6 +1814,12 @@ HTML
       return
     }
 
+    // 微信公众号格式：先显示主题选择对话框
+    if (format === 'wechat') {
+      setShowWechatThemeDialog(true)
+      return
+    }
+
     // 直接导出指定格式
     const getFileName = () => {
       if (currentPath) {
@@ -1901,56 +1909,8 @@ HTML
           break
 
         case 'wechat':
-          // 公众号格式 - 复制带样式的 HTML 到剪贴板
-          // 获取预览区的 HTML 内容
-          const previewHtml = previewRef.current?.innerHTML || ''
-          
-          // 调试：检查预览区 HTML 中的图片样式
-          console.log('[导出] 预览区 HTML 片段:', previewHtml.substring(0, 500))
-          const imgMatches = previewHtml.match(/<img[^>]*>/g)
-          if (imgMatches) {
-            console.log('[导出] 找到图片标签数量:', imgMatches.length)
-            imgMatches.forEach((img, index) => {
-              console.log(`[导出] 图片 ${index + 1}:`, img)
-            })
-          }
-          
-          // 转换为微信公众号专属格式
-          const wechatHtml = await convertToWechatFormat(previewHtml)
-          
-          // 优先使用 Clipboard API（支持富文本）
-          if (navigator.clipboard && navigator.clipboard.write) {
-            try {
-              // 创建包含 HTML 和纯文本的 ClipboardItem
-              const htmlBlob = new Blob([wechatHtml], { type: 'text/html' })
-              const textBlob = new Blob([content], { type: 'text/plain' })
-              const clipboardItem = new ClipboardItem({
-                'text/html': htmlBlob,
-                'text/plain': textBlob
-              })
-              
-              navigator.clipboard.write([clipboardItem]).then(() => {
-                setStatus('已复制微信公众号格式到剪贴板')
-                setStatusType('success')
-                showToast('已复制，可直接粘贴到公众号编辑器', 'success')
-                setTimeout(() => {
-                  setStatus('就绪')
-                  setStatusType('normal')
-                }, 3000)
-              }).catch((error) => {
-                console.error('Clipboard.write 失败:', error)
-                console.error('错误详情:', error.message, error.stack)
-                // 降级方案：使用 writeText
-                copyWechatHtmlFallback(wechatHtml)
-              })
-            } catch (error) {
-              console.error('创建 ClipboardItem 失败:', error)
-              copyWechatHtmlFallback(wechatHtml)
-            }
-          } else {
-            // 降级方案
-            copyWechatHtmlFallback(wechatHtml)
-          }
+          // 打开微信公众号导出对话框（新版）
+          setShowWechatThemeDialog(true)
           break
 
         case 'pdf':
@@ -3429,6 +3389,16 @@ HTML
           onDelete={handleDeleteHistory}
           onClose={() => setShowHistory(false)}
           theme={editorTheme}
+        />
+      )}
+
+      {/* 微信公众号导出对话框 */}
+      {showWechatThemeDialog && (
+        <WechatExportDialog
+          show={showWechatThemeDialog}
+          onClose={() => setShowWechatThemeDialog(false)}
+          content={content}
+          previewHtml={previewRef.current?.innerHTML || ''}
         />
       )}
 
