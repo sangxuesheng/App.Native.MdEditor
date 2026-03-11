@@ -443,6 +443,60 @@
   background: #afb8c1;
 }
 
+/* ==================== 微信复制按钮样式 ==================== */
+.wechat-copy-btn {
+  background: linear-gradient(135deg, #07c160 0%, #06ae56 100%);
+  border-color: #07c160;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0 12px;
+  gap: 6px;
+}
+
+.wechat-copy-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #06ae56 0%, #059a4d 100%);
+  border-color: #06ae56;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(7, 193, 96, 0.4);
+}
+
+.wechat-copy-btn:active:not(:disabled) {
+  background: linear-gradient(135deg, #059a4d 0%, #048844 100%);
+}
+
+.wechat-copy-btn.copying {
+  background: linear-gradient(135deg, #888 0%, #666 100%);
+  border-color: #888;
+  cursor: wait;
+}
+
+.wechat-copy-btn .btn-text {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* 浅色主题下的微信按钮 */
+.theme-light .wechat-copy-btn {
+  background: linear-gradient(135deg, #07c160 0%, #06ae56 100%);
+  border-color: #07c160;
+  color: #ffffff;
+}
+
+.theme-light .wechat-copy-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #06ae56 0%, #059a4d 100%);
+  border-color: #06ae56;
+  box-shadow: 0 2px 8px rgba(7, 193, 96, 0.4);
+}
+
+.theme-light .wechat-copy-btn:active:not(:disabled) {
+  background: linear-gradient(135deg, #059a4d 0%, #048844 100%);
+}
+
+.theme-light .wechat-copy-btn.copying {
+  background: linear-gradient(135deg, #999 0%, #777 100%);
+  border-color: #999;
+}
+
 /* ==================== MD3 主题 ==================== */
 
 

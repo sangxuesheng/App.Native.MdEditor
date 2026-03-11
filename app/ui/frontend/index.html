@@ -5,6 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/markdown.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Markdown 编辑器</title>
+    <!-- KaTeX CSS for math rendering - 使用本地包，避免 CDN integrity 问题 -->
+    <!-- MathJax 用于微信导出时将数学公式渲染为纯 SVG -->
+    <script>
+      window.MathJax = {
+        tex: { tags: 'ams' },
+        svg: { fontCache: 'none' },
+        startup: { typeset: false }
+      };
+    </script>
+    <script id="MathJax-script" async src="/mathjax/tex-svg.js"></script>
     <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
       window.mermaid = mermaid;

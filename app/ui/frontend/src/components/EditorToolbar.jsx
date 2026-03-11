@@ -19,13 +19,16 @@ import {
   Minus,
   BarChart3,
   ChevronDown,
-  ImageIcon
+  ImageIcon,
+  Copy
 } from 'lucide-react'
+import { copyToWeChat } from '../utils/wechatExporter'
 import './EditorToolbar.css'
 
-function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTableInsert, disabled }) {
+function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTableInsert, disabled, onShowToast, exportConfig }) {
   const [showChartMenu, setShowChartMenu] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
+  const [copying, setCopying] = useState(false)
   const chartMenuRef = useRef(null)
   const chartButtonRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -42,6 +45,76 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
       }
       // 清空 input，允许重复选择同一文件
       e.target.value = ''
+    }
+  }
+  
+  const handleCopyToWeChat = async () => {
+    if (copying) return
+    
+    setCopying(true)
+    
+    try {
+      // 获取预览内容 - 使用 .markdown-body 选择器
+      const previewEl = document.querySelector('.markdown-body')
+      if (!previewEl) {
+        if (onShowToast) {
+          onShowToast('未找到预览内容，请确保文档已渲染', 'error')
+        } else {
+          alert('未找到预览内容，请确保文档已渲染')
+        }
+        setCopying(false)
+        return
+      }
+      
+      const htmlContent = previewEl.innerHTML
+      if (!htmlContent || htmlContent.trim() === '') {
+        if (onShowToast) {
+          onShowToast('预览内容为空，请先编辑文档', 'error')
+        } else {
+          alert('预览内容为空，请先编辑文档')
+        }
+        setCopying(false)
+        return
+      }
+      
+      // 获取主题色（从 exportConfig 或使用默认值）
+      let primaryColor = '#0F4C81' // 默认值
+      
+      // 尝试从 exportConfig 获取主题色
+      if (exportConfig && exportConfig.themeColor) {
+        primaryColor = exportConfig.themeColor
+        console.log('[复制微信] 使用配置的主题色:', primaryColor)
+      } else {
+        console.log('[复制微信] 使用默认主题色:', primaryColor)
+      }
+      
+      console.log('[复制微信] 开始复制，HTML 长度:', htmlContent.length)
+      
+      // 复制到剪贴板
+      const success = await copyToWeChat(htmlContent, primaryColor)
+      
+      if (success) {
+        if (onShowToast) {
+          onShowToast('✅ 已复制微信格式，可直接粘贴到微信公众号编辑器', 'success')
+        } else {
+          alert('✅ 已复制到剪贴板！\n\n可以直接粘贴到微信公众号编辑器中，样式将完美保留。')
+        }
+      } else {
+        if (onShowToast) {
+          onShowToast('复制失败，请重试', 'error')
+        } else {
+          alert('复制失败，请重试')
+        }
+      }
+    } catch (err) {
+      console.error('复制微信格式失败:', err)
+      if (onShowToast) {
+        onShowToast('复制失败: ' + err.message, 'error')
+      } else {
+        alert('复制失败: ' + err.message)
+      }
+    } finally {
+      setCopying(false)
     }
   }
   
@@ -210,6 +283,19 @@ ${'```'}`
 
   return (
     <div className="editor-toolbar">
+      <div className="toolbar-group">
+        <button 
+          className={`toolbar-btn wechat-copy-btn ${copying ? 'copying' : ''}`}
+          onClick={handleCopyToWeChat} 
+          disabled={disabled || copying} 
+          title="复制微信公众号格式 - 可直接粘贴到微信编辑器"
+          style={{ display: 'none' }}
+        >
+          <Copy size={iconSize} />
+          <span className="btn-text">{copying ? '复制中...' : '复制微信格式'}</span>
+        </button>
+      </div>
+      <div className="toolbar-divider"></div>
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={() => insertHeading(1)} disabled={disabled} title="标题 1"><Heading1 size={iconSize} /></button>
         <button className="toolbar-btn" onClick={() => insertHeading(2)} disabled={disabled} title="标题 2"><Heading2 size={iconSize} /></button>

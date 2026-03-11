@@ -4,7 +4,8 @@ import './SettingsDialog.css';
 const SettingsDialog = ({ 
   onClose, 
   theme,
-  onThemeChange 
+  onThemeChange,
+  onSave
 }) => {
   const [settings, setSettings] = useState({
     theme: theme,
@@ -12,7 +13,6 @@ const SettingsDialog = ({
     lineHeight: 24,
     tabSize: 2,
     wordWrap: true,
-    minimap: false,
     lineNumbers: true,
     fontFamily: 'JetBrains Mono'
   });
@@ -49,6 +49,11 @@ const SettingsDialog = ({
       onThemeChange();
     }
 
+    // 回调设置值给父组件
+    if (onSave) {
+      onSave(settings);
+    }
+
     setHasChanges(false);
     onClose();
   };
@@ -60,7 +65,6 @@ const SettingsDialog = ({
       lineHeight: 24,
       tabSize: 2,
       wordWrap: true,
-      minimap: false,
       lineNumbers: true,
       fontFamily: 'JetBrains Mono'
     };
@@ -198,20 +202,6 @@ const SettingsDialog = ({
                 </label>
               </div>
 
-              <div className="setting-item">
-                <div className="setting-label">
-                  <label>显示小地图</label>
-                  <p className="setting-description">在编辑器右侧显示代码小地图</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.minimap}
-                    onChange={(e) => handleChange('minimap', e.target.checked)}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
             </div>
           </div>
         </div>

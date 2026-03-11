@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2, CheckSquare, Square, Star, ImageUp } from 'lucide-react'
+import { X, Upload, Link as LinkIcon, Image as ImageIcon, Settings, Folder, RefreshCw, Trash2, CheckSquare, Square, Star, ImageUp, Eye } from 'lucide-react'
 import './ImageManagerDialog.css'
 import { compressImage } from '../utils/imageCompressor'
 import ImagePreviewDialog from './ImagePreviewDialog'
@@ -325,7 +325,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }, [isOpen, activeTab, handlePaste])
 
   // 插入图片链接
-  const handleInsertLink = () => {
+  const handleInsertLink = async () => {
     if (!imageUrl.trim()) {
       onNotify?.('请输入图片链接', 'error')
       return
@@ -340,6 +340,28 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
       : `![${alt}](${imageUrl})`
     
     onInsertImage(markdown)
+
+    // 同时保存到本地
+    try {
+      const proxyResponse = await fetch(`/api/image/fetch-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: imageUrl, alt })
+      })
+      if (proxyResponse.ok) {
+        const result = await proxyResponse.json()
+        if (result.ok) {
+          onNotify?.('图片已插入并保存到本地', 'success')
+        } else {
+          onNotify?.('图片已插入，但保存到本地失败', 'warning')
+        }
+      } else {
+        onNotify?.('图片已插入，但保存到本地失败', 'warning')
+      }
+    } catch (e) {
+      onNotify?.('图片已插入，但保存到本地失败', 'warning')
+    }
+
     onClose()
   }
 
@@ -451,6 +473,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   if (!isOpen) return null
 
   return (
+    <>
     <div className="image-manager-overlay" onClick={onClose}>
       <div 
         className={`image-manager-dialog ${theme}`} 
@@ -560,6 +583,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                     {uploadedImages.map((image, index) => (
                       <div key={index} className="image-item">
                         <img src={image.url} alt={image.alt || '图片'} />
+                        <button className="img-preview-icon-btn" onClick={(e) => { e.stopPropagation(); setPreviewImage(image) }} title="预览"><Eye size={14} /></button>
                         <div className="image-overlay">
                           <button onClick={() => handleInsertUploaded(image)}>
                             插入
@@ -686,11 +710,14 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                           </span>
                         </div>
                         {!selectionMode && (
+                          <>
+                          <button className="img-preview-icon-btn" onClick={(e) => { e.stopPropagation(); setPreviewImage(image) }} title="预览"><Eye size={14} /></button>
                           <div className="image-overlay">
                             <button onClick={() => handleInsertUploaded(image)}>
                               插入
                             </button>
                           </div>
+                          </>
                         )}
                       </div>
                     )
@@ -930,6 +957,18 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
         </div>
       </div>
     </div>
+
+    {/* 图片预览浮窗 */}
+    {previewImage && (
+      <div className="img-preview-mask" onClick={() => setPreviewImage(null)}>
+        <div className="img-preview-card" onClick={(e) => e.stopPropagation()}>
+          <div className="img-preview-body">
+            <img src={previewImage.url} alt={previewImage.name || '预览'} />
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

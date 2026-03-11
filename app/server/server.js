@@ -26,9 +26,11 @@ function getAllowedRoots() {
       if (p) roots.push(p);
     });
   }
-  ['TRIM_PKGVAR', 'TRIM_PKGETC'].forEach(k => {
-    if (process.env[k]) roots.push(process.env[k]);
-  });
+  // 始终挂载 shares/Folder 作为用户文档目录
+  const sharesFolder = '/var/apps/App.Native.MdEditor2/shares/Folder';
+  if (fs.existsSync(sharesFolder) && !roots.includes(sharesFolder)) {
+    roots.push(sharesFolder);
+  }
   return roots;
 }
 
@@ -689,6 +691,181 @@ const server = http.createServer(async (req, res) => {
 
 
 
+  // 数学公式渲染为 SVG：POST /api/math/svg
+  if (parsed.pathname === '/api/math/svg' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 64 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+
+      const latex = body && body.latex;
+      const display = body && body.display === true;
+
+      if (!latex || typeof latex !== 'string') {
+        sendJson(res, 400, { ok: false, code: 'MISSING_LATEX', message: '缺少 latex 参数' });
+        return;
+      }
+
+      try {
+        const katex = require(path.join(__dirname, '../ui/frontend/node_modules/katex/dist/katex.min.js'));
+        const rendered = katex.renderToString(latex, {
+          throwOnError: false,
+          displayMode: display,
+          output: 'html'
+        });
+
+        if (!global._katexCss) {
+          const cssPath = path.join(__dirname, '../ui/frontend/node_modules/katex/dist/katex.min.css');
+          try { global._katexCss = fs.readFileSync(cssPath, 'utf8'); } catch(e) { global._katexCss = ''; }
+        }
+
+        const charCount = latex.length;
+        const width = display ? Math.max(300, Math.min(800, charCount * 12 + 60)) : Math.max(60, Math.min(400, charCount * 10 + 20));
+        const height = display ? 80 : 32;
+
+        const svgContent = [
+          '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"',
+          ' width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">',
+          '<defs><style>',
+          global._katexCss,
+          'body{margin:0;padding:0;background:transparent;}',
+          '.katex{font-size:' + (display ? '1.3em' : '1em') + ';}',
+          '.katex-display{margin:0;text-align:center;}',
+          '</style></defs>',
+          '<foreignObject width="100%" height="100%">',
+          '<div xmlns="http://www.w3.org/1999/xhtml" style="display:' + (display ? 'flex' : 'inline-flex') + ';align-items:center;justify-content:center;width:' + width + 'px;height:' + height + 'px;overflow:visible;">',
+          rendered,
+          '</div></foreignObject></svg>'
+        ].join('');
+
+        const mathDir = '/tmp/md-editor-math';
+        if (!fs.existsSync(mathDir)) fs.mkdirSync(mathDir, { recursive: true });
+
+        const crypto = require('crypto');
+        const hash = crypto.createHash('md5').update(latex + String(display)).digest('hex').substring(0, 12);
+        const filename = 'math_' + hash + '.svg';
+        const filepath = path.join(mathDir, filename);
+        fs.writeFileSync(filepath, svgContent, 'utf8');
+
+        // 同时返回 base64 编码的 SVG 内容，供前端内联使用
+        const svgBase64 = Buffer.from(svgContent, 'utf8').toString('base64');
+        sendJson(res, 200, { ok: true, url: '/math-svg/' + filename, width, height, svgBase64 });
+      } catch (err) {
+        console.error('Math SVG render error:', err);
+        sendJson(res, 500, { ok: false, code: 'RENDER_ERROR', message: '渲染失败: ' + err.message });
+      }
+    });
+    return;
+  }
+
+  // 数学公式 SVG 静态文件服务：/math-svg/...
+  if (parsed.pathname.startsWith('/math-svg/')) {
+    try {
+      const filename = path.basename(parsed.pathname);
+      if (!filename.endsWith('.svg') || filename.includes('..')) {
+        res.writeHead(400); res.end('Bad Request'); return;
+      }
+      const filepath = path.join('/tmp/md-editor-math', filename);
+      if (fs.existsSync(filepath)) {
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
+        res.end(fs.readFileSync(filepath));
+        return;
+      }
+    } catch (err) {
+      console.error('Math SVG serve error:', err);
+    }
+    res.writeHead(404); res.end('Not Found'); return;
+  }
+
+  // 图片 URL 抓取保存：POST /api/image/fetch-url
+  if (parsed.pathname === '/api/image/fetch-url' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { url, alt } = JSON.parse(body);
+        if (!url) {
+          sendJson(res, 400, { ok: false, message: '缺少 url 参数' });
+          return;
+        }
+
+        // 下载远程图片
+        const https = require('https');
+        const http = require('http');
+        const client = url.startsWith('https') ? https : http;
+
+        const download = () => new Promise((resolve, reject) => {
+          client.get(url, { timeout: 15000 }, (response) => {
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+              // 跟随重定向（最多一次）
+              const redirectUrl = response.headers.location;
+              const rc = redirectUrl.startsWith('https') ? https : http;
+              rc.get(redirectUrl, { timeout: 15000 }, (r2) => {
+                const chunks = [];
+                r2.on('data', c => chunks.push(c));
+                r2.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType: r2.headers['content-type'] || '' }));
+                r2.on('error', reject);
+              }).on('error', reject);
+              return;
+            }
+            const chunks = [];
+            response.on('data', c => chunks.push(c));
+            response.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType: response.headers['content-type'] || '' }));
+            response.on('error', reject);
+          }).on('error', reject);
+        });
+
+        const { buffer, contentType } = await download();
+
+        // 确定扩展名
+        let ext = '.jpg';
+        if (contentType.includes('png')) ext = '.png';
+        else if (contentType.includes('gif')) ext = '.gif';
+        else if (contentType.includes('webp')) ext = '.webp';
+        else if (contentType.includes('svg')) ext = '.svg';
+        else {
+          // 从 URL 猜
+          const urlExt = url.split('?')[0].split('.').pop().toLowerCase();
+          if (['jpg','jpeg','png','gif','webp','svg'].includes(urlExt)) ext = '.' + (urlExt === 'jpeg' ? 'jpg' : urlExt);
+        }
+
+        // 存储路径
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const imagesDir = path.join('/var/apps/App.Native.MdEditor2/shares/images', year.toString(), month, day);
+        if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).slice(2, 8);
+        const filename = `${timestamp}_${random}_fetched${ext}`;
+        const filePath = path.join(imagesDir, filename);
+        fs.writeFileSync(filePath, buffer);
+
+        const imageUrl = `/shares/images/${year}/${month}/${day}/${filename}`;
+        sendJson(res, 200, { ok: true, url: imageUrl, filename, size: buffer.length });
+      } catch (e) {
+        console.error('fetch-url 失败:', e);
+        sendJson(res, 500, { ok: false, message: e.message });
+      }
+    });
+    return;
+  }
+
   // 图片上传：POST /api/image/upload
   if (parsed.pathname === '/api/image/upload' && req.method === 'POST') {
     const contentType = req.headers['content-type'] || '';
@@ -1112,6 +1289,217 @@ const server = http.createServer(async (req, res) => {
 
   // ==================== 静态文件服务 ====================
 
+  // 下载外部图片到本地：POST /api/download-image
+  if (parsed.pathname === '/api/download-image' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      
+      const imageUrl = body && body.url;
+      const targetDir = body && body.targetDir;
+      
+      if (!imageUrl) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_URL', message: '缺少 url 参数' });
+        return;
+      }
+      
+      if (!targetDir) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_TARGET_DIR', message: '缺少 targetDir 参数' });
+        return;
+      }
+      
+      // 验证目标目录
+      let safeTargetDir;
+      try {
+        safeTargetDir = resolveSafePath(targetDir);
+      } catch (e) {
+        const code = e && e.message;
+        sendJson(res, 403, { ok: false, code: code || 'INVALID_PATH', message: '目标目录无效或不在授权范围内' });
+        return;
+      }
+      
+      // 验证 URL 格式
+      let targetUrl;
+      try {
+        targetUrl = new URL(imageUrl);
+        if (!['http:', 'https:'].includes(targetUrl.protocol)) {
+          sendJson(res, 400, { ok: false, code: 'INVALID_PROTOCOL', message: '仅支持 http/https 协议' });
+          return;
+        }
+      } catch (e) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_URL', message: '无效的 URL' });
+        return;
+      }
+      
+      // 生成本地文件名
+      const urlPath = targetUrl.pathname;
+      const ext = path.extname(urlPath) || '.png';
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 8);
+      const fileName = `downloaded_${timestamp}_${random}${ext}`;
+      const localPath = path.join(safeTargetDir, fileName);
+      
+      // 确保目标目录存在
+      fs.mkdir(safeTargetDir, { recursive: true }, (mkErr) => {
+        if (mkErr) {
+          sendJson(res, 500, { ok: false, code: 'MKDIR_FAILED', message: '创建目录失败' });
+          return;
+        }
+        
+        // 下载图片
+        const protocol = targetUrl.protocol === 'https:' ? require('https') : require('http');
+        const file = fs.createWriteStream(localPath);
+        
+        const downloadReq = protocol.get(imageUrl, (downloadRes) => {
+          if (downloadRes.statusCode !== 200) {
+            fs.unlink(localPath, () => {});
+            sendJson(res, downloadRes.statusCode, { 
+              ok: false, 
+              code: 'DOWNLOAD_ERROR', 
+              message: `下载失败: ${downloadRes.statusCode}` 
+            });
+            return;
+          }
+          
+          downloadRes.pipe(file);
+          
+          file.on('finish', () => {
+            file.close(() => {
+              sendJson(res, 200, { 
+                ok: true, 
+                originalUrl: imageUrl,
+                localPath: localPath,
+                fileName: fileName
+              });
+            });
+          });
+        });
+        
+        downloadReq.on('error', (err) => {
+          fs.unlink(localPath, () => {});
+          console.error('Download error:', err);
+          sendJson(res, 500, { 
+            ok: false, 
+            code: 'DOWNLOAD_ERROR', 
+            message: '下载失败: ' + err.message 
+          });
+        });
+        
+        file.on('error', (err) => {
+          fs.unlink(localPath, () => {});
+          console.error('File write error:', err);
+          sendJson(res, 500, { 
+            ok: false, 
+            code: 'WRITE_ERROR', 
+            message: '写入文件失败: ' + err.message 
+          });
+        });
+        
+        // 设置超时
+        downloadReq.setTimeout(30000, () => {
+          downloadReq.destroy();
+          file.close(() => {
+            fs.unlink(localPath, () => {});
+          });
+          sendJson(res, 504, { 
+            ok: false, 
+            code: 'TIMEOUT', 
+            message: '下载超时' 
+          });
+        });
+      });
+    });
+    return;
+  }
+
+  // 图片代理服务：GET /api/proxy-image?url=https://example.com/image.png
+  if (parsed.pathname === '/api/proxy-image' && req.method === 'GET') {
+    const imageUrl = parsed.query.url;
+    
+    if (!imageUrl) {
+      sendJson(res, 400, { ok: false, code: 'MISSING_URL', message: '缺少 url 参数' });
+      return;
+    }
+    
+    // 验证 URL 格式
+    let targetUrl;
+    try {
+      targetUrl = new URL(imageUrl);
+      if (!['http:', 'https:'].includes(targetUrl.protocol)) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_PROTOCOL', message: '仅支持 http/https 协议' });
+        return;
+      }
+    } catch (e) {
+      sendJson(res, 400, { ok: false, code: 'INVALID_URL', message: '无效的 URL' });
+      return;
+    }
+    
+    // 使用 http/https 模块代理请求
+    const protocol = targetUrl.protocol === 'https:' ? require('https') : require('http');
+    
+    const proxyReq = protocol.get(imageUrl, (proxyRes) => {
+      // 检查响应状态
+      if (proxyRes.statusCode !== 200) {
+        sendJson(res, proxyRes.statusCode, { 
+          ok: false, 
+          code: 'PROXY_ERROR', 
+          message: `代理请求失败: ${proxyRes.statusCode}` 
+        });
+        return;
+      }
+      
+      // 转发响应头
+      const contentType = proxyRes.headers['content-type'] || 'application/octet-stream';
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'public, max-age=86400'
+      });
+      
+      // 转发响应体
+      proxyRes.pipe(res);
+    });
+    
+    proxyReq.on('error', (err) => {
+      console.error('Proxy request error:', err);
+      if (!res.headersSent) {
+        sendJson(res, 500, { 
+          ok: false, 
+          code: 'PROXY_ERROR', 
+          message: '代理请求失败: ' + err.message 
+        });
+      }
+    });
+    
+    // 设置超时
+    proxyReq.setTimeout(10000, () => {
+      proxyReq.destroy();
+      if (!res.headersSent) {
+        sendJson(res, 504, { 
+          ok: false, 
+          code: 'TIMEOUT', 
+          message: '代理请求超时' 
+        });
+      }
+    });
+    
+    return;
+  }
+
   // 静态文件服务
 
   // 图片静态文件服务：/images/...
@@ -1119,8 +1507,10 @@ const server = http.createServer(async (req, res) => {
     try {
       // 解码 URL 路径以处理中文文件名
       const decodedPathname = decodeURIComponent(parsed.pathname);
-      // 使用共享目录提供图片服务
-      const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares', decodedPathname);
+      // 移除 /images 前缀，拼接到共享目录下
+      const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares/images', decodedPathname.substring('/images/'.length));
+      
+      console.log('Image request:', imagePath);
       
       if (fs.existsSync(imagePath) && fs.statSync(imagePath).isFile()) {
         const ext = path.extname(imagePath).toLowerCase();

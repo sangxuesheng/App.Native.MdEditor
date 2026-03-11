@@ -30,8 +30,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
-  border-bottom: 1px solid #30363d;
+  border-bottom: 1px solid transparent;
   gap: 16px;
   flex-shrink: 0;
   position: relative;
@@ -185,6 +184,7 @@ html, body {
   overflow: hidden;
   padding: 8px;
   padding-top: 0;
+  padding-bottom: 0;
 }
 
 /* 编辑器和预览区的内容区域 */
@@ -340,11 +340,18 @@ html, body {
 .preview-pane {
   overflow: auto;
   padding: 24px;
-  background: #0d1117;
   flex: 1;
   min-height: 0;
   position: relative;
   z-index: 1;
+}
+
+.theme-dark .preview-pane {
+  background: #0d1117;
+}
+
+.theme-light .preview-pane {
+  background: #ffffff;
 }
 
 /* 单独显示时占满空间 */
@@ -355,20 +362,36 @@ html, body {
 
 /* Markdown 样式增强 */
 .markdown-body {
-  background: transparent !important;
-  color: #c9d1d9 !important;
   font-size: 15px;
   line-height: 1.7;
   max-width: 900px;
   margin: 0 auto;
 }
 
-.markdown-body h1,
-.markdown-body h2 {
-  border-bottom-color: #21262d !important;
+/* 深色主题的文本颜色 - 仅在没有自定义样式时应用 */
+.theme-dark .markdown-body:not([data-custom-theme]) {
+  color: #c9d1d9;
 }
 
-.markdown-body code {
+/* 浅色主题的文本颜色 - 仅在没有自定义样式时应用 */
+.theme-light .markdown-body:not([data-custom-theme]) {
+  color: #24292f;
+}
+
+/* H1 和 H2 的边框颜色由 JavaScript 动态设置，不在这里硬编码 */
+/* .markdown-body h1,
+.markdown-body h2 {
+  border-bottom-color: #21262d !important;
+} */
+
+/* 表格基础布局样式（全局，不分主题） */
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* 深色主题专属样式 - 仅在 theme-dark 下生效，且不覆盖已设置 data-theme-bg 的主题 */
+.theme-dark .markdown-body:not([data-theme-bg]) code:not(pre code) {
   background: #161b22 !important;
   color: #79c0ff !important;
   padding: 0.2em 0.4em;
@@ -377,49 +400,43 @@ html, body {
   font-size: 0.9em;
 }
 
-.markdown-body pre {
-  background: #161b22 !important;
+.theme-dark .markdown-body:not([data-theme-bg]) pre {
   border: 1px solid #30363d;
   border-radius: 6px;
   padding: 16px;
 }
 
-.markdown-body pre code {
+.theme-dark .markdown-body:not([data-theme-bg]) pre code {
   background: transparent !important;
   padding: 0;
 }
 
-.markdown-body table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.markdown-body table th,
-.markdown-body table td {
+.theme-dark .markdown-body:not([data-theme-bg]) table th,
+.theme-dark .markdown-body:not([data-theme-bg]) table td {
   border: 1px solid #30363d !important;
   padding: 8px 12px;
 }
 
-.markdown-body table th {
-  background: #161b22 !important;
+.theme-dark .markdown-body:not([data-theme-bg]) table th {
+  background: transparent !important;
   font-weight: 600;
 }
 
-.markdown-body table tr:nth-child(even) {
-  background: #0d1117 !important;
+.theme-dark .markdown-body:not([data-theme-bg]) table tr:nth-child(even) {
+  background: transparent !important;
 }
 
-.markdown-body blockquote {
+.theme-dark .markdown-body:not([data-theme-bg]) blockquote {
   border-left-color: #58a6ff !important;
   color: #8b949e !important;
 }
 
-.markdown-body a {
+.theme-dark .markdown-body:not([data-theme-bg]) a {
   color: #58a6ff !important;
   text-decoration: none;
 }
 
-.markdown-body a:hover {
+.theme-dark .markdown-body:not([data-theme-bg]) a:hover {
   text-decoration: underline;
 }
 
@@ -464,10 +481,19 @@ img[style*="width"] {
 .markdown-body .image-caption,
 .markdown-body figcaption {
   font-size: 14px;
-  color: #8b949e;
   text-align: center;
   margin-top: 8px;
   font-style: normal;
+}
+
+.theme-dark .markdown-body .image-caption,
+.theme-dark .markdown-body figcaption {
+  color: #8b949e;
+}
+
+.theme-light .markdown-body .image-caption,
+.theme-light .markdown-body figcaption {
+  color: #57606a;
 }
 
 /* 任务列表样式 */
@@ -481,7 +507,6 @@ img[style*="width"] {
 
 /* Mermaid 图表样式 */
 .mermaid {
-  background: #161b22;
   border-radius: 6px;
   padding: 16px;
   margin: 16px auto;
@@ -490,6 +515,83 @@ img[style*="width"] {
   align-items: center;
   max-width: 100%;
   overflow-x: auto;
+}
+
+/* data-theme-bg 未设置时，mermaid 跟随编辑器主题 */
+.theme-dark .markdown-body:not([data-theme-bg]) .mermaid,
+.app.theme-dark .markdown-body:not([data-theme-bg]) .mermaid {
+  background: transparent !important;
+}
+
+.theme-light .markdown-body:not([data-theme-bg]) .mermaid,
+.app.theme-light .markdown-body:not([data-theme-bg]) .mermaid {
+  background: transparent !important;
+}
+
+/* ================================================================
+   表格和图表颜色：背景透明，保留边框，跟随主题文字颜色
+   data-theme-bg="light" → 亮色边框 + 亮色文字
+   data-theme-bg="dark"  → 暗色边框 + 暗色文字
+   未设置时 → 由 .app.theme-dark/.app.theme-light 控制（默认行为）
+   ================================================================ */
+
+/* 亮色主题背景下的表格 - 透明背景，保留边框 */
+.markdown-body[data-theme-bg="light"] table th,
+.markdown-body[data-theme-bg="light"] table td {
+  border: 1px solid #d0d7de !important;
+  padding: 8px 12px !important;
+  color: #24292f !important;
+  background-color: transparent !important;
+}
+
+.markdown-body[data-theme-bg="light"] table th {
+  background-color: transparent !important;
+  font-weight: 600 !important;
+}
+
+.markdown-body[data-theme-bg="light"] table tr,
+.markdown-body[data-theme-bg="light"] table tr:nth-child(even),
+.markdown-body[data-theme-bg="light"] table tr:nth-child(odd) {
+  background-color: transparent !important;
+}
+
+/* 亮色主题背景下的 mermaid - 透明背景 */
+.markdown-body[data-theme-bg="light"] .mermaid {
+  background: transparent !important;
+  border: 1px solid #d0d7de !important;
+  border-radius: 8px !important;
+}
+
+/* 暗色主题背景下的表格 - 透明背景，保留边框 */
+.markdown-body[data-theme-bg="dark"] table th,
+.markdown-body[data-theme-bg="dark"] table td {
+  border: 1px solid #30363d !important;
+  padding: 8px 12px !important;
+  color: #c9d1d9 !important;
+  background-color: transparent !important;
+}
+
+.markdown-body[data-theme-bg="dark"] table th {
+  background-color: transparent !important;
+  color: #c9d1d9 !important;
+  font-weight: 600 !important;
+}
+
+.markdown-body[data-theme-bg="dark"] table tr,
+.markdown-body[data-theme-bg="dark"] table tr:nth-child(even),
+.markdown-body[data-theme-bg="dark"] table tr:nth-child(odd) {
+  background-color: transparent !important;
+}
+
+/* 暗色主题背景下的 mermaid - 透明背景 */
+.markdown-body[data-theme-bg="dark"] .mermaid {
+  background: transparent !important;
+  border: 1px solid #30363d !important;
+  border-radius: 8px !important;
+}
+
+.theme-light .mermaid {
+  background: transparent;
 }
 
 .mermaid svg {
@@ -504,10 +606,19 @@ img[style*="width"] {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
+  font-size: 12px;
+}
+
+.theme-dark .statusbar {
   background: #161b22;
   border-top: 1px solid #21262d;
-  font-size: 12px;
   color: #8b949e;
+}
+
+.theme-light .statusbar {
+  background: #f6f8fa;
+  border-top: 1px solid #d0d7de;
+  color: #57606a;
 }
 
 .status-text {
@@ -551,23 +662,36 @@ img[style*="width"] {
   gap: 16px;
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - 暗黑模式默认 */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-::-webkit-scrollbar-track {
+.theme-dark ::-webkit-scrollbar-track {
   background: #0d1117;
 }
 
-::-webkit-scrollbar-thumb {
+.theme-dark ::-webkit-scrollbar-thumb {
   background: #30363d;
   border-radius: 5px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+.theme-dark ::-webkit-scrollbar-thumb:hover {
   background: #484f58;
+}
+
+.theme-light ::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: #d0d7de;
+  border-radius: 5px;
+}
+
+.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: #afb8c1;
 }
 
 /* 预览区滚动条样式统一 */
@@ -688,13 +812,12 @@ img[style*="width"] {
   border-bottom-color: #d0d7de !important;
 }
 
-.app.theme-light .markdown-body code {
+.app.theme-light .markdown-body code:not(pre code) {
   background: #f6f8fa !important;
   color: #0969da !important;
 }
 
 .app.theme-light .markdown-body pre {
-  background: #f6f8fa !important;
   border-color: #d0d7de;
 }
 
@@ -704,11 +827,12 @@ img[style*="width"] {
 }
 
 .app.theme-light .markdown-body table th {
-  background: #f6f8fa !important;
+  background: transparent !important;
+  font-weight: 600;
 }
 
 .app.theme-light .markdown-body table tr:nth-child(even) {
-  background: #FFFFFF !important;
+  background: transparent !important;
 }
 
 .app.theme-light .markdown-body blockquote {
@@ -726,7 +850,7 @@ img[style*="width"] {
 }
 
 .app.theme-light .mermaid {
-  background: #f6f8fa;
+  background: transparent;
 }
 
 .app.theme-light .statusbar {
@@ -857,35 +981,34 @@ img[style*="width"] {
   border-bottom-color: #21262d !important;
 }
 
-.app.theme-dark .markdown-body code {
+.app.theme-dark .markdown-body code:not(pre code) {
   background: #161b22 !important;
   color: #79c0ff !important;
 }
 
 .app.theme-dark .markdown-body pre {
-  background: #161b22 !important;
   border-color: #30363d;
 }
 
-.app.theme-dark .markdown-body table th,
-.app.theme-dark .markdown-body table td {
+.app.theme-dark .markdown-body:not([data-theme-bg]) table th,
+.app.theme-dark .markdown-body:not([data-theme-bg]) table td {
   border-color: #30363d !important;
 }
 
-.app.theme-dark .markdown-body table th {
-  background: #161b22 !important;
+.app.theme-dark .markdown-body:not([data-theme-bg]) table th {
+  background: transparent !important;
 }
 
-.app.theme-dark .markdown-body table tr:nth-child(even) {
-  background: #0d1117 !important;
+.app.theme-dark .markdown-body:not([data-theme-bg]) table tr:nth-child(even) {
+  background: transparent !important;
 }
 
-.app.theme-dark .markdown-body blockquote {
+.app.theme-dark .markdown-body:not([data-theme-bg]) blockquote {
   border-left-color: #58a6ff !important;
   color: #8b949e !important;
 }
 
-.app.theme-dark .markdown-body a {
+.app.theme-dark .markdown-body:not([data-theme-bg]) a {
   color: #58a6ff !important;
 }
 
@@ -894,8 +1017,8 @@ img[style*="width"] {
   color: #8b949e;
 }
 
-.app.theme-dark .mermaid {
-  background: #161b22;
+.app.theme-dark .markdown-body:not([data-theme-bg]) .mermaid {
+  background: transparent !important;
 }
 
 .app.theme-dark .statusbar {

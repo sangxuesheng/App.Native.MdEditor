@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "heic-convert": "^2.1.0"
+    "heic-convert": "^2.1.0",
+    "mathjax": "^4.1.1"
   }
 }

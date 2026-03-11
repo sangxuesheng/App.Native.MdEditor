@@ -154,10 +154,29 @@ const FileTree = forwardRef(({
       
       // 如果有持久化的展开状态，逐级加载这些文件夹
       if (expanded.size > 0) {
-        console.log('[FileTree] Restoring expanded folders:', Array.from(expanded));
+        // 获取当前合法的根目录列表
+        let validRoots = [];
+        try {
+          const resp = await fetch('/api/files?path=/');
+          const data = await resp.json();
+          if (data.ok) validRoots = data.items.map(item => item.path);
+        } catch (e) {}
+
+        // 过滤掉不在任何合法根目录下的路径
+        const filteredPaths = Array.from(expanded).filter(p =>
+          validRoots.some(root => p === root || p.startsWith(root + '/'))
+        );
+
+        // 如果有路径被过滤掉，更新 localStorage
+        if (filteredPaths.length !== expanded.size) {
+          setExpanded(new Set(filteredPaths));
+          return; // setExpanded 会触发保存，重新走一遍 useEffect
+        }
+
+        console.log('[FileTree] Restoring expanded folders:', filteredPaths);
         
         // 将路径按层级排序（浅到深）
-        const sortedPaths = Array.from(expanded).sort((a, b) => {
+        const sortedPaths = filteredPaths.sort((a, b) => {
           const depthA = a.split('/').filter(Boolean).length;
           const depthB = b.split('/').filter(Boolean).length;
           return depthA - depthB;

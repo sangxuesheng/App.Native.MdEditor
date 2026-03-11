@@ -3,7 +3,7 @@ import { Globe, FileText, File, FileCode, Image, FileType } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import './ExportDialog.css';
 
-const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => {
+const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, exportConfig }) => {
   const [exportFormat, setExportFormat] = useState('html');
   const [includeCSS, setIncludeCSS] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,6 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
     try {
       switch (exportFormat) {
         case 'html':
-          // 生成实际的 HTML 内容并计算大小
           const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -202,8 +201,83 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
     }
   };
 
-  const exportAsHTML = () => {
+  const inlineImagesInHtml = async (html) => {
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    const images = Array.from(container.querySelectorAll('img'));
+
+    await Promise.all(
+      images.map(async (img) => {
+        const src = img.getAttribute('src');
+        if (!src || src.startsWith('data:')) return;
+
+        const isRelative = src.startsWith('/');
+        const isLocalAbsolute = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/i.test(
+          src
+        );
+        const isSameOrigin = src.startsWith(window.location.origin);
+
+        if (!isRelative && !isLocalAbsolute && !isSameOrigin) return;
+
+        try {
+          let fetchUrl;
+          if (isRelative || isSameOrigin) {
+            fetchUrl = src;
+          } else {
+            fetchUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`;
+          }
+
+          const resp = await fetch(fetchUrl);
+          if (!resp.ok) return;
+
+          const blob = await resp.blob();
+          const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+
+          img.setAttribute('src', base64);
+        } catch (e) {
+          console.warn('[HTML导出] 图片转 base64 失败:', src, e);
+        }
+      })
+    );
+
+    return container.innerHTML;
+  };
+
+  const exportAsHTML = async () => {
     const fileName = getFileName();
+    
+    if (!previewHtml || previewHtml.trim() === '') {
+      console.error('=== 导出错误 ===');
+      console.error('previewHtml 为空，无法导出');
+      alert('导出失败：预览内容为空。请确保文档已正确渲染。');
+      return;
+    }
+    
+    // 获取当前页面中的主题样式
+    const exportConfigStyleEl = document.getElementById('export-config-styles');
+    const themeStyles = exportConfigStyleEl ? exportConfigStyleEl.textContent : '';
+    
+    console.log('=== 导出 HTML 调试信息 ===');
+    console.log('exportConfig:', exportConfig);
+    console.log('previewHtml 长度:', previewHtml.length);
+    console.log('找到 export-config-styles 元素:', !!exportConfigStyleEl);
+    console.log('主题样式长度:', themeStyles.length);
+    console.log('主题样式内容（前 500 字符）:', themeStyles.substring(0, 500));
+    
+    // 获取代码高亮主题
+    const codeThemeEl = document.getElementById('code-theme-style');
+    const codeThemeHref = codeThemeEl ? codeThemeEl.href : '';
+    
+    console.log('找到 code-theme-style 元素:', !!codeThemeEl);
+    console.log('代码主题链接:', codeThemeHref);
+    console.log('=== 调试信息结束 ===');
+
+    const inlinedHtml = await inlineImagesInHtml(previewHtml || '');
     
     const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -212,6 +286,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${fileName}</title>
   ${includeCSS ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  ${codeThemeHref ? `<link rel="stylesheet" href="${codeThemeHref}">` : ''}
   <script>
     window.MathJax = {
       tex: {
@@ -241,11 +316,18 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
         padding: 15px;
       }
     }
-  </style>` : ''}
+    
+    /* 导出配置的主题样式 */
+    ${themeStyles}
+    /* 强制注脚返回箭头 ↩ 显示为文本而非 emoji */
+    .markdown-body .data-footnote-backref { font-family: monospace; font-variant-emoji: text; }
+    .markdown-body .footnotes .data-footnote-backref g-emoji { font-family: monospace; font-variant-emoji: text; }
+  </style>` : `<!-- 无样式导出：仅引入 KaTeX CSS 保证数学公式正确显示 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">`}
 </head>
 <body>
   <div class="markdown-body">
-    ${previewHtml || ''}
+    ${inlinedHtml}
   </div>
 </body>
 </html>`;
@@ -263,6 +345,14 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
 
   const exportAsPDF = async () => {
     try {
+      // 检查 previewHtml 是否为空
+      if (!previewHtml || previewHtml.trim() === '') {
+        console.error('=== 导出错误 ===');
+        console.error('previewHtml 为空，无法导出 PDF');
+        setError('导出失败：预览内容为空。请确保文档已正确渲染。');
+        return;
+      }
+      
       // 使用浏览器的打印功能生成 PDF
       const fileName = getFileName();
       
@@ -273,6 +363,14 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
         return;
       }
       
+      // 获取当前页面中的主题样式
+      const exportConfigStyleEl = document.getElementById('export-config-styles');
+      const themeStyles = exportConfigStyleEl ? exportConfigStyleEl.textContent : '';
+      
+      // 获取代码高亮主题
+      const codeThemeEl = document.getElementById('code-theme-style');
+      const codeThemeHref = codeThemeEl ? codeThemeEl.href : '';
+      
       const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -280,8 +378,11 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${fileName}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  ${codeThemeHref ? `<link rel="stylesheet" href="${codeThemeHref}">` : ''}
   <style>
     @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       body {
         margin: 0;
         padding: 20px;
@@ -304,6 +405,12 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
       margin: 0 auto;
       padding: 45px;
     }
+    
+    /* 导出配置的主题样式 */
+    ${themeStyles}
+    /* 强制注脚返回箭头 ↩ 显示为文本而非 emoji */
+    .markdown-body .data-footnote-backref { font-family: monospace; font-variant-emoji: text; }
+    .markdown-body .footnotes .data-footnote-backref g-emoji { font-family: monospace; font-variant-emoji: text; }
   </style>
 </head>
 <body>
@@ -311,13 +418,36 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
     ${previewHtml || ''}
   </div>
   <script>
-    window.onload = function() {
-      setTimeout(function() {
+    // 等待所有样式表加载完成后再打印
+    function waitForStylesheets() {
+      var links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+      if (links.length === 0) {
         window.print();
-        setTimeout(function() {
-          window.close();
-        }, 100);
-      }, 500);
+        setTimeout(function() { window.close(); }, 100);
+        return;
+      }
+      var loaded = 0;
+      var total = links.length;
+      function onLoad() {
+        loaded++;
+        if (loaded >= total) {
+          setTimeout(function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 100);
+          }, 300);
+        }
+      }
+      links.forEach(function(link) {
+        if (link.sheet) {
+          onLoad();
+        } else {
+          link.addEventListener('load', onLoad);
+          link.addEventListener('error', onLoad);
+        }
+      });
+    }
+    window.onload = function() {
+      waitForStylesheets();
     };
   </script>
 </body>
@@ -337,7 +467,6 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
       setLoading(true);
       setError('');
 
-      // 检查是否有预览内容
       if (!previewHtml) {
         setError('没有可导出的内容');
         setLoading(false);
@@ -346,76 +475,162 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
 
       setStatus('正在生成图片...');
 
-      // 创建临时容器 - 使用合理的宽度（1200px）
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'absolute';
-      tempContainer.style.left = '-9999px';
-      tempContainer.style.top = '0';
-      tempContainer.style.width = '1200px'; // 合理的宽度，适合阅读
-      tempContainer.style.padding = '40px';
-      tempContainer.style.backgroundColor = '#ffffff';
-      tempContainer.className = 'markdown-body';
-      tempContainer.innerHTML = previewHtml;
-      document.body.appendChild(tempContainer);
-
-      // 等待图片加载
-      const images = tempContainer.getElementsByTagName('img');
-      if (images.length > 0) {
-        setStatus('正在加载图片...');
-        await Promise.all(
-          Array.from(images).map(img => {
-            if (img.complete) return Promise.resolve();
-            return new Promise((resolve) => {
-              img.onload = resolve;
-              img.onerror = resolve;
-              setTimeout(resolve, 3000); // 3秒超时
-            });
-          })
-        );
+      const el = document.querySelector('.markdown-body');
+      if (!el) {
+        setError('找不到预览区，请确保文档已渲染');
+        setLoading(false);
+        return;
       }
 
-      setStatus('正在渲染...');
+      // 截图前将预览区滚动到顶部，避免内容被裁切
+      const previewPane = el.closest('.preview-pane') || el.parentElement;
+      const savedScrollTop = previewPane ? previewPane.scrollTop : 0;
+      const savedScrollLeft = previewPane ? previewPane.scrollLeft : 0;
+      if (previewPane) {
+        previewPane.scrollTop = 0;
+        previewPane.scrollLeft = 0;
+      }
 
-      // 转换为图片 - 使用 scale: 2 保证高清晰度
-      const canvas = await html2canvas(tempContainer, {
-        scale: 2, // 2倍缩放，确保清晰度
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false
+      // 直接将计算后的颜色写到内联 style，html2canvas 克隆 DOM 时内联样式权重最高
+      // 避免 stylesheet 优先级冲突问题
+      const inlineStyleMap = new Map();
+      const imgOrigSrcs = new Map();
+
+      // 定义需要强制设置的元素及其样式
+      const styleRules = [
+        { selector: null, el: el, styles: { backgroundColor: '#ffffff', color: '#24292f', padding: '40px 48px' } },
+        ...Array.from(el.querySelectorAll('th')).map(node => ({ el: node, styles: { backgroundColor: '#f6f8fa', color: '#24292f' } })),
+        ...Array.from(el.querySelectorAll('td')).map(node => ({ el: node, styles: { backgroundColor: '#ffffff', color: '#24292f' } })),
+        ...Array.from(el.querySelectorAll('tr')).map((node, i) => ({ el: node, styles: { backgroundColor: i % 2 === 1 ? '#f6f8fa' : '#ffffff' } })),
+        ...Array.from(el.querySelectorAll('.mermaid')).map(node => ({ el: node, styles: { backgroundColor: '#ffffff' } })),
+        ...Array.from(el.querySelectorAll('pre')).map(node => ({ el: node, styles: { backgroundColor: '#f6f8fa' } })),
+        ...Array.from(el.querySelectorAll('pre code')).map(node => ({ el: node, styles: { backgroundColor: 'transparent', color: '#333333' } })),
+        ...Array.from(el.querySelectorAll('code:not(pre code)')).map(node => ({ el: node, styles: { backgroundColor: '#f0f0f0', color: '#333333' } })),
+        ...Array.from(el.querySelectorAll('svg')).map(node => ({ el: node, styles: { backgroundColor: 'transparent' } })),
+        // 脚注区域：强制设置颜色，避免 CSS 变量在 html2canvas 中失效
+        ...Array.from(el.querySelectorAll('.footnotes-section')).map(node => ({ el: node, styles: { color: '#24292f', borderTopColor: '#d1d9e0' } })),
+        ...Array.from(el.querySelectorAll('.footnotes-section h3')).map(node => ({ el: node, styles: { color: '#24292f', fontSize: '1.2em' } })),
+        ...Array.from(el.querySelectorAll('.footnotes-list')).map(node => ({ el: node, styles: { color: '#59636e' } })),
+        ...Array.from(el.querySelectorAll('.footnotes-list li')).map(node => ({ el: node, styles: { color: '#59636e' } })),
+        // GFM footnotes 的 sr-only 标题（<h2 class="sr-only">Footnotes</h2>）在截图时不可见，强制显示
+        ...Array.from(el.querySelectorAll('.sr-only, [class*="sr-only"]')).map(node => ({ el: node, styles: {
+          position: 'static',
+          width: 'auto',
+          height: 'auto',
+          overflow: 'visible',
+          clip: 'auto',
+          whiteSpace: 'normal',
+          color: '#24292f',
+          fontSize: '1.2em',
+          fontWeight: '600',
+          marginBottom: '0.5em',
+        } })),
+      ];
+
+      styleRules.forEach(({ el: node, styles }) => {
+        const saved = {};
+        Object.keys(styles).forEach(prop => {
+          saved[prop] = node.style[prop];
+          node.style[prop] = styles[prop];
+        });
+        inlineStyleMap.set(node, saved);
       });
 
-      // 清理临时容器
-      document.body.removeChild(tempContainer);
+      // Mac 代码块：::before 伪元素的 box-shadow 圆点 html2canvas 不支持
+      // 截图前注入真实 DOM 圆点，截图后移除
+      const macDots = [];
+      if (exportConfig && exportConfig.macCodeBlock) {
+        Array.from(el.querySelectorAll('pre')).forEach(pre => {
+          const dotsWrap = document.createElement('span');
+          dotsWrap.style.cssText = 'position:absolute;top:10px;left:12px;display:flex;gap:8px;pointer-events:none;z-index:10;';
+          const colors = ['#ff5f56', '#ffbd2e', '#27c93f'];
+          colors.forEach(color => {
+            const dot = document.createElement('span');
+            dot.style.cssText = `display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};`;
+            dotsWrap.appendChild(dot);
+          });
+          pre.appendChild(dotsWrap);
+          macDots.push(dotsWrap);
+        });
+      }
 
-      setStatus('正在保存...');
+      try {
+        await new Promise(resolve => setTimeout(resolve, 50));
 
-      // 下载图片
-      const fileName = getFileName();
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          setError('生成图片失败');
-          setLoading(false);
-          return;
+        // 处理外部图片 CORS 问题：通过后端代理转为 base64
+        const imgEls = Array.from(el.querySelectorAll('img'));
+        await Promise.all(imgEls.map(async (img) => {
+          const src = img.getAttribute('src');
+          if (!src || src.startsWith('data:') || src.startsWith('/') || src.startsWith(window.location.origin)) return;
+          try {
+            const resp = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}`);
+            if (resp.ok) {
+              const blob = await resp.blob();
+              const base64 = await new Promise((res) => {
+                const reader = new FileReader();
+                reader.onload = () => res(reader.result);
+                reader.readAsDataURL(blob);
+              });
+              imgOrigSrcs.set(img, src);
+              img.src = base64;
+            }
+          } catch (e) {
+            // 代理失败则保持原 src，html2canvas 会跳过
+            console.warn('[PNG导出] 图片代理失败:', src, e);
+          }
+        }));
+
+        setStatus('正在渲染...');
+
+        const canvas = await html2canvas(el, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          imageTimeout: 15000,
+          removeContainer: true,
+          foreignObjectRendering: false
+        });
+
+        setStatus('正在保存...');
+        const fileName = getFileName();
+        canvas.toBlob((blob) => {
+          if (!blob) { setError('生成图片失败'); setLoading(false); return; }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${fileName}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          setTimeout(() => { onClose(); }, 500);
+        }, 'image/png');
+
+      } finally {
+        // 还原所有内联样式
+        inlineStyleMap.forEach((saved, node) => {
+          Object.keys(saved).forEach(prop => {
+            node.style[prop] = saved[prop];
+          });
+        });
+        // 还原图片原始 src
+        imgOrigSrcs.forEach((src, img) => {
+          img.src = src;
+        });
+        // 移除注入的 Mac 代码块圆点
+        macDots.forEach(dot => dot.parentNode && dot.parentNode.removeChild(dot));
+        // 还原滚动位置
+        if (previewPane) {
+          previewPane.scrollTop = savedScrollTop;
+          previewPane.scrollLeft = savedScrollLeft;
         }
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${fileName}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        setTimeout(() => {
-          onClose();
-        }, 500);
-      }, 'image/png');
+      }
 
     } catch (err) {
       setError('PNG 导出失败: ' + err.message);
-      console.error('PNG export error:', err);
+      console.error('[PNG导出] 错误:', err);
       setLoading(false);
     }
   };
@@ -543,7 +758,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml }) => 
     try {
       switch (exportFormat) {
         case 'html':
-          exportAsHTML();
+          await exportAsHTML();
           setTimeout(() => {
             onClose();
           }, 500);

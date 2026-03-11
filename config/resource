@@ -16,6 +16,14 @@
             "data"
           ]
         }
+      },
+      {
+        "name": "mdeditor/Folder",
+        "permission": {
+          "rw": [
+            "data"
+          ]
+        }
       }
     ]
   }

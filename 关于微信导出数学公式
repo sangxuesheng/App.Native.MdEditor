@@ -1,0 +1,116 @@
+# 微信导出数学公式 SVG 方案
+
+## 问题背景
+
+原有方案使用 `rehype-katex` 将 Markdown 数学公式渲染为 KaTeX HTML（带 CSS 类名的 span 结构），复制到微信公众号编辑器时，由于微信不支持外部 CSS 和 KaTeX 类名样式，数学公式无法正确显示。
+
+## 解决思路
+
+参考 `@导出功能/02-复制微信公众号格式.md` 中的原始项目做法：用 **MathJax** 将 LaTeX 渲染为**纯内联 SVG**，SVG 随 HTML 一起进入剪贴板，微信编辑器原生支持内联 SVG。
+
+**核心原则**：
+- 预览区保持 `rehype-katex` 渲染（速度快、效果好，不变）
+- 只在「导出微信格式」时，将 KaTeX HTML 节点替换为 MathJax SVG
+
+## 改动文件清单
+
+### 1. index.html
+
+加载本地 MathJax，配置为 SVG 输出模式：
+
+```html
+<script>
+  window.MathJax = {
+    tex: { tags: 'ams' },
+    svg: { fontCache: 'none' },  // 每个 SVG 自包含，复制到微信后不依赖共享资源
+    startup: { typeset: false }  // 不自动排版页面，预览区继续由 KaTeX 负责
+  };
+</script>
+<script id="MathJax-script" async src="/mathjax/tex-svg.js"></script>
+```
+
+### 2. public/mathjax/tex-svg.js（新增）
+
+从 `node_modules/mathjax/es5/tex-svg.js` 复制到 `public/` 目录，完全本地化：
+
+```bash
+cp node_modules/mathjax/es5/tex-svg.js public/mathjax/tex-svg.js
+# 文件大小：2.1MB
+# Vite 构建时自动复制到 dist/mathjax/tex-svg.js
+```
+
+### 3. src/utils/wechatExporter.js
+
+在 `processForWeChat` 主流程的步骤 8.5（Mac 代码块处理）之后、步骤 9（空白节点）之前，新增步骤 8.8：
+
+```javascript
+// 8.8. 将数学公式（KaTeX HTML）替换为 MathJax SVG
+await processMathFormulas(tempDiv)
+```
+
+新增 `processMathFormulas(container)` 函数，逻辑如下：
+
+1. 找所有 `.katex-display`（块级）和 `.katex`（行内，排除 `.katex-display` 内部）节点
+2. 等待 `window.MathJax.startup.promise`（MathJax 为 async 加载）
+3. **方案A（优先）**：调用 `MathJax.tex2svg(latex, { display })` 生成纯 SVG，内联替换原节点
+4. **方案B（降级）**：调用后端 `/api/math/svg`，返回 base64 data URI，用 `<img>` 替换
+
+LaTeX 原始代码从 KaTeX 渲染节点中的 `<annotation encoding="application/x-tex">` 标签提取。
+
+### 4. server.js（后端，方案B降级用）
+
+新增两个路由：
+
+- `POST /api/math/svg` — 用 KaTeX 渲染 LaTeX 为 SVG，缓存到 `/tmp/md-editor-math/`，返回 `{ ok, url, svgBase64 }`
+- `GET /math-svg/:filename` — 提供 SVG 静态文件访问
+
+### 5. vite.config.js
+
+新增 dev server 代理：
+
+```javascript
+'/math-svg': {
+  target: 'http://localhost:18080',
+  changeOrigin: true
+}
+```
+
+## 核心技术点
+
+### fontCache: 'none' 的重要性
+
+MathJax 默认使用全局字体缓存（多个公式共享 `<defs>`）。复制到微信后各 SVG 之间的字体引用断裂，显示异常。`fontCache: 'none'` 让每个 SVG 自包含完整字体数据，复制后完全独立。
+
+### 为什么不直接用 KaTeX 渲染 SVG？
+
+KaTeX 的 SVG 输出使用 `<foreignObject>` 嵌套 HTML，微信编辑器对 `foreignObject` 支持很差，显示会出错。MathJax 输出的是真正的纯 SVG 路径，微信完全支持。
+
+### KaTeX 预览 + MathJax 导出的组合
+
+| 场景 | 工具 | 原因 |
+|---|---|---|
+| 预览区实时渲染 | rehype-katex | 速度极快，适合实时预览 |
+| 微信导出 | MathJax tex2svg | 纯 SVG 输出，微信兼容 |
+
+## 处理流程图
+
+```
+用户点击「复制微信格式」
+  ↓
+processForWeChat(htmlContent)
+  ├─ juice 内联 CSS
+  ├─ 替换 CSS 变量
+  ├─ 处理图片尺寸
+  ├─ 处理 Mac 代码块
+  ├─ processMathFormulas()  ← 新增
+  │   ├─ 找 .katex-display / .katex 节点
+  │   ├─ 等待 MathJax.startup.promise
+  │   ├─ 提取 <annotation> 中的 LaTeX
+  │   ├─ MathJax.tex2svg() → 内联 SVG（方案A）
+  │   └─ /api/math/svg → base64 img（方案B降级）
+  ├─ 添加空白节点
+  ├─ 处理 Mermaid 图表
+  └─ 处理 AntV Infographic
+  ↓
+写入剪贴板 → 粘贴到微信 → 公式正确显示 ✅
+```

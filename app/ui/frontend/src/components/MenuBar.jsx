@@ -118,6 +118,7 @@ function MenuBar({
   onSave, 
   onSaveAs, 
   onExport,
+  onCopyToWeChat,
   recentFiles,
   onOpenRecentFile,
   onClearRecentFiles,
@@ -206,7 +207,7 @@ function MenuBar({
         { 
           icon: 'export', label: '导出', 
           submenu: [
-            { label: '公众号格式', icon: 'export', action: () => onExport('wechat') },
+            { label: '公众号格式', icon: 'export', action: () => onCopyToWeChat ? onCopyToWeChat() : onExport('wechat') },
             { label: 'HTML 格式', icon: 'export', action: () => onExport('html') },
             { label: 'HTML 格式（无样式）', icon: 'export', action: () => onExport('html-plain') },
             { label: 'PDF 格式', icon: 'export', action: () => onExport('pdf') },
@@ -268,56 +269,9 @@ function MenuBar({
         { divider: true },
         { label: '代码块', icon: 'code', action: () => onInsertCode('codeblock') },
         { label: '数学公式', icon: 'math', action: () => onInsertCode('math') },
-        { label: 'Mermaid 图表', icon: 'ListTree', action: () => onInsertCode('ListTree') }
+        { label: 'Mermaid 图表', icon: 'ListTree', action: () => onInsertCode('mermaid') }
       ]
-    },
-    {
-      name: '样式',
-      items: [
-        { 
-          icon: 'image', 
-          label: '图注格式', 
-          submenu: [
-            { 
-              label: 'title 优先', 
-              icon: 'image', 
-              action: () => onImageCaptionFormatChange('title-first'),
-              checked: imageCaptionFormat === 'title-first',
-              description: '显示 alt 文本作为图注'
-            },
-            { 
-              label: 'alt 优先', 
-              icon: 'image', 
-              action: () => onImageCaptionFormatChange('alt-first'),
-              checked: imageCaptionFormat === 'alt-first',
-              description: '优先显示 title 属性'
-            },
-            { 
-              label: '只显示 title', 
-              icon: 'image', 
-              action: () => onImageCaptionFormatChange('title-only'),
-              checked: imageCaptionFormat === 'title-only',
-              description: '仅显示 alt 文本'
-            },
-            { 
-              label: '只显示 alt', 
-              icon: 'image', 
-              action: () => onImageCaptionFormatChange('alt-only'),
-              checked: imageCaptionFormat === 'alt-only',
-              description: '仅显示 alt 属性'
-            },
-            { 
-              label: '不显示', 
-              icon: 'image', 
-              action: () => onImageCaptionFormatChange('no-caption'),
-              checked: imageCaptionFormat === 'no-caption',
-              description: '不显示图注'
-            }
-          ]
-        }
-      ]
-    },
-    {
+    }, {
       name: '视图',
       items: [
         { label: '切换工具栏', icon: 'toolbar', action: onToggleToolbar },

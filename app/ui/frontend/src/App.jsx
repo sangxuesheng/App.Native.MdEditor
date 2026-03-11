@@ -4,9 +4,12 @@ import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkMath from 'remark-math'
 import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
 import remarkRehype from 'remark-rehype'
 import rehypeKatex from 'rehype-katex'
 import rehypeStringify from 'rehype-stringify'
+import { applyExportConfigStyles } from './utils/cssVariables'
+import { sandboxCSS, sandboxCSSForElement } from './utils/sandboxCSS'
 import rehypeRaw from 'rehype-raw'
 import rehypeHighlight from 'rehype-highlight'
 import html2canvas from 'html2canvas'
@@ -41,12 +44,14 @@ import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } fr
 import { FolderArchive, Sun, Moon, Columns, FileText, Eye } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { restoreFullState, clearContent as clearPersistedContent } from './utils/localPersistence'
+import { copyToWeChat } from './utils/wechatExporter'
 
 // 初始化 unified 处理器
 const createMarkdownProcessor = () => {
   return unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkBreaks) // 支持硬换行：单个换行符转换为 <br>
     .use(remarkMath)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
@@ -76,7 +81,7 @@ const loadMermaid = async () => {
     mermaidModule = window.mermaid
     mermaidModule.initialize({ 
       startOnLoad: false,
-      theme: 'default',
+      theme: 'default',  // 使用 default 主题，蓝紫色节点
       securityLevel: 'loose'
     })
   }
@@ -106,7 +111,21 @@ function App() {
   const [showAbout, setShowAbout] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showToolbar, setShowToolbar] = useState(savedState?.showToolbar !== false)
-  const [editorFontSize, setEditorFontSize] = useState(savedState?.fontSize || 14)
+  const [editorFontSize, setEditorFontSize] = useState(() => {
+    const saved = localStorage.getItem('md-editor-settings')
+    if (saved) { try { const p = JSON.parse(saved); if (p.fontSize) return p.fontSize } catch {} }
+    return savedState?.fontSize || 14
+  })
+  const [editorLineHeight, setEditorLineHeight] = useState(() => {
+    const saved = localStorage.getItem('md-editor-settings')
+    if (saved) { try { const p = JSON.parse(saved); if (p.lineHeight) return p.lineHeight } catch {} }
+    return 24
+  })
+  const [editorFontFamily, setEditorFontFamily] = useState(() => {
+    const saved = localStorage.getItem('md-editor-settings')
+    if (saved) { try { const p = JSON.parse(saved); if (p.fontFamily) return p.fontFamily } catch {} }
+    return 'JetBrains Mono'
+  })
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
   const [imageCaptionFormat, setImageCaptionFormat] = useState(savedState?.imageCaptionFormat || 'title-first')
@@ -114,24 +133,1353 @@ function App() {
   // 导出配置面板状态
   const [showExportConfigPanel, setShowExportConfigPanel] = useState(false)
   const [exportConfig, setExportConfig] = useState({
-    titleStyle: 'default',
+    // 主题与基础
     theme: 'default',
-    codeTheme: 'github',
-    captionFormat: 'title-first',
-    imageHost: 'local',
-    imageUploadUrl: '',
     customCSS: '',
-    paragraphSpacing: 16,
-    fontSize: 16,
-    lineHeight: 1.6,
-    includeTOC: false,
-    showPageNumber: false,
-    watermark: ''
+    fontFamily: 'sans-serif',
+    fontSize: '16px',
+    textAlign: 'left',
+    lineHeight: 1.8,
+    
+    // 主题色（默认为空，不选择）
+    themeColor: '',
+
+    // 细则样式管理（统一管理所有元素的颜色、预设、自定义CSS）
+    elementStyles: {
+      h1:         { color: '', preset: 'default', customCSS: '' },
+      h2:         { color: '', preset: 'default', customCSS: '' },
+      h3:         { color: '', preset: 'default', customCSS: '' },
+      h4:         { color: '', preset: 'default', customCSS: '' },
+      h5:         { color: '', preset: 'default', customCSS: '' },
+      h6:         { color: '', preset: 'default', customCSS: '' },
+      p:          { color: '', preset: 'default', customCSS: '' },
+      strong:     { color: '', preset: 'default', customCSS: '' },
+      link:       { color: '', preset: 'default', customCSS: '' },
+      ul:         { color: '', preset: 'default', customCSS: '' },
+      ol:         { color: '', preset: 'default', customCSS: '' },
+      blockquote: { color: '', preset: 'default', customCSS: '' },
+      codespan:   { color: '', preset: 'default', customCSS: '' },
+      code_pre:   { color: '', preset: 'default', customCSS: '' },
+      hr:         { color: '', preset: 'default', customCSS: '' },
+      image:      { color: '', preset: 'default', customCSS: '' },
+      bg:         { color: '', preset: 'default', customCSS: '' },
+    },
+    
+    // 代码样式
+    codeTheme: 'github',
+    macCodeBlock: true,
+    
+    // 图注格式
+    captionFormat: 'title-first',
+    
+    // 段落格式
+    paragraphIndent: false,
+    paragraphJustify: false,
+    
+    // 微信适配
+    wechatLinkToFootnote: false,
+    
+    // 其他选项
+    includeTOC: false
   })
 
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState(null)
   const [clipboardContent, setClipboardContent] = useState(null)
+
+  // 应用导出配置到预览区
+  useEffect(() => {
+    console.log('[useEffect-预览] 开始运行');
+    console.log('[useEffect-预览] exportConfig.theme:', exportConfig.theme);
+    console.log('[useEffect-预览] editorTheme:', editorTheme);
+    
+    if (!previewRef.current) {
+      console.log('[useEffect-预览] previewRef.current 不存在，退出');
+      return
+    }
+
+    const preview = previewRef.current
+
+    // 动态加载代码高亮主题
+    const loadCodeTheme = (theme) => {
+      const themeId = 'code-theme-style'
+      let themeLink = document.getElementById(themeId)
+      
+      if (!themeLink) {
+        themeLink = document.createElement('link')
+        themeLink.id = themeId
+        themeLink.rel = 'stylesheet'
+        document.head.appendChild(themeLink)
+      }
+      
+      // 根据主题名称加载对应的 CSS
+      const themeMap = {
+        'github': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css',
+        'github-dark': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css',
+        'vs': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs.min.css',
+        'vs2015': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css',
+        'dracula': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/dracula.min.css',
+        'atom-one-dark': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css',
+        'solarized-light': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/solarized-light.min.css',
+        'solarized-dark': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/solarized-dark.min.css',
+        'nord': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/nord.min.css',
+        'monokai': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai.min.css',
+        'material': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/material.min.css'
+      }
+      
+      themeLink.href = themeMap[theme] || themeMap['github']
+    }
+
+    // 加载选中的代码主题
+    const selectedTheme = exportConfig.codeTheme || 'github'
+    loadCodeTheme(selectedTheme)
+    
+    // 调试：输出当前主题
+    console.log('当前代码主题:', selectedTheme)
+
+
+
+    // 动态注入样式
+    const styleId = 'export-config-styles'
+    let styleEl = document.getElementById(styleId)
+    
+    if (!styleEl) {
+      styleEl = document.createElement('style')
+      styleEl.id = styleId
+      document.head.appendChild(styleEl)
+    }
+
+    // 应用主题色到标题和链接
+    // 当有主题色时使用主题色，没有主题色时：
+    // - 标题使用默认文本颜色（inherit）
+    // - 链接使用蓝色
+    // - 边框使用灰色
+    const hasThemeColor = exportConfig.themeColor && exportConfig.themeColor !== ''
+    const effectiveThemeColor = hasThemeColor ? exportConfig.themeColor : (editorTheme === 'dark' ? '#58a6ff' : '#0969da')
+    const effectiveHeadingColor = hasThemeColor ? exportConfig.themeColor : 'inherit'
+    const effectiveBorderColor = hasThemeColor ? exportConfig.themeColor : '#d0d7de'
+    preview.style.setProperty('--theme-color', effectiveThemeColor)
+
+    // 根据代码主题设置背景色和文字颜色映射
+    const themeBackgrounds = {
+      'github': '#f6f8fa',
+      'github-dark': '#0d1117',
+      'vs': '#ffffff',
+      'vs2015': '#1e1e1e',
+      'dracula': '#282a36',
+      'atom-one-dark': '#282c34',
+      'solarized-light': '#fdf6e3',
+      'solarized-dark': '#002b36',
+      'nord': '#2e3440',
+      'monokai': '#272822',
+      'material': '#263238'
+    }
+
+    const themeColors = {
+      'dracula': '#F8F8F3',
+      'solarized-dark': '#819596'
+    }
+
+    const currentThemeBg = themeBackgrounds[exportConfig.codeTheme] || themeBackgrounds['github']
+    const currentThemeColor = themeColors[exportConfig.codeTheme] || 'inherit'
+
+    // 根据主题生成不同的样式
+    let themeStyles = ''
+    switch (exportConfig.theme) {
+      case 'default':
+        // 默认主题：不添加额外的 CSS
+        themeStyles = ''
+        break
+        
+      case 'custom':
+        // 自定义主题：使用用户输入的 CSS
+        // 转换特殊选择器为标准 CSS 选择器
+        let customCSS = exportConfig.customCSS || ''
+        
+        // 如果没有自定义 CSS，尝试从 localStorage 加载
+        if (!customCSS && exportConfig.theme.startsWith('custom:')) {
+          const themeName = exportConfig.theme.substring(7)
+          try {
+            const savedThemes = JSON.parse(localStorage.getItem('customThemes') || '{}')
+            customCSS = savedThemes[themeName] || ''
+          } catch (e) {
+            console.error('加载自定义主题失败:', e)
+          }
+        }
+        
+        console.log('=== 自定义主题 CSS 转换 ===')
+        console.log('原始 CSS:', customCSS)
+        
+        // 第一步：转换选择器
+        customCSS = customCSS
+          // 先替换长的复合选择器
+          .replace(/blockquote_title_important\s*\{/g, '.markdown-body blockquote.important .title {')
+          .replace(/blockquote_title_warning\s*\{/g, '.markdown-body blockquote.warning .title {')
+          .replace(/blockquote_title_caution\s*\{/g, '.markdown-body blockquote.caution .title {')
+          .replace(/blockquote_p_important\s*\{/g, '.markdown-body blockquote.important p {')
+          .replace(/blockquote_title_note\s*\{/g, '.markdown-body blockquote.note .title {')
+          .replace(/blockquote_title_tip\s*\{/g, '.markdown-body blockquote.tip .title {')
+          .replace(/blockquote_p_warning\s*\{/g, '.markdown-body blockquote.warning p {')
+          .replace(/blockquote_p_caution\s*\{/g, '.markdown-body blockquote.caution p {')
+          .replace(/blockquote_important\s*\{/g, '.markdown-body blockquote.important {')
+          .replace(/blockquote_p_note\s*\{/g, '.markdown-body blockquote.note p {')
+          .replace(/blockquote_p_tip\s*\{/g, '.markdown-body blockquote.tip p {')
+          .replace(/blockquote_warning\s*\{/g, '.markdown-body blockquote.warning {')
+          .replace(/blockquote_caution\s*\{/g, '.markdown-body blockquote.caution {')
+          .replace(/blockquote_title\s*\{/g, '.markdown-body blockquote .title {')
+          .replace(/blockquote_note\s*\{/g, '.markdown-body blockquote.note {')
+          .replace(/blockquote_tip\s*\{/g, '.markdown-body blockquote.tip {')
+          .replace(/blockquote_p\s*\{/g, '.markdown-body blockquote p {')
+          .replace(/blockquote\s*\{/g, '.markdown-body blockquote {')
+          // 然后替换其他选择器（包括伪类）
+          .replace(/link:hover\s*\{/g, '.markdown-body a:hover {')
+          .replace(/link:active\s*\{/g, '.markdown-body a:active {')
+          .replace(/link:visited\s*\{/g, '.markdown-body a:visited {')
+          .replace(/link:focus\s*\{/g, '.markdown-body a:focus {')
+          .replace(/container\s*\{/g, '.markdown-body {')
+          .replace(/code_pre\s*\{/g, '.markdown-body pre {')
+          .replace(/codespan\s*\{/g, '.markdown-body code:not(pre code) {')
+          .replace(/wx_link\s*\{/g, '.markdown-body a.wx-link {')
+          .replace(/image\s*\{/g, '.markdown-body img, .markdown-body figure.image-figure img {')
+          .replace(/strong\s*\{/g, '.markdown-body strong, .markdown-body b {')
+          .replace(/link\s*\{/g, '.markdown-body a {')
+          .replace(/code\s*\{/g, '.markdown-body pre code {')
+          // 最后替换单字母选择器
+          .replace(/\bh1\s*\{/g, '.markdown-body h1 {')
+          .replace(/\bh2\s*\{/g, '.markdown-body h2 {')
+          .replace(/\bh3\s*\{/g, '.markdown-body h3 {')
+          .replace(/\bh4\s*\{/g, '.markdown-body h4 {')
+          .replace(/\bh5\s*\{/g, '.markdown-body h5 {')
+          .replace(/\bh6\s*\{/g, '.markdown-body h6 {')
+          .replace(/\bhr\s*\{/g, '.markdown-body hr {')
+          .replace(/\bol\s*\{/g, '.markdown-body ol {')
+          .replace(/\bul\s*\{/g, '.markdown-body ul {')
+          .replace(/\bli\s*\{/g, '.markdown-body li {')
+          .replace(/\bp\s*\{/g, '.markdown-body p {')
+        
+        // 第二步：为重要属性添加 !important
+        customCSS = customCSS.replace(
+          /(background-color|background-image|background-size|background-position|backdrop-filter|-webkit-backdrop-filter|border-radius|box-shadow|padding|border|color|font-family|font-size|line-height|max-width|margin|text-align)\s*:\s*([^;]+);/g,
+          '$1: $2 !important;'
+        )
+        
+        // 第三步：单独处理 background 简写属性（避免匹配到 background-color 等）
+        customCSS = customCSS.replace(
+          /\bbackground\s*:\s*([^;]+);/g,
+          'background: $1 !important;'
+        )
+        
+        // 替换 CSS 变量
+        customCSS = customCSS
+          .replace(/var\(--md-primary-color\)/g, effectiveThemeColor)
+          .replace(/var\(--blockquote-background\)/g, editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)')
+          .replace(/hsl\(var\(--foreground\)\)/g, editorTheme === 'dark' ? '#c9d1d9' : '#24292f')
+        
+        console.log('转换后的 CSS:', customCSS)
+        console.log('=== 转换完成 ===')
+        
+        themeStyles = sandboxCSS(customCSS)
+        break
+        
+      case 'classic':
+        // 经典主题：传统的文档样式
+        themeStyles = `
+      /* 经典主题 */
+      .markdown-body {
+        max-width: 800px !important;
+        padding: 40px !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2.5em !important;
+        font-weight: 700 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0.5em !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        border-bottom: none !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 2em !important;
+        font-weight: 600 !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.5em !important;
+        background: ${editorTheme === 'dark' ? 'rgba(102, 126, 234, 0.1)' : 'rgba(102, 126, 234, 0.08)'} !important;
+        padding: 0.5em 1em !important;
+        border-radius: 8px !important;
+        border-left: 4px solid ${effectiveThemeColor} !important;
+        border-bottom: none !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        margin-top: 1.2em !important;
+        margin-bottom: 0.5em !important;
+        color: ${effectiveThemeColor} !important;
+        border-bottom: 2px dashed ${effectiveBorderColor} !important;
+        padding-bottom: 0.3em !important;
+      }
+      
+      .markdown-body p {
+        margin-bottom: 1em !important;
+        line-height: 1.8 !important;
+      }
+      
+      .markdown-body blockquote {
+        border-left: 4px solid ${effectiveBorderColor} !important;
+        padding-left: 1em !important;
+        margin: 1em 0 !important;
+        color: #666 !important;
+        font-style: italic !important;
+        background: ${editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)'} !important;
+        padding: 1em !important;
+        border-radius: 4px !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background: ${editorTheme === 'dark' ? '#2d333b' : '#f6f8fa'} !important;
+        padding: 0.2em 0.4em !important;
+        border-radius: 4px !important;
+        border: 1px solid ${effectiveBorderColor} !important;
+      }
+        `
+        break
+        
+      case 'elegant':
+        // 优雅主题：更精致的排版
+        themeStyles = `
+      /* 优雅主题 */
+      .markdown-body {
+        max-width: 750px !important;
+        padding: 60px !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2.8em !important;
+        font-weight: 300 !important;
+        letter-spacing: -0.02em !important;
+        margin-top: 0 !important;
+        margin-bottom: 0.8em !important;
+        text-align: center !important;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        padding: 0.5em 0 !important;
+        border-bottom: 1px solid ${effectiveBorderColor} !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 1.8em !important;
+        font-weight: 400 !important;
+        letter-spacing: -0.01em !important;
+        margin-top: 2em !important;
+        margin-bottom: 0.8em !important;
+        background: ${editorTheme === 'dark' ? 'rgba(245, 87, 108, 0.1)' : 'rgba(245, 87, 108, 0.08)'} !important;
+        padding: 0.6em 1.2em !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+        border-bottom: none !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.4em !important;
+        font-weight: 500 !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.6em !important;
+        color: ${effectiveThemeColor} !important;
+        padding-left: 1em !important;
+        border-left: 3px solid ${effectiveThemeColor} !important;
+      }
+      
+      .markdown-body p {
+        margin-bottom: 1.2em !important;
+        line-height: 2 !important;
+        text-align: justify !important;
+      }
+      
+      .markdown-body p:first-letter {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        color: ${effectiveThemeColor} !important;
+      }
+      
+      .markdown-body blockquote {
+        border-left: none !important;
+        padding: 1.5em 2em !important;
+        margin: 1.5em 0 !important;
+        background: linear-gradient(135deg, ${editorTheme === 'dark' ? 'rgba(245, 87, 108, 0.1)' : 'rgba(245, 87, 108, 0.05)'} 0%, ${editorTheme === 'dark' ? 'rgba(240, 147, 251, 0.1)' : 'rgba(240, 147, 251, 0.05)'} 100%) !important;
+        border-radius: 12px !important;
+        font-style: italic !important;
+        position: relative !important;
+        box-shadow: 0 2px 12px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+      }
+      
+      .markdown-body blockquote::before {
+        content: '"' !important;
+        font-size: 4em !important;
+        position: absolute !important;
+        left: 0.2em !important;
+        top: -0.1em !important;
+        color: ${effectiveThemeColor} !important;
+        opacity: 0.3 !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background: linear-gradient(135deg, ${editorTheme === 'dark' ? 'rgba(245, 87, 108, 0.15)' : 'rgba(245, 87, 108, 0.1)'} 0%, ${editorTheme === 'dark' ? 'rgba(240, 147, 251, 0.15)' : 'rgba(240, 147, 251, 0.1)'} 100%) !important;
+        padding: 0.2em 0.6em !important;
+        border-radius: 6px !important;
+        font-weight: 500 !important;
+      }
+        `
+        break
+        
+      case 'simple':
+        // 简洁主题：极简风格
+        themeStyles = `
+      /* 简洁主题 */
+      .markdown-body {
+        max-width: 680px !important;
+        padding: 30px !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2em !important;
+        font-weight: 700 !important;
+        margin-top: 0 !important;
+        margin-bottom: 1em !important;
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+        background: ${editorTheme === 'dark' ? 'rgba(88, 166, 255, 0.1)' : 'rgba(9, 105, 218, 0.08)'} !important;
+        padding: 0.5em 0.8em !important;
+        border-radius: 6px !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 1.6em !important;
+        font-weight: 600 !important;
+        margin-top: 2em !important;
+        margin-bottom: 0.8em !important;
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+        background: linear-gradient(90deg, ${effectiveThemeColor} 0%, ${effectiveThemeColor} 4px, transparent 4px) !important;
+        padding-left: 1em !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.3em !important;
+        font-weight: 600 !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.6em !important;
+        color: ${effectiveThemeColor} !important;
+      }
+      
+      .markdown-body p {
+        margin-bottom: 1em !important;
+        line-height: 1.7 !important;
+      }
+      
+      .markdown-body blockquote {
+        border-left: 2px solid ${effectiveBorderColor} !important;
+        padding-left: 1em !important;
+        margin: 1em 0 !important;
+        color: #888 !important;
+      }
+      
+      .markdown-body ul,
+      .markdown-body ol {
+        padding-left: 1.5em !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background: ${editorTheme === 'dark' ? '#2d333b' : '#f6f8fa'} !important;
+        padding: 0.2em 0.4em !important;
+        border-radius: 3px !important;
+        font-size: 0.9em !important;
+      }
+        `
+        break
+        
+      case 'gradient':
+        // 网格背景主题：带有网格背景的现代风格
+        themeStyles = `
+      /* 网格背景主题 */
+      .markdown-body {
+        max-width: 800px !important;
+        padding: 40px !important;
+        background-color: ${editorTheme === 'dark' ? '#1a1b26' : '#f8f9fa'} !important;
+        background-image: 
+          linear-gradient(${editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'} 1px, transparent 1px),
+          linear-gradient(90deg, ${editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'} 1px, transparent 1px) !important;
+        background-size: 20px 20px !important;
+        background-position: 0 0 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 24px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.1)'} !important;
+        position: relative !important;
+      }
+      
+      .markdown-body::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background: radial-gradient(circle at 20% 30%, ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.08)'} 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, ${editorTheme === 'dark' ? 'rgba(236, 72, 153, 0.15)' : 'rgba(236, 72, 153, 0.08)'} 0%, transparent 50%) !important;
+        border-radius: 16px !important;
+        pointer-events: none !important;
+        z-index: 0 !important;
+      }
+      
+      .markdown-body > * {
+        position: relative !important;
+        z-index: 1 !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2.5em !important;
+        font-weight: 700 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0.8em !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 2em !important;
+        font-weight: 600 !important;
+        margin-top: 2em !important;
+        margin-bottom: 0.8em !important;
+        background: ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'} !important;
+        padding: 0.5em 1em !important;
+        border-radius: 12px !important;
+        border-left: 4px solid ${effectiveThemeColor} !important;
+        border-bottom: none !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.6em !important;
+        color: ${effectiveThemeColor} !important;
+      }
+      
+      .markdown-body p {
+        margin-bottom: 1.2em !important;
+        line-height: 1.8 !important;
+      }
+      
+      .markdown-body blockquote {
+        border-left: 4px solid ${effectiveThemeColor} !important;
+        padding: 1.5em 2em !important;
+        margin: 1.5em 0 !important;
+        background: ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)'} !important;
+        border-radius: 12px !important;
+        font-style: italic !important;
+        box-shadow: 0 2px 12px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background: ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.15)'} !important;
+        padding: 0.2em 0.6em !important;
+        border-radius: 6px !important;
+        font-weight: 500 !important;
+        border: 1px solid ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.2)'} !important;
+      }
+      
+      .markdown-body pre {
+        background: ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.6)'} !important;
+        border-radius: 12px !important;
+        border: 1px solid ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'} !important;
+        box-shadow: 0 2px 12px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+      }
+        `
+        break
+        
+      case 'morandi':
+        // 莫兰迪色系主题
+        themeStyles = `
+      /* 莫兰迪色系 - 全局容器样式 */
+      .markdown-body {
+        color: #5c5c5c !important;
+        background-color: #f9f7f5 !important;
+        padding: 24px 32px !important;
+        max-width: 900px !important;
+        margin: 0 auto !important;
+        border-radius: 12px !important;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.03) !important;
+      }
+      
+      /* 莫兰迪标题样式（带精致背景） */
+      .markdown-body h1 {
+        font-size: 32px !important;
+        font-weight: 600;
+        color: #ffffff !important;
+        background: linear-gradient(90deg, #9f86c0, #be95c4) !important;
+        border-radius: 10px !important;
+        padding: 14px 20px 10px !important;
+        margin: 40px 0 20px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        border: none !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 28px !important;
+        font-weight: 600;
+        color: #ffffff !important;
+        background: linear-gradient(90deg, #82c0cc, #9fd8df) !important;
+        border-radius: 8px !important;
+        padding: 12px 18px 8px !important;
+        margin: 36px 0 18px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        border: none !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 24px !important;
+        font-weight: 600;
+        color: #6a6a6a !important;
+        background: rgba(202, 186, 161, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 10px 16px !important;
+        margin: 32px 0 16px !important;
+        border-left: 4px solid #cabb9f !important;
+      }
+      
+      .markdown-body h4 {
+        font-size: 20px !important;
+        font-weight: 600;
+        color: #6a6a6a !important;
+        background: rgba(168, 218, 220, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 8px 14px !important;
+        margin: 28px 0 14px !important;
+        border-left: 4px solid #a8dadc !important;
+      }
+      
+      .markdown-body h5 {
+        font-size: 18px !important;
+        font-weight: 600;
+        color: #6a6a6a !important;
+        background: rgba(221, 186, 198, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 8px 14px !important;
+        margin: 24px 0 12px !important;
+        border: 1px solid #ddbabc !important;
+        border-left: 4px solid #ddbabc !important;
+      }
+      
+      .markdown-body h6 {
+        font-size: 16px !important;
+        font-weight: 600;
+        color: #6a6a6a !important;
+        background: rgba(186, 200, 206, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 6px 12px !important;
+        margin: 20px 0 10px !important;
+      }
+      
+      /* 莫兰迪正文样式 */
+      .markdown-body p {
+        margin: 16px 0 !important;
+        text-align: justify !important;
+        color: #5c5c5c !important;
+      }
+      
+      .markdown-body strong,
+      .markdown-body b {
+        font-weight: 700;
+        color: #9f86c0 !important;
+      }
+      
+      .markdown-body a {
+        color: #82c0cc !important;
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+      }
+      
+      .markdown-body a:hover {
+        color: #9f86c0 !important;
+        border-bottom: 1px solid #9f86c0;
+      }
+      
+      /* 莫兰迪元素样式 */
+      .markdown-body img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 10px !important;
+        margin: 20px 0 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+        border: 2px solid #e8e4e0 !important;
+      }
+      
+      .markdown-body blockquote {
+        background: rgba(190, 149, 196, 0.1) !important;
+        border-left: 4px solid #be95c4 !important;
+        padding: 16px 20px !important;
+        margin: 20px 0 !important;
+        border-radius: 8px !important;
+        color: #6a6a6a !important;
+        font-style: normal !important;
+      }
+      
+      .markdown-body hr {
+        border: none !important;
+        border-top: 1px solid #e8e4e0 !important;
+        margin: 32px 0 !important;
+      }
+      
+      /* 列表样式 */
+      .markdown-body ol {
+        padding-left: 24px;
+        margin: 16px 0 !important;
+        color: #82c0cc !important;
+      }
+      
+      .markdown-body ul {
+        padding-left: 24px;
+        margin: 16px 0 !important;
+        list-style-type: circle !important;
+        color: #a8dadc !important;
+      }
+      
+      .markdown-body li {
+        margin: 8px 0 !important;
+        line-height: 1.7 !important;
+        color: #5c5c5c !important;
+      }
+      
+      /* 代码样式（低饱和度深色系） */
+      .markdown-body pre {
+        background-color: #f0eeec !important;
+        border-radius: 8px !important;
+        padding: 16px !important;
+        margin: 20px 0 !important;
+        overflow-x: auto;
+        border: 1px solid #e8e4e0 !important;
+      }
+      
+      .markdown-body pre code {
+        font-size: 14px !important;
+        color: #5c5c5c !important;
+        line-height: 1.6 !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background-color: rgba(190, 149, 196, 0.1) !important;
+        color: #9f86c0 !important;
+        padding: 2px 6px !important;
+        border-radius: 4px !important;
+        font-size: 14px !important;
+        border: 1px solid #e8e4e0 !important;
+      }
+
+      /* 莫兰迪表格样式 */
+      .markdown-body table th,
+      .markdown-body table td {
+        border: 1px solid #e8e4e0 !important;
+        padding: 8px 12px !important;
+        color: #5c5c5c !important;
+        background-color: transparent !important;
+      }
+
+      .markdown-body table th {
+        background-color: rgba(159, 134, 192, 0.12) !important;
+        color: #6a6a6a !important;
+        font-weight: 600 !important;
+      }
+
+      .markdown-body table tr:nth-child(even) {
+        background-color: rgba(202, 186, 161, 0.08) !important;
+      }
+
+      .markdown-body table tr:nth-child(odd) {
+        background-color: #f9f7f5 !important;
+      }
+
+      /* 莫兰迪 Mermaid 图表样式 */
+      .mermaid {
+        background: rgba(249, 247, 245, 0.8) !important;
+        border: 1px solid #e8e4e0 !important;
+        border-radius: 8px !important;
+      }
+        `
+        break
+        
+      default:
+        themeStyles = ''
+    }
+
+    // elementStyles 是否有自定义设置的辅助判断
+    const elHasCustom = (key) => {
+      const el = exportConfig.elementStyles?.[key]
+      return el && (el.color || (el.preset && el.preset !== 'default') || (el.customCSS && el.customCSS.trim()))
+    }
+    // 某元素的某属性是否在 customCSS 中被自定义（含完整规则块）
+    const elCustomHasProp = (key, prop) => {
+      const css = exportConfig.elementStyles?.[key]?.customCSS || ''
+      return css.includes(prop)
+    }
+
+    styleEl.textContent = `
+      ${themeStyles}
+      
+      /* 主题色覆盖（仅当未被 elementStyles 自定义时才应用） */
+      ${exportConfig.themeColor ? `
+      ${!elHasCustom('h1') && !elHasCustom('h2') && !elHasCustom('h3') && !elHasCustom('h4') && !elHasCustom('h5') && !elHasCustom('h6') ? `
+      .markdown-body h1, .markdown-body h2, .markdown-body h3,
+      .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+        color: ${exportConfig.headingColor === 'theme' ? effectiveHeadingColor : 'inherit'} !important;
+      }` : [
+        'h1','h2','h3','h4','h5','h6'
+      ].filter(h => !elHasCustom(h)).map(h =>
+        `.markdown-body ${h} { color: ${exportConfig.headingColor === 'theme' ? effectiveHeadingColor : 'inherit'} !important; }`
+      ).join('\n      ')}
+      
+      ${!elHasCustom('h1') && !elCustomHasProp('h1','border') ? `
+      .markdown-body h1.markdown-heading, .markdown-body h1 {
+        border-bottom: 2px solid ${effectiveBorderColor} !important;
+        padding-bottom: 0.3em !important;
+      }` : ''}
+      
+      ${!elHasCustom('h2') && !elCustomHasProp('h2','border') ? `
+      .markdown-body h2.markdown-heading, .markdown-body h2 {
+        border-bottom: 2px solid ${effectiveBorderColor} !important;
+        padding-bottom: 0.3em !important;
+      }` : ''}
+      ` : ''}
+      
+      .markdown-body p {
+        text-indent: ${exportConfig.paragraphIndent ? '2em' : '0'} !important;
+        text-align: ${exportConfig.paragraphJustify ? 'justify' : (exportConfig.textAlign || 'left')} !important;
+      }
+
+      /* 代码块主题背景 */
+      .markdown-body pre {
+        background: ${currentThemeBg} !important;
+      }
+
+      .markdown-body pre code {
+        background: transparent !important;
+        ${currentThemeColor !== 'inherit' ? `color: ${currentThemeColor} !important;` : ''}
+      }
+
+      /* 移除代码高亮的背景色 - 使用更强的选择器 */
+      .markdown-body pre code *,
+      .markdown-body pre code span,
+      .markdown-body pre code [class*="hljs"] {
+        background: none !important;
+        background-color: transparent !important;
+      }
+
+      /* Mac 风格代码块 */
+      ${exportConfig.macCodeBlock ? `
+        .markdown-body pre {
+          position: relative;
+          padding-top: 30px !important;
+          border-radius: 8px !important;
+        }
+        
+        .markdown-body pre::before {
+          content: '';
+          position: absolute;
+          top: 10px;
+          left: 12px;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #ff5f56;
+          box-shadow: 20px 0 0 #ffbd2e, 40px 0 0 #27c93f;
+        }
+      ` : ''}
+
+      /* 图注格式控制 */
+      .markdown-body figure.image-figure {
+        display: block;
+        text-align: center;
+        margin: 1em 0;
+      }
+
+      .markdown-body figure.image-figure img {
+        max-width: 100%;
+        height: auto;
+      }
+
+      .markdown-body figure.image-figure figcaption {
+        margin-top: 0.5em;
+        font-size: 0.9em;
+        color: #666;
+        text-align: center;
+      }
+
+      /* title-first: 优先显示 title，没有则显示 alt */
+      .markdown-body[data-caption-format="title-first"] figure.image-figure figcaption::before {
+        content: attr(data-title);
+      }
+
+      .markdown-body[data-caption-format="title-first"] figure.image-figure[data-title=""] figcaption::before {
+        content: attr(data-alt);
+      }
+
+      /* alt-first: 优先显示 alt，没有则显示 title */
+      .markdown-body[data-caption-format="alt-first"] figure.image-figure figcaption::before {
+        content: attr(data-alt);
+      }
+
+      .markdown-body[data-caption-format="alt-first"] figure.image-figure[data-alt=""] figcaption::before {
+        content: attr(data-title);
+      }
+
+      /* title-only: 只显示 title */
+      .markdown-body[data-caption-format="title-only"] figure.image-figure figcaption::before {
+        content: attr(data-title);
+      }
+
+      /* alt-only: 只显示 alt */
+      .markdown-body[data-caption-format="alt-only"] figure.image-figure figcaption::before {
+        content: attr(data-alt);
+      }
+
+      /* no-caption: 不显示图注 */
+      .markdown-body[data-caption-format="no-caption"] figure.image-figure figcaption {
+        display: none;
+      }
+
+      /* 外链转脚注控制 */
+      .markdown-body[data-wechat-link-footnote="true"] a.external-link {
+        text-decoration: none;
+      }
+
+      .markdown-body[data-wechat-link-footnote="true"] a.external-link::after {
+        content: "[" attr(data-footnote-index) "]";
+        vertical-align: super;
+        font-size: 0.8em;
+        color: ${effectiveThemeColor};
+      }
+
+      /* 脚注样式 */
+      .markdown-body .footnotes-section {
+        margin-top: 3em;
+        padding-top: 1em;
+        border-top: 1px solid var(--border-color, #ddd);
+      }
+
+      .markdown-body .footnotes-section h3 {
+        font-size: 1.2em;
+        margin-bottom: 0.5em;
+      }
+
+      .markdown-body .footnotes-list {
+        font-size: 0.9em;
+        color: var(--text-secondary, #666);
+        padding-left: 2em;
+      }
+
+      .markdown-body .footnotes-list li {
+        margin-bottom: 0.5em;
+        word-break: break-all;
+      }
+
+      .markdown-body sup {
+        color: ${effectiveThemeColor};
+        font-weight: bold;
+      }
+
+      /* 目录样式 */
+      .markdown-body .table-of-contents {
+        background: ${editorTheme === 'dark' ? '#161b22' : '#f6f8fa'};
+        border: 1px solid ${editorTheme === 'dark' ? '#30363d' : '#d0d7de'};
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0;
+      }
+
+      .markdown-body .table-of-contents h2 {
+        margin: 0 0 12px 0;
+        font-size: 1.2em;
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+      }
+
+      .markdown-body .table-of-contents ul {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+      }
+
+      .markdown-body .table-of-contents li {
+        margin: 6px 0;
+      }
+
+      .markdown-body .table-of-contents a {
+        text-decoration: none;
+        color: ${effectiveThemeColor};
+        transition: opacity 0.2s;
+      }
+
+      .markdown-body .table-of-contents a:hover {
+        opacity: 0.7;
+      }
+
+      .markdown-body .table-of-contents .toc-h2 {
+        padding-left: 0;
+      }
+
+      .markdown-body .table-of-contents .toc-h3 {
+        padding-left: 1.5em;
+      }
+
+      .markdown-body .table-of-contents .toc-h4 {
+        padding-left: 3em;
+      }
+      
+      /* 自定义主题的额外样式（确保最高优先级） */
+      ${exportConfig.theme === 'custom' && exportConfig.customCSS ? sandboxCSS(
+        exportConfig.customCSS
+          .replace(/var\(--md-primary-color\)/g, effectiveThemeColor)
+          .replace(/var\(--blockquote-background\)/g, editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)')
+      ) : ''}
+
+      /* 强制注脚返回箭头 ↩ 显示为文本而非 emoji */
+      .markdown-body .data-footnote-backref { font-family: monospace; font-variant-emoji: text; }
+      .markdown-body .footnotes .data-footnote-backref g-emoji { font-family: monospace; font-variant-emoji: text; }
+
+      /* 细则样式管理（elementStyles）覆盖样式 */
+      ${(() => {
+        const es = exportConfig.elementStyles || {}
+        const tc = exportConfig.themeColor || effectiveThemeColor
+        const selectorMap = {
+          h1: '.markdown-body h1', h2: '.markdown-body h2',
+          h3: '.markdown-body h3', h4: '.markdown-body h4',
+          h5: '.markdown-body h5', h6: '.markdown-body h6',
+          p: '.markdown-body p', strong: '.markdown-body strong, .markdown-body b',
+          link: '.markdown-body a', ul: '.markdown-body ul', ol: '.markdown-body ol',
+          blockquote: '.markdown-body blockquote',
+          codespan: '.markdown-body code:not(pre code)',
+          code_pre: '.markdown-body pre', hr: '.markdown-body hr',
+          image: '.markdown-body img', bg: '.markdown-body',
+        }
+        return Object.entries(selectorMap).map(([key, sel]) => {
+          const el = es[key] || {}
+          const props = []
+          const preset = el.preset || 'default'
+          // 预设（最低优先级）
+          if (preset === 'border-bottom') { props.push(`border-bottom: 2px solid ${tc} !important`); props.push(`padding-bottom: 0.3em !important`) }
+          else if (preset === 'border-left') { props.push(`border-left: 4px solid ${tc} !important`); props.push(`padding-left: 0.8em !important`); props.push(`border-bottom: none !important`) }
+          else if (preset === 'theme-bg') { props.push(`display: table !important`); props.push(`padding: 0.3em 1.2em !important`); props.push(`color: #fff !important`); props.push(`background: ${tc} !important`); props.push(`border-radius: 6px !important`) }
+          else if (preset === 'indent') props.push(`text-indent: 2em !important`)
+          else if (preset === 'justify') props.push(`text-align: justify !important`)
+          else if (preset === 'underline') props.push(`text-decoration: underline !important`)
+          else if (preset === 'no-underline') props.push(`text-decoration: none !important`)
+          else if (preset === 'rounded') props.push(`border-radius: 8px !important`)
+          else if (preset === 'shadow') props.push(`box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important`)
+          else if (preset === 'gradient' && key === 'hr') { props.push(`background: linear-gradient(to right,transparent,${tc},transparent) !important`); props.push(`height: 1px !important`); props.push(`border: none !important`) }
+          else if (preset === 'gradient' && key === 'bg') { props.push(`background: linear-gradient(135deg, ${tc}18 0%, ${tc}08 50%, transparent 100%) !important`); props.push(`padding: 2rem !important`) }
+          else if (preset === 'filled') { props.push(`background: ${tc}18 !important`); props.push(`border-left: 4px solid ${tc} !important`) }
+          else if (preset === 'grid') { props.push(`background-image: linear-gradient(rgba(0,0,0,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,0.05) 1px,transparent 1px) !important`); props.push(`background-size: 20px 20px !important`); if (key === 'bg') props.push(`padding: 2rem !important`) }
+          else if (preset === 'dots') { props.push(`background-image: radial-gradient(rgba(0,0,0,0.05) 0.5px,transparent 0.5px) !important`); props.push(`background-size: 8px 8px !important`); if (key === 'bg') props.push(`padding: 2rem !important`) }
+          else if (preset === 'stripe') { props.push(`background-image: repeating-linear-gradient(to bottom,transparent,transparent 19px,rgba(0,0,0,0.04) 19px,rgba(0,0,0,0.04) 20px) !important`); if (key === 'bg') props.push(`padding: 2rem !important`) }
+          else if (preset === 'none') props.push(`list-style-type: none !important`)
+          else if (preset === 'disc') props.push(`list-style-type: disc !important`)
+          else if (preset === 'decimal') props.push(`list-style-type: decimal !important`)
+          else if (preset === 'roman') props.push(`list-style-type: upper-roman !important`)
+          else if (preset === 'dashed') { props.push(`border: none !important`); props.push(`border-top: 2px dashed ${tc} !important`); props.push(`height: 0 !important`) }
+          else if (preset === 'pill') { props.push(`border-radius: 999px !important`); props.push(`padding: 0.1em 0.6em !important`) }
+          else if (preset === 'center') { props.push(`display: block !important`); props.push(`margin: 1em auto !important`) }
+          // 自定义 CSS 简单属性（中优先级，覆盖预设）
+          const scopedRules = []
+          if (el.customCSS && el.customCSS.trim()) {
+            const raw = el.customCSS.trim()
+            if (raw.includes('{')) {
+              // 完整 CSS 规则块：只保留与当前元素选择器匹配的规则
+              scopedRules.push(sandboxCSSForElement(raw, sel))
+            } else {
+              raw.split(';').map(s => s.trim()).filter(Boolean).forEach(p => { props.push(p.includes('!important') ? p : `${p} !important`) })
+            }
+          }
+          if (props.length === 0 && scopedRules.length === 0 && !el.color) return ''
+          // 颜色（最高优先级，在预设和自定义CSS之后写入，确保覆盖）
+          if (el.color) {
+            if (key === 'bg') props.push(`background-color: ${el.color} !important`)
+            else if (key === 'hr') {
+              // hr 是空元素，颜色需映射到对应属性
+              if (preset === 'dashed') props.push(`border-top-color: ${el.color} !important`)
+              else props.push(`background: ${el.color} !important`)
+            }
+            else props.push(`color: ${el.color} !important`)
+          }
+          if (props.length === 0 && scopedRules.length === 0) return ''
+          const baseRule = props.length > 0 ? `${sel} { ${props.join('; ')} }` : ''
+          return [baseRule, ...scopedRules].filter(Boolean).join('\n      ')
+        }).filter(Boolean).join('\n      ')
+      })()}
+
+      /* 链接颜色最终覆盖（确保 elementStyles 设置生效） */
+      ${exportConfig.elementStyles?.link?.color ? `
+      .markdown-body a,
+      .markdown-body a:link,
+      .markdown-body a:visited {
+        color: ${exportConfig.elementStyles.link.color} !important;
+        -webkit-text-fill-color: ${exportConfig.elementStyles.link.color} !important;
+      }` : ''}
+    `
+    
+    // 调试：输出生成的样式
+    console.log('[useEffect-预览] 样式已生成');
+    console.log('[useEffect-预览] 主题:', exportConfig.theme);
+    console.log('[useEffect-预览] 样式长度:', styleEl.textContent.length);
+    console.log('[useEffect-预览] 样式预览（前 500 字符）:', styleEl.textContent.substring(0, 500));
+    
+    // 强制应用 H1 和 H2 的边框颜色（使用内联样式作为最终保障）
+    setTimeout(() => {
+      const preview = document.querySelector('.markdown-body')
+      if (preview) {
+        // 动态检测主题背景亮暗，注入 data-theme-bg 属性
+        // 规则：主题有明确背景色时跟随主题，否则跟随编辑器主题
+        let themeBg = editorTheme === 'dark' ? 'dark' : 'light'
+
+        if (exportConfig.theme === 'morandi') {
+          // 莫兰迪固定亮色背景
+          themeBg = 'light'
+        } else if (exportConfig.theme === 'gradient') {
+          // gradient 主题背景色跟随编辑器主题
+          themeBg = editorTheme === 'dark' ? 'dark' : 'light'
+        } else if (exportConfig.theme === 'custom' && exportConfig.customCSS) {
+          // 自定义主题：解析 container 块中的 background-color
+          const bgMatch = exportConfig.customCSS.match(/container\s*\{[^}]*background(?:-color)?\s*:\s*([^;!]+)/)
+          if (bgMatch) {
+            const bgVal = bgMatch[1].trim()
+            // 简单判断：暗色关键词或深色 hex
+            const isDarkBg = /^#([0-9a-f]{3}){1,2}$/i.test(bgVal)
+              ? (() => {
+                  const hex = bgVal.replace('#', '')
+                  const full = hex.length === 3
+                    ? hex.split('').map(c => c + c).join('')
+                    : hex
+                  const r = parseInt(full.slice(0,2), 16)
+                  const g = parseInt(full.slice(2,4), 16)
+                  const b = parseInt(full.slice(4,6), 16)
+                  // 亮度公式
+                  return (r * 299 + g * 587 + b * 114) / 1000 < 128
+                })()
+              : /dark|black|#[012][0-9a-f]{5}|#[0-9a-f]{3}(?=\s|;|$)/i.test(bgVal)
+            themeBg = isDarkBg ? 'dark' : 'light'
+          }
+        }
+
+        preview.setAttribute('data-theme-bg', themeBg)
+
+        // 提取主题的纯背景色（background-color，不含 background-image 网格/纹理）
+        // 注入到表格和 mermaid，避免网格背景影响阅读
+        // 直接从主题配置推算，不依赖 getComputedStyle（避免时序问题）
+        let solidBg = editorTheme === 'dark' ? '#0d1117' : '#ffffff'
+
+        if (exportConfig.theme === 'morandi') {
+          solidBg = '#f9f7f5'
+        } else if (exportConfig.theme === 'gradient') {
+          solidBg = editorTheme === 'dark' ? '#1a1b26' : '#f8f9fa'
+        } else if (exportConfig.theme === 'custom' && exportConfig.customCSS) {
+          // 从自定义 CSS 的 container 块中提取 background-color（支持多行）
+          const bgColorMatch = exportConfig.customCSS.match(/container\s*\{[\s\S]*?background-color\s*:\s*([^;!\n]+)/)
+          if (bgColorMatch) {
+            solidBg = bgColorMatch[1].trim()
+          } else {
+            // 尝试匹配 background 简写（只取纯色值，忽略渐变）
+            const bgMatch = exportConfig.customCSS.match(/container\s*\{[\s\S]*?(?<![\w-])background\s*:\s*(#[0-9a-fA-F]{3,8}|rgb[^;]+|hsl[^;]+)/)
+            if (bgMatch) solidBg = bgMatch[1].trim()
+          }
+        }
+
+        // 用户通过「细则配色管理-背景」设置的颜色优先级最高，覆盖主题推算值
+        if (exportConfig.bgColor) {
+          solidBg = exportConfig.bgColor
+        } else if (exportConfig.bgCSS) {
+          const m = exportConfig.bgCSS.match(/background-color\s*:\s*([^;!\n]+)/i)
+            || exportConfig.bgCSS.match(/(?<![\w-])background\s*:\s*(#[0-9a-fA-F]{3,8}|rgb[^;]+|hsl[^;]+)/i)
+          if (m) solidBg = m[1].trim()
+        }
+
+        // 注入或更新动态表格/mermaid 背景色样式
+        let tableBgStyleEl = document.getElementById('table-mermaid-bg-styles')
+        if (!tableBgStyleEl) {
+          tableBgStyleEl = document.createElement('style')
+          tableBgStyleEl.id = 'table-mermaid-bg-styles'
+          document.head.appendChild(tableBgStyleEl)
+        }
+        tableBgStyleEl.textContent = `
+          .app .markdown-body table th,
+          .app .markdown-body table td {
+            background-color: ${solidBg} !important;
+          }
+          .app .markdown-body table tr,
+          .app .markdown-body table tr:nth-child(even),
+          .app .markdown-body table tr:nth-child(odd) {
+            background-color: ${solidBg} !important;
+          }
+          .app .markdown-body .mermaid {
+            background: ${solidBg} !important;
+          }
+        `
+
+        // 标记是否使用自定义主题（有背景色的主题都标记，用于阻止暗黑模式全局样式覆盖）
+        const themesWithBg = ['custom', 'gradient', 'morandi']
+        if (themesWithBg.includes(exportConfig.theme) || exportConfig.bgColor || exportConfig.bgCSS) {
+          preview.setAttribute('data-custom-theme', 'true')
+          // 同步标记预览区内所有 mermaid 图表
+          preview.querySelectorAll('.mermaid').forEach(el => {
+            el.classList.add('custom-theme-mermaid')
+          })
+        } else {
+          preview.removeAttribute('data-custom-theme')
+          preview.querySelectorAll('.mermaid').forEach(el => {
+            el.classList.remove('custom-theme-mermaid')
+          })
+        }
+        
+        // 设置图注格式和脚注的 data 属性
+        preview.setAttribute('data-caption-format', exportConfig.captionFormat || 'title-first')
+        preview.setAttribute('data-wechat-link-footnote', exportConfig.wechatLinkToFootnote ? 'true' : 'false')
+        
+        // 手动更新图注内容
+        const figures = preview.querySelectorAll('figure.image-figure')
+        figures.forEach((figure) => {
+          const alt = figure.getAttribute('data-alt') || ''
+          const title = figure.getAttribute('data-title') || ''
+          const figcaption = figure.querySelector('figcaption')
+          
+          if (figcaption) {
+            let caption = ''
+            const format = exportConfig.captionFormat || 'title-first'
+            
+            switch (format) {
+              case 'title-first':
+                caption = title || alt
+                break
+              case 'alt-first':
+                caption = alt || title
+                break
+              case 'title-only':
+                caption = title
+                break
+              case 'alt-only':
+                caption = alt
+                break
+              case 'no-caption':
+                caption = ''
+                break
+              default:
+                caption = title || alt
+            }
+            
+            figcaption.textContent = caption
+            figcaption.style.display = caption ? 'block' : 'none'
+          }
+        })
+        
+        // 手动更新外链脚注显示
+        const footnotesSection = preview.querySelector('.footnotes-section')
+        if (footnotesSection) {
+          footnotesSection.style.display = exportConfig.wechatLinkToFootnote ? 'block' : 'none'
+        }
+        
+        const externalLinks = preview.querySelectorAll('a.external-link')
+        externalLinks.forEach((link) => {
+          const existingSup = link.querySelector('sup')
+          if (existingSup) {
+            existingSup.remove()
+          }
+          
+          if (exportConfig.wechatLinkToFootnote) {
+            const index = link.getAttribute('data-footnote-index')
+            if (index) {
+              const sup = document.createElement('sup')
+              sup.textContent = `[${index}]`
+              link.appendChild(sup)
+            }
+          }
+        })
+        
+        // 设置 H1 和 H2 边框颜色
+        const h1Elements = preview.querySelectorAll('h1')
+        const h2Elements = preview.querySelectorAll('h2')
+        
+        h1Elements.forEach(h1 => {
+          h1.style.setProperty('border-bottom-color', effectiveBorderColor, 'important')
+          console.log('强制设置 H1 边框颜色:', effectiveBorderColor)
+        })
+        
+        h2Elements.forEach(h2 => {
+          h2.style.setProperty('border-bottom-color', effectiveBorderColor, 'important')
+          console.log('强制设置 H2 边框颜色:', effectiveBorderColor)
+        })
+        
+        // 生成目录（TOC）
+        if (exportConfig.includeTOC) {
+          // 移除旧的目录
+          const oldToc = preview.querySelector('.table-of-contents')
+          if (oldToc) {
+            oldToc.remove()
+          }
+          
+          // 收集所有标题
+          const headings = preview.querySelectorAll('h1, h2, h3, h4')
+          if (headings.length > 0) {
+            const toc = document.createElement('div')
+            toc.className = 'table-of-contents'
+            
+            const tocTitle = document.createElement('h2')
+            tocTitle.textContent = '目录'
+            toc.appendChild(tocTitle)
+            
+            const tocList = document.createElement('ul')
+            
+            headings.forEach((heading, index) => {
+              // 为标题添加 id（如果没有）
+              if (!heading.id) {
+                heading.id = `heading-${index}`
+              }
+              
+              const li = document.createElement('li')
+              li.className = `toc-${heading.tagName.toLowerCase()}`
+              
+              const link = document.createElement('a')
+              link.href = `#${heading.id}`
+              link.textContent = heading.textContent
+              
+              li.appendChild(link)
+              tocList.appendChild(li)
+            })
+            
+            toc.appendChild(tocList)
+            
+            // 将目录插入到第一个标题之前
+            const firstHeading = preview.querySelector('h1, h2, h3, h4, h5, h6')
+            if (firstHeading) {
+              firstHeading.parentNode.insertBefore(toc, firstHeading)
+            } else {
+              preview.insertBefore(toc, preview.firstChild)
+            }
+          }
+        } else {
+          // 移除目录
+          const oldToc = preview.querySelector('.table-of-contents')
+          if (oldToc) {
+            oldToc.remove()
+          }
+        }
+      }
+    }, 100)
+  }, [exportConfig, editorTheme])
 
   // 使用 useMemo 缓存 Markdown 处理器，避免每次渲染都重新创建
   const markdownProcessor = useMemo(() => {
@@ -616,6 +1964,11 @@ function App() {
       document.head.appendChild(style)
       console.log('覆盖样式已注入:', style.textContent.substring(0, 100))
       
+      // 重新应用导出配置样式（确保在 github-markdown-css 之后）
+      // 注释掉，因为第 168 行的 useEffect 已经处理了所有样式
+      // console.log('重新应用导出配置样式')
+      // applyExportConfigStyles(exportConfig)
+      
       // 验证样式是否真的在 DOM 中
       setTimeout(() => {
         const injected = document.querySelector('style[data-image-scale-override]')
@@ -670,11 +2023,18 @@ function App() {
         theme: newTheme === 'dark' ? 'dark' : 'default',
         securityLevel: 'loose'
       })
-      setTimeout(() => renderMarkdown(), 100)
+      setTimeout(() => {
+        if (!isRenderingRef.current) {
+          isRenderingRef.current = true
+          renderMarkdown(content).finally(() => {
+            isRenderingRef.current = false
+          })
+        }
+      }, 100)
     }
   }
 
-  const saveFile = async (path = currentPath, saveContent = content) => {
+  const saveFile = async (path = currentPath, saveContent = content, isAutoSave = false) => {
     if (!path) {
       setStatus('未指定文件路径，无法保存')
       return false
@@ -702,7 +2062,7 @@ function App() {
           await fileTreeRef.current.refreshDirectory(parentPath)
         }
         
-        setStatus(`已保存: ${path}`)
+        setStatus(isAutoSave ? '自动保存成功' : `已保存: ${path}`)
         setStatusType('success')
         setTimeout(() => {
           setStatus('就绪')
@@ -767,7 +2127,7 @@ function App() {
       // 只在内容变化或路径变化时才保存
       if (contentChanged || pathChanged) {
         try {
-          const success = await saveFile(currentPath, content)
+          const success = await saveFile(currentPath, content, true)
           if (success) {
             // 保存历史版本（自动保存标记）
             await saveFileHistory(currentPath, content, '', true)
@@ -885,7 +2245,7 @@ function App() {
     } else if (!savedState?.content) {
       // 只在没有保存内容时才显示默认文本
       setContent(`# Markdown 编辑器功能展示
-这是一个完整的 Markdown 功能展示文档，包含了各种常用的格式和元素。
+这是一个完整的 Markdown 功能展示文档，包含了各种常用的格式和元素，可直观呈现编辑器的核心能力。
 
 ## 文本格式
 ### 基础文本样式
@@ -893,7 +2253,7 @@ function App() {
 - *斜体文本*
 - ***粗斜体文本***
 - ~~删除线文本~~
-- \`行内代码\`
+- \`行内代码（单行代码片段）\`
 
 ### 标题层级
 # 一级标题
@@ -925,98 +2285,110 @@ function App() {
 
 ## 链接和图片
 ### 链接
-[这是一个链接](https://example.com)
-
-[带标题的链接](https://example.com "链接标题")
+[这是一个普通链接](https://example.com)  
+[带标题的链接](https://example.com "示例链接的标题说明")
 
 ### 图片
-![示例图片](https://pic1.imgdb.cn/item/69a61149dcdb109d1d43dafd.png"图片描述")
+![示例图片](https://pic1.imgdb.cn/item/69a61149dcdb109d1d43dafd.png "图片描述：Markdown 编辑器示例图")
 
 ## 引用
-> 这是一个引用块
+> 这是一个基础引用块
 >
-> 可以包含多行内容
+> 引用块可以包含多行内容，换行需保留换行符
 >
-> > 这是嵌套引用
+> > 这是嵌套引用（二级引用）
+> >
+> > 嵌套引用常用于补充说明或引用嵌套场景
 
 ## 代码块
 ### JavaScript 代码
 \`\`\`javascript
+// 简单的问候函数示例
 function greet(name) {
     console.log(\`Hello, \${name}!\`);
     return \`Welcome to Markdown Editor\`;
 }
 
+// 调用函数并输出结果
 const message = greet('用户');
+console.log(message);
 \`\`\`
 
 ### Python 代码
 \`\`\`python
+# 计算斐波那契数列的递归函数
 def calculate_fibonacci(n):
     if n <= 1:
         return n
     return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)
 
-# 计算前10个斐波那契数
+# 计算并打印前10个斐波那契数
 for i in range(10):
     print(f"F({i}) = {calculate_fibonacci(i)}")
 \`\`\`
 
 ### CSS 代码
 \`\`\`css
+/* Markdown 编辑器基础样式 */
 .markdown-editor {
     font-family: 'Helvetica Neue', Arial, sans-serif;
     line-height: 1.6;
     color: #333;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
 }
 
+/* 代码块样式优化 */
 .code-block {
     background-color: #f4f4f4;
     border-radius: 4px;
     padding: 1rem;
     overflow-x: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
 }
 \`\`\`
 
 ## 表格
-| 功能     | 描述             | 状态      |
-| -------- | ---------------- | --------- |
-| 实时预览 | 边写边看效果     | ✅ 已实现 |
-| 语法高亮 | 代码块高亮显示   | ✅ 已实现 |
-| 导出功能 | 支持多种格式导出 | ✅ 已实现 |
-| 主题切换 | 多种主题可选     | 🚧 开发中 |
-| 插件系统 | 扩展功能支持     | 📋 计划中 |
+| 功能       | 描述                 | 状态      |
+|------------|----------------------|-----------|
+| 实时预览   | 编辑内容实时渲染预览 | ✅ 已实现 |
+| 语法高亮   | 代码块语法彩色高亮   | ✅ 已实现 |
+| 导出功能   | 支持多种格式导出     | ✅ 已实现 |
+| 主题切换   | 多种界面主题可选     | ✅ 开发中 |
+| 插件系统   | 扩展功能插件支持     | 🚧 计划中 |
 
 ## 数学公式
 ### 行内公式
-这是一个行内公式：\$E = mc^2\$
+这是一个行内公式：$E = mc^2$（爱因斯坦质能方程）  
+另一个行内公式：$\\sum_{i=1}^n i = \\frac{n(n+1)}{2}$（自然数求和公式）
 
 ### 块级公式
-\$\$
+$$
 \\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
-\$\$
+$$
 
-\$\$
+$$
 \\begin{align}
 \\nabla \\times \\vec{\\mathbf{B}} -\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{E}}}{\\partial t} &= \\frac{4\\pi}{c}\\vec{\\mathbf{j}} \\\\
 \\nabla \\cdot \\vec{\\mathbf{E}} &= 4 \\pi \\rho \\\\
 \\nabla \\times \\vec{\\mathbf{E}}\\, +\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{B}}}{\\partial t} &= \\vec{\\mathbf{0}} \\\\
 \\nabla \\cdot \\vec{\\mathbf{B}} &= 0
 \\end{align}
-\$\$
+$$
 
 ## 流程图 (Mermaid)
 \`\`\`mermaid
 graph TD
-    A[开始] --> B{是否登录?}
-    B -->|是| C[显示主界面]
+    A[开始] --> B{用户是否登录?}
+    B -->|是| C[显示编辑器主界面]
     B -->|否| D[显示登录页面]
-    D --> E[用户输入凭据]
-    E --> F{验证成功?}
+    D --> E[用户输入账号密码]
+    E --> F{验证是否成功?}
     F -->|是| C
-    F -->|否| G[显示错误信息]
+    F -->|否| G[显示错误提示信息]
     G --> D
-    C --> H[结束]
+    C --> H[结束流程]
 \`\`\`
 
 ## 时序图
@@ -1027,13 +2399,13 @@ sequenceDiagram
     participant P as 预览器
     participant S as 服务器
 
-    U->>E: 输入 Markdown 文本
-    E->>P: 实时渲染
-    P->>U: 显示预览
-    U->>E: 点击导出
-    E->>S: 发送导出请求
-    S->>E: 返回导出文件
-    E->>U: 下载文件
+    U->>E: 输入 Markdown 文本内容
+    E->>P: 实时渲染 Markdown 为 HTML
+    P->>U: 展示渲染后的预览效果
+    U->>E: 点击「导出」按钮
+    E->>S: 发送导出请求（含文本内容）
+    S->>E: 返回导出后的文件（PDF/HTML/MD）
+    E->>U: 触发文件下载
 \`\`\`
 
 ## 分隔线
@@ -1041,72 +2413,71 @@ sequenceDiagram
 
 ## 特殊符号和 Emoji
 ### 常用符号
-- © 版权符号
-- ® 注册商标
-- ™ 商标符号
-- § 章节符号
-- ¶ 段落符号
+- © 版权符号 (Copyright)
+- ® 注册商标符号 (Registered Trademark)
+- ™ 商标符号 (Trademark)
+- § 章节符号 (Section)
+- ¶ 段落符号 (Paragraph)
 
 ### Emoji 表情
-- 😀 开心
-- 🚀 火箭
-- 💡 想法
-- ⭐ 星星
-- 🎉 庆祝
-- 📝 笔记
-- 💻 电脑
-- 🔧 工具
+- 😀 开心 | 🚀 火箭（进度/发布） | 💡 想法（灵感）
+- ⭐ 星星（收藏/重点） | 🎉 庆祝（完成/发布） | 📝 笔记（编辑）
+- 💻 电脑（开发/编程） | 🔧 工具（设置/配置） | ✅ 完成 | 🚧 开发中
 
 ## 脚注
-这是一个带脚注的文本[^1]，还有另一个脚注[^2]。
+这是一个带脚注的文本[^1]，适合补充说明不影响正文阅读的内容，还有另一个脚注[^2]。
 
-[^1]: 这是第一个脚注的内容
-[^2]: 这是第二个脚注的内容，可以包含更多详细信息
+[^1]: 这是第一个脚注的详细内容，可以包含多行文本、链接甚至简单格式
+[^2]: 这是第二个脚注的内容，脚注会自动出现在文档末尾，便于查阅
 
 ## 高亮文本
-==这是高亮文本==
+==这是高亮文本==（常用于重点标注、提醒注意的内容）  
+在编辑文档时，==关键信息、重要提示==都可以用高亮突出
 
 ## 键盘按键
-按 <kbd>Ctrl</kbd> + <kbd>S</kbd> 保存文档
-
-按 <kbd>Ctrl</kbd> + <kbd>C</kbd> 复制内容
+按 <kbd>Ctrl</kbd> + <kbd>S</kbd> 保存文档  
+按 <kbd>Ctrl</kbd> + <kbd>C</kbd> 复制选中内容  
+按 <kbd>Ctrl</kbd> + <kbd>Z</kbd> 撤销上一步操作  
+按 <kbd>Shift</kbd> + <kbd>Enter</kbd> 换行不换段
 
 ## 缩写
-HTML 是 *HyperText Markup Language* 的缩写
-
-CSS 是 *Cascading Style Sheets* 的缩写
+HTML 是 *HyperText Markup Language*（超文本标记语言）的缩写  
+CSS 是 *Cascading Style Sheets*（层叠样式表）的缩写  
+Markdown 本身没有官方缩写，是一种轻量级标记语言
 
 ## 定义列表
 Markdown
-:   一种轻量级标记语言
+:   一种轻量级标记语言，专注于易读易写，最终可转换为 HTML
+:   核心特点：语法简单、无格式干扰、跨平台兼容
 
 HTML
-:   超文本标记语言
-:   用于创建网页的标准标记语言
+:   超文本标记语言，用于创建网页的标准标记语言
+:   与 Markdown 的关系：Markdown 是 HTML 的简化版，最终渲染为 HTML
+
+CSS
+:   层叠样式表，用于描述 HTML 文档的呈现样式
+:   常与 Markdown 编辑器配合，美化渲染后的内容
 
 ## 总结
-这个 Markdown 文档展示了编辑器支持的各种功能：
-1. **文本格式化** - 粗体、斜体、删除线等
-2. **结构化内容** - 标题、列表、表格
-3. **媒体内容** - 链接、图片
-4. **代码展示** - 语法高亮的代码块
-5. **数学公式** - LaTeX 格式的数学表达式
-6. **图表绘制** - Mermaid 流程图和时序图
-7. **交互元素** - 任务列表、脚注
-8. **特殊格式** - 引用、分隔线、高亮
+这个 Markdown 文档全面展示了编辑器支持的核心功能，覆盖八大类场景：
+1. **文本格式化** - 粗体、斜体、删除线、行内代码等基础样式
+2. **结构化内容** - 标题、列表（无序/有序/任务）、表格、定义列表
+3. **媒体内容** - 普通链接、带标题链接、图片（带描述）
+4. **代码展示** - 多语言代码块、语法高亮、代码注释
+5. **数学公式** - 行内/块级 LaTeX 公式，支持复杂公式排版
+6. **图表绘制** - Mermaid 流程图、时序图（无需外部图片）
+7. **交互/补充元素** - 任务列表、脚注、键盘按键、缩写
+8. **特殊格式** - 引用（嵌套）、分隔线、高亮文本
 
 ---
 
-*最后更新时间：2025 年 1 月*
-
-**版权声明**：本文档仅用于功能展示，欢迎自由使用和修改。
+**版权声明**：本文档仅用于 Markdown 编辑器功能展示，无版权限制，欢迎自由使用、修改和分发。
 
 ---
 
-
-点击工具栏的"新建"按钮创建新文件，或从左侧文件树打开现有文件。
-
-开始编辑吧！`)
+### 编辑器使用提示
+点击工具栏的「新建」按钮创建新文件，或从左侧文件树打开现有文件。  
+开始编辑吧！体验 Markdown 带来的简洁高效写作方式 🚀`)
     }
   }, [])
 
@@ -1375,6 +2746,12 @@ HTML
 
   // 转换为微信公众号专属格式
   const convertToWechatFormat = async (html) => {
+    // 安全检查：确保 previewRef 可用
+    if (!previewRef.current) {
+      console.error('[微信导出] previewRef.current 不存在，返回原始 HTML')
+      return html
+    }
+    
     // 创建临时容器
     const container = document.createElement('div')
     container.innerHTML = html
@@ -1439,8 +2816,15 @@ HTML
       return `https://latex.codecogs.com/png.latex?\\dpi{${dpi}}\\bg_white ${encodedLatex}`
     }
     
-    // 从预览区获取数学公式元素
-    const previewMathElements = previewRef.current.querySelectorAll('.katex, .katex-display')
+    // 从预览区获取数学公式元素（安全检查）
+    let previewMathElements = []
+    try {
+      if (previewRef.current) {
+        previewMathElements = previewRef.current.querySelectorAll('.katex, .katex-display')
+      }
+    } catch (err) {
+      console.error('[微信导出] 获取预览区数学公式失败:', err)
+    }
     console.log(`[微信导出] 找到 ${previewMathElements.length} 个数学公式`)
     
     // 提取 LaTeX 代码
@@ -1743,6 +3127,32 @@ HTML
       </style>
     `
     
+    // 获取主题背景色并直接应用到最外层容器
+    try {
+      const themeStyleEl = document.querySelector('#export-config-styles')
+      if (themeStyleEl) {
+        const cssContent = themeStyleEl.textContent
+        // 提取 .markdown-body 的背景色
+        const bgColorMatch = cssContent.match(/\.markdown-body\s*\{[^}]*?background-color:\s*([^;!}]+)/s)
+        const bgImageMatch = cssContent.match(/\.markdown-body\s*\{[^}]*?background(?:-image)?:\s*([^;!}]+)/s)
+        const paddingMatch = cssContent.match(/\.markdown-body\s*\{[^}]*?padding:\s*([^;!}]+)/s)
+        
+        if (bgColorMatch || bgImageMatch) {
+          // 创建最外层 section 包裹，带上主题背景
+          const wrapper = document.createElement('section')
+          let wrapperStyle = 'padding: 24px 32px; max-width: 900px; margin: 0 auto; box-sizing: border-box;'
+          if (bgColorMatch) wrapperStyle += ` background-color: ${bgColorMatch[1].trim()};`
+          if (bgImageMatch && !bgColorMatch) wrapperStyle += ` background: ${bgImageMatch[1].trim()};`
+          if (paddingMatch) wrapperStyle = wrapperStyle.replace('padding: 24px 32px;', `padding: ${paddingMatch[1].trim()};`)
+          wrapper.setAttribute('style', wrapperStyle)
+          wrapper.innerHTML = container.innerHTML
+          return wechatStyles + wrapper.outerHTML
+        }
+      }
+    } catch(e) {
+      console.warn('[微信导出] 主题背景色提取失败:', e)
+    }
+
     // 返回处理后的 HTML
     return wechatStyles + container.innerHTML
   }
@@ -1775,10 +3185,24 @@ HTML
         setStatus('已复制微信公众号格式到剪贴板')
         setStatusType('success')
         showToast('已复制，可直接粘贴到公众号编辑器', 'success')
-        setTimeout(() => {
-          setStatus('就绪')
-          setStatusType('normal')
-        }, 3000)
+        const hasBgImageTheme = (() => {
+          const themeEl = document.querySelector('#export-config-styles')
+          if (!themeEl) return false
+          const css = themeEl.textContent || ''
+          return css.includes('background-image') || css.includes('linear-gradient') || css.includes('radial-gradient')
+        })()
+        if (hasBgImageTheme) {
+          setTimeout(() => {
+            setStatus('⚠️ 注意：当前主题的网格/渐变背景在微信中不支持，已自动降级为纯色背景')
+            setStatusType('error')
+            setTimeout(() => { setStatus('就绪'); setStatusType('normal') }, 5000)
+          }, 2000)
+        } else {
+          setTimeout(() => {
+            setStatus('就绪')
+            setStatusType('normal')
+          }, 3000)
+        }
       } else {
         setStatus('复制失败，请手动复制预览区内容')
         setStatusType('error')
@@ -1824,6 +3248,951 @@ HTML
     }
   }
 
+  // 生成导出用的完整样式
+  const generateExportStyles = useCallback(() => {
+    const effectiveThemeColor = exportConfig.themeColor || (editorTheme === 'dark' ? '#58a6ff' : '#0969da')
+    const effectiveHeadingColor = exportConfig.headingColor === 'theme' ? effectiveThemeColor : 'inherit'
+    const effectiveBorderColor = exportConfig.themeColor ? exportConfig.themeColor : '#d0d7de'
+    
+    // 代码主题背景色
+    const themeBackgrounds = {
+      'github': '#f6f8fa',
+      'github-dark': '#0d1117',
+      'vs': '#ffffff',
+      'vs2015': '#1e1e1e',
+      'dracula': '#282a36',
+      'atom-one-dark': '#282c34',
+      'solarized-light': '#fdf6e3',
+      'solarized-dark': '#002b36',
+      'nord': '#2e3440',
+      'monokai': '#272822',
+      'material': '#263238'
+    }
+    
+    const currentThemeBg = themeBackgrounds[exportConfig.codeTheme] || themeBackgrounds['github']
+    
+    // 获取主题样式
+    let themeStyles = ''
+    switch (exportConfig.theme) {
+      case 'custom':
+        // 自定义主题 - 替换 CSS 变量为实际的主题色
+        let customCSS = exportConfig.customCSS || ''
+        customCSS = customCSS
+          // 先处理伪类
+          .replace(/link:hover\s*\{/g, '.markdown-body a:hover {')
+          .replace(/link:active\s*\{/g, '.markdown-body a:active {')
+          .replace(/link:visited\s*\{/g, '.markdown-body a:visited {')
+          .replace(/link:focus\s*\{/g, '.markdown-body a:focus {')
+          // 然后处理普通选择器
+          .replace(/container\s*\{/g, '.markdown-body {')
+          .replace(/code_pre\s*\{/g, '.markdown-body pre {')
+          .replace(/codespan\s*\{/g, '.markdown-body code:not(pre code) {')
+          .replace(/image\s*\{/g, '.markdown-body img {')
+          .replace(/strong\s*\{/g, '.markdown-body strong, .markdown-body b {')
+          .replace(/link\s*\{/g, '.markdown-body a {')
+          .replace(/code\s*\{/g, '.markdown-body pre code {')
+          .replace(/blockquote\s*\{/g, '.markdown-body blockquote {')
+          .replace(/\bh1\s*\{/g, '.markdown-body h1 {')
+          .replace(/\bh2\s*\{/g, '.markdown-body h2 {')
+          .replace(/\bh3\s*\{/g, '.markdown-body h3 {')
+          .replace(/\bh4\s*\{/g, '.markdown-body h4 {')
+          .replace(/\bh5\s*\{/g, '.markdown-body h5 {')
+          .replace(/\bh6\s*\{/g, '.markdown-body h6 {')
+          .replace(/\bhr\s*\{/g, '.markdown-body hr {')
+          .replace(/\bol\s*\{/g, '.markdown-body ol {')
+          .replace(/\bul\s*\{/g, '.markdown-body ul {')
+          .replace(/\bli\s*\{/g, '.markdown-body li {')
+          .replace(/\bp\s*\{/g, '.markdown-body p {')
+          .replace(/var\(--md-primary-color\)/g, effectiveThemeColor)
+          .replace(/var\(--blockquote-background\)/g, editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)')
+        themeStyles = sandboxCSS(customCSS)
+        break
+        
+      case 'classic':
+        // 经典主题：传统的文档样式
+        themeStyles = `
+      /* 经典主题 */
+      .markdown-body {
+        max-width: 800px !important;
+        padding: 40px !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2.5em !important;
+        font-weight: 700 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0.5em !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        border-bottom: none !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 2em !important;
+        font-weight: 600 !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.5em !important;
+        background: ${editorTheme === 'dark' ? 'rgba(102, 126, 234, 0.1)' : 'rgba(102, 126, 234, 0.08)'} !important;
+        padding: 0.5em 1em !important;
+        border-radius: 8px !important;
+        border-left: 4px solid ${effectiveThemeColor} !important;
+        border-bottom: none !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        margin-top: 1.2em !important;
+        margin-bottom: 0.5em !important;
+        color: ${effectiveThemeColor} !important;
+        border-bottom: 2px dashed ${effectiveBorderColor} !important;
+        padding-bottom: 0.3em !important;
+      }
+      
+      .markdown-body p {
+        margin-bottom: 1em !important;
+        line-height: 1.8 !important;
+      }
+      
+      .markdown-body blockquote {
+        border-left: 4px solid ${effectiveBorderColor} !important;
+        padding-left: 1em !important;
+        margin: 1em 0 !important;
+        color: #666 !important;
+        font-style: italic !important;
+        background: ${editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)'} !important;
+        padding: 1em !important;
+        border-radius: 4px !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background: ${editorTheme === 'dark' ? '#2d333b' : '#f6f8fa'} !important;
+        padding: 0.2em 0.4em !important;
+        border-radius: 4px !important;
+        border: 1px solid ${effectiveBorderColor} !important;
+      }
+        `
+        break
+        
+      case 'elegant':
+        // 优雅主题：更精致的排版
+        themeStyles = `
+      /* 优雅主题 */
+      .markdown-body {
+        max-width: 750px !important;
+        padding: 60px !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2.8em !important;
+        font-weight: 300 !important;
+        letter-spacing: -0.02em !important;
+        margin-top: 0 !important;
+        margin-bottom: 0.8em !important;
+        text-align: center !important;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        padding: 0.5em 0 !important;
+        border-bottom: 1px solid ${effectiveBorderColor} !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 1.8em !important;
+        font-weight: 400 !important;
+        letter-spacing: -0.01em !important;
+        margin-top: 2em !important;
+        margin-bottom: 0.8em !important;
+        background: ${editorTheme === 'dark' ? 'rgba(245, 87, 108, 0.1)' : 'rgba(245, 87, 108, 0.08)'} !important;
+        padding: 0.6em 1.2em !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+        border-bottom: none !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.4em !important;
+        font-weight: 500 !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.6em !important;
+        color: ${effectiveThemeColor} !important;
+        padding-left: 1em !important;
+        border-left: 3px solid ${effectiveThemeColor} !important;
+      }
+      
+      .markdown-body p {
+        margin-bottom: 1.2em !important;
+        line-height: 2 !important;
+        text-align: justify !important;
+      }
+      
+      .markdown-body p:first-letter {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        color: ${effectiveThemeColor} !important;
+      }
+      
+      .markdown-body blockquote {
+        border-left: none !important;
+        padding: 1.5em 2em !important;
+        margin: 1.5em 0 !important;
+        background: linear-gradient(135deg, ${editorTheme === 'dark' ? 'rgba(245, 87, 108, 0.1)' : 'rgba(245, 87, 108, 0.05)'} 0%, ${editorTheme === 'dark' ? 'rgba(240, 147, 251, 0.1)' : 'rgba(240, 147, 251, 0.05)'} 100%) !important;
+        border-radius: 12px !important;
+        font-style: italic !important;
+        position: relative !important;
+        box-shadow: 0 2px 12px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+      }
+      
+      .markdown-body blockquote::before {
+        content: '"' !important;
+        font-size: 4em !important;
+        position: absolute !important;
+        left: 0.2em !important;
+        top: -0.1em !important;
+        color: ${effectiveThemeColor} !important;
+        opacity: 0.3 !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background: linear-gradient(135deg, ${editorTheme === 'dark' ? 'rgba(245, 87, 108, 0.15)' : 'rgba(245, 87, 108, 0.1)'} 0%, ${editorTheme === 'dark' ? 'rgba(240, 147, 251, 0.15)' : 'rgba(240, 147, 251, 0.1)'} 100%) !important;
+        padding: 0.2em 0.6em !important;
+        border-radius: 6px !important;
+        font-weight: 500 !important;
+      }
+        `
+        break
+        
+      case 'simple':
+        // 简洁主题：极简风格
+        themeStyles = `
+      /* 简洁主题 */
+      .markdown-body {
+        max-width: 680px !important;
+        padding: 30px !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2em !important;
+        font-weight: 700 !important;
+        margin-top: 0 !important;
+        margin-bottom: 1em !important;
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+        background: ${editorTheme === 'dark' ? 'rgba(88, 166, 255, 0.1)' : 'rgba(9, 105, 218, 0.08)'} !important;
+        padding: 0.5em 0.8em !important;
+        border-radius: 6px !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 1.6em !important;
+        font-weight: 600 !important;
+        margin-top: 2em !important;
+        margin-bottom: 0.8em !important;
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+        background: linear-gradient(90deg, ${effectiveThemeColor} 0%, ${effectiveThemeColor} 4px, transparent 4px) !important;
+        padding-left: 1em !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.3em !important;
+        font-weight: 600 !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.6em !important;
+        color: ${effectiveThemeColor} !important;
+      }
+      
+      .markdown-body p {
+        margin-bottom: 1em !important;
+        line-height: 1.7 !important;
+      }
+      
+      .markdown-body blockquote {
+        border-left: 2px solid ${effectiveBorderColor} !important;
+        padding-left: 1em !important;
+        margin: 1em 0 !important;
+        color: #888 !important;
+      }
+      
+      .markdown-body ul,
+      .markdown-body ol {
+        padding-left: 1.5em !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background: ${editorTheme === 'dark' ? '#2d333b' : '#f6f8fa'} !important;
+        padding: 0.2em 0.4em !important;
+        border-radius: 3px !important;
+        font-size: 0.9em !important;
+      }
+        `
+        break
+        
+      case 'gradient':
+        // 网格背景主题
+        themeStyles = `
+      .markdown-body {
+        max-width: 800px !important;
+        padding: 40px !important;
+        background-color: ${editorTheme === 'dark' ? '#1a1b26' : '#f8f9fa'} !important;
+        background-image: 
+          linear-gradient(${editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'} 1px, transparent 1px),
+          linear-gradient(90deg, ${editorTheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'} 1px, transparent 1px) !important;
+        background-size: 20px 20px !important;
+        background-position: 0 0 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 24px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.1)'} !important;
+        position: relative !important;
+      }
+      
+      .markdown-body::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background: radial-gradient(circle at 20% 30%, ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.08)'} 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, ${editorTheme === 'dark' ? 'rgba(236, 72, 153, 0.15)' : 'rgba(236, 72, 153, 0.08)'} 0%, transparent 50%) !important;
+        border-radius: 16px !important;
+        pointer-events: none !important;
+        z-index: 0 !important;
+      }
+      
+      .markdown-body > * {
+        position: relative !important;
+        z-index: 1 !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2.5em !important;
+        font-weight: 700 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0.8em !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 2em !important;
+        font-weight: 600 !important;
+        margin-top: 2em !important;
+        margin-bottom: 0.8em !important;
+        background: ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'} !important;
+        padding: 0.5em 1em !important;
+        border-radius: 12px !important;
+        border-left: 4px solid ${effectiveThemeColor} !important;
+        border-bottom: none !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        margin-top: 1.5em !important;
+        margin-bottom: 0.6em !important;
+        color: ${effectiveThemeColor} !important;
+      }
+      
+      .markdown-body p {
+        margin-bottom: 1.2em !important;
+        line-height: 1.8 !important;
+      }
+      
+      .markdown-body blockquote {
+        border-left: 4px solid ${effectiveThemeColor} !important;
+        padding: 1.5em 2em !important;
+        margin: 1.5em 0 !important;
+        background: ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)'} !important;
+        border-radius: 12px !important;
+        font-style: italic !important;
+        box-shadow: 0 2px 12px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background: ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.15)'} !important;
+        padding: 0.2em 0.6em !important;
+        border-radius: 6px !important;
+        font-weight: 500 !important;
+        border: 1px solid ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.2)'} !important;
+      }
+      
+      .markdown-body pre {
+        background: ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.6)'} !important;
+        border-radius: 12px !important;
+        border: 1px solid ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'} !important;
+        box-shadow: 0 2px 12px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+      }
+        `
+        break
+        
+      case 'morandi':
+        // 莫兰迪色系主题
+        themeStyles = `
+      .markdown-body {
+        color: #5c5c5c !important;
+        background-color: #f9f7f5 !important;
+        padding: 24px 32px !important;
+        max-width: 900px !important;
+        margin: 0 auto !important;
+        border-radius: 12px !important;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.03) !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 32px !important;
+        font-weight: 600;
+        color: #ffffff !important;
+        background: linear-gradient(90deg, #9f86c0, #be95c4) !important;
+        border-radius: 10px !important;
+        padding: 14px 20px 10px !important;
+        margin: 40px 0 20px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        border: none !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 28px !important;
+        font-weight: 600;
+        color: #ffffff !important;
+        background: linear-gradient(90deg, #82c0cc, #9fd8df) !important;
+        border-radius: 8px !important;
+        padding: 12px 18px 8px !important;
+        margin: 36px 0 18px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        border: none !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 24px !important;
+        font-weight: 600;
+        color: #6a6a6a !important;
+        background: rgba(202, 186, 161, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 10px 16px !important;
+        margin: 32px 0 16px !important;
+        border-left: 4px solid #cabb9f !important;
+      }
+      
+      .markdown-body h4 {
+        font-size: 20px !important;
+        font-weight: 600;
+        color: #6a6a6a !important;
+        background: rgba(168, 218, 220, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 8px 14px !important;
+        margin: 28px 0 14px !important;
+        border-left: 4px solid #a8dadc !important;
+      }
+      
+      .markdown-body h5 {
+        font-size: 18px !important;
+        font-weight: 600;
+        color: #6a6a6a !important;
+        background: rgba(221, 186, 198, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 8px 14px !important;
+        margin: 24px 0 12px !important;
+        border: 1px solid #ddbabc !important;
+        border-left: 4px solid #ddbabc !important;
+      }
+      
+      .markdown-body h6 {
+        font-size: 16px !important;
+        font-weight: 600;
+        color: #6a6a6a !important;
+        background: rgba(186, 200, 206, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 6px 12px !important;
+        margin: 20px 0 10px !important;
+      }
+      
+      .markdown-body p {
+        margin: 16px 0 !important;
+        text-align: justify !important;
+        color: #5c5c5c !important;
+      }
+      
+      .markdown-body strong,
+      .markdown-body b {
+        font-weight: 700;
+        color: #9f86c0 !important;
+      }
+      
+      .markdown-body a {
+        color: #82c0cc !important;
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+      }
+      
+      .markdown-body img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 10px !important;
+        margin: 20px 0 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+        border: 2px solid #e8e4e0 !important;
+      }
+      
+      .markdown-body blockquote {
+        background: rgba(190, 149, 196, 0.1) !important;
+        border-left: 4px solid #be95c4 !important;
+        padding: 16px 20px !important;
+        margin: 20px 0 !important;
+        border-radius: 8px !important;
+        color: #6a6a6a !important;
+        font-style: normal !important;
+      }
+      
+      .markdown-body hr {
+        border: none !important;
+        border-top: 1px solid #e8e4e0 !important;
+        margin: 32px 0 !important;
+      }
+      
+      .markdown-body ol {
+        padding-left: 24px;
+        margin: 16px 0 !important;
+        color: #82c0cc !important;
+      }
+      
+      .markdown-body ul {
+        padding-left: 24px;
+        margin: 16px 0 !important;
+        list-style-type: circle !important;
+        color: #a8dadc !important;
+      }
+      
+      .markdown-body li {
+        margin: 8px 0 !important;
+        line-height: 1.7 !important;
+        color: #5c5c5c !important;
+      }
+      
+      .markdown-body pre {
+        background-color: #f0eeec !important;
+        border-radius: 8px !important;
+        padding: 16px !important;
+        margin: 20px 0 !important;
+        overflow-x: auto;
+        border: 1px solid #e8e4e0 !important;
+      }
+      
+      .markdown-body pre code {
+        font-size: 14px !important;
+        color: #5c5c5c !important;
+        line-height: 1.6 !important;
+      }
+      
+      .markdown-body code:not(pre code) {
+        background-color: rgba(190, 149, 196, 0.1) !important;
+        color: #9f86c0 !important;
+        padding: 2px 6px !important;
+        border-radius: 4px !important;
+        font-size: 14px !important;
+        border: 1px solid #e8e4e0 !important;
+      }
+
+      /* 莫兰迪表格样式 */
+      .markdown-body table th,
+      .markdown-body table td {
+        border: 1px solid #e8e4e0 !important;
+        padding: 8px 12px !important;
+        color: #5c5c5c !important;
+        background-color: transparent !important;
+      }
+
+      .markdown-body table th {
+        background-color: rgba(159, 134, 192, 0.12) !important;
+        color: #6a6a6a !important;
+        font-weight: 600 !important;
+      }
+
+      .markdown-body table tr:nth-child(even) {
+        background-color: rgba(202, 186, 161, 0.08) !important;
+      }
+
+      .markdown-body table tr:nth-child(odd) {
+        background-color: #f9f7f5 !important;
+      }
+
+      /* 莫兰迪 Mermaid 图表样式 */
+      .mermaid {
+        background: rgba(249, 247, 245, 0.8) !important;
+        border: 1px solid #e8e4e0 !important;
+        border-radius: 8px !important;
+      }
+        `
+        break
+        
+      default:
+        // 默认主题 - 使用 github-markdown-css 的默认样式，只添加必要的覆盖
+        themeStyles = `
+      .markdown-body {
+        max-width: 980px !important;
+        padding: 45px !important;
+      }
+      
+      .markdown-body h1 {
+        font-size: 2em !important;
+        font-weight: 600 !important;
+        padding-bottom: 0.3em !important;
+        border-bottom: 1px solid ${effectiveBorderColor} !important;
+      }
+      
+      .markdown-body h2 {
+        font-size: 1.5em !important;
+        font-weight: 600 !important;
+        padding-bottom: 0.3em !important;
+        border-bottom: 1px solid ${effectiveBorderColor} !important;
+      }
+      
+      .markdown-body h3 {
+        font-size: 1.25em !important;
+        font-weight: 600 !important;
+      }
+      
+      .markdown-body h4 {
+        font-size: 1em !important;
+        font-weight: 600 !important;
+      }
+      
+      .markdown-body h5 {
+        font-size: 0.875em !important;
+        font-weight: 600 !important;
+      }
+      
+      .markdown-body h6 {
+        font-size: 0.85em !important;
+        font-weight: 600 !important;
+      }
+        `
+    }
+    
+    // 基础样式
+    const baseStyles = `
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: ${editorTheme === 'dark' ? '#0d1117' : '#ffffff'};
+      color: ${editorTheme === 'dark' ? '#c9d1d9' : '#24292f'};
+    }
+    .markdown-body {
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 45px;
+      font-family: ${exportConfig.fontFamily === 'serif' ? 'Georgia, serif' :
+                     exportConfig.fontFamily === 'monospace' ? 'Monaco, Consolas, monospace' :
+                     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'};
+      font-size: ${exportConfig.fontSize || '16px'};
+      line-height: ${exportConfig.lineHeight || 1.8};
+      text-align: ${exportConfig.textAlign || 'left'};
+    }
+    
+    ${themeStyles}
+    
+    /* 主题色覆盖样式 - 只在明确设置了主题色时应用，elementStyles 优先 */
+    ${exportConfig.themeColor ? `
+    ${['h1','h2','h3','h4','h5','h6'].filter(h => !elHasCustom(h)).length > 0 ? `
+    ${['h1','h2','h3','h4','h5','h6'].filter(h => !elHasCustom(h)).map(h => `.markdown-body ${h}`).join(',\n    ')} {
+      color: ${exportConfig.headingColor === 'theme' ? effectiveThemeColor : 'inherit'} !important;
+    }` : ''}
+    
+    ${!elHasCustom('h1') && !elCustomHasProp('h1','border') ? `
+    .markdown-body h1 { border-bottom-color: ${effectiveThemeColor} !important; }` : ''}
+    
+    ${!elHasCustom('h2') && !elCustomHasProp('h2','border') ? `
+    .markdown-body h2 { border-bottom-color: ${effectiveThemeColor} !important; border-left-color: ${effectiveThemeColor} !important; }` : ''}
+    
+    ${!elHasCustom('h3') && !elCustomHasProp('h3','border') ? `
+    .markdown-body h3 { border-left-color: ${effectiveThemeColor} !important; }` : ''}
+    
+    .markdown-body a {
+      color: ${exportConfig.elementStyles?.link?.color || effectiveThemeColor} !important;
+    }
+    
+    ${!elHasCustom('strong') ? `
+    .markdown-body strong, .markdown-body b {
+      color: ${effectiveThemeColor} !important;
+    }` : ''}
+    
+    ${!elHasCustom('blockquote') && !elCustomHasProp('blockquote','border') ? `
+    .markdown-body blockquote { border-left-color: ${effectiveThemeColor} !important; }` : ''}
+    ` : (exportConfig.theme !== 'custom' && exportConfig.theme === 'default') ? `
+    /* 只有 default 主题且未设置主题色时，才应用默认样式 */
+    ${['h1','h2','h3','h4','h5','h6'].filter(h => !elHasCustom(h)).length > 0 ? `
+    ${['h1','h2','h3','h4','h5','h6'].filter(h => !elHasCustom(h)).map(h => `.markdown-body ${h}`).join(',\n    ')} {
+      color: ${exportConfig.headingColor === 'theme' ? effectiveHeadingColor : 'inherit'} !important;
+    }` : ''}
+    
+    ${!elHasCustom('h1') && !elCustomHasProp('h1','border') ? `
+    .markdown-body h1 { border-bottom-color: ${effectiveBorderColor} !important; }` : ''}
+    
+    ${!elHasCustom('h2') && !elCustomHasProp('h2','border') ? `
+    .markdown-body h2 { border-bottom-color: ${effectiveBorderColor} !important; }` : ''}
+    
+    .markdown-body a {
+      color: ${exportConfig.elementStyles?.link?.color || effectiveThemeColor} !important;
+    }
+    ` : ''}
+    
+    .markdown-body p {
+      text-indent: ${exportConfig.paragraphIndent ? '2em' : '0'} !important;
+      text-align: ${exportConfig.paragraphJustify ? 'justify' : (exportConfig.textAlign || 'left')} !important;
+    }
+    
+    .markdown-body pre {
+      background: ${currentThemeBg} !important;
+      text-align: left !important;
+      direction: ltr !important;
+      unicode-bidi: normal !important;
+    }
+    
+    .markdown-body pre code {
+      text-align: left !important;
+      direction: ltr !important;
+      display: block !important;
+      unicode-bidi: normal !important;
+    }
+    
+    .markdown-body .hljs {
+      text-align: left !important;
+      direction: ltr !important;
+      display: block !important;
+      unicode-bidi: normal !important;
+    }
+    
+    .markdown-body pre code span,
+    .markdown-body .hljs span {
+      direction: ltr !important;
+      unicode-bidi: normal !important;
+    }
+    
+    /* 强制所有代码块内容左对齐 */
+    .markdown-body pre *,
+    .markdown-body pre code *,
+    .markdown-body .hljs * {
+      text-align: left !important;
+      direction: ltr !important;
+    }
+    
+    ${exportConfig.macCodeBlock ? `
+    .markdown-body pre {
+      position: relative;
+      padding-top: 30px !important;
+      border-radius: 8px !important;
+    }
+    
+    .markdown-body pre::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ff5f56;
+      box-shadow: 20px 0 0 #ffbd2e, 40px 0 0 #27c93f;
+    }
+    ` : ''}
+    
+    /* 图注样式 */
+    .markdown-body figure.image-figure {
+      display: block;
+      text-align: center;
+      margin: 1em 0;
+    }
+    
+    .markdown-body figure.image-figure img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+    
+    .markdown-body figure.image-figure figcaption {
+      margin-top: 0.5em;
+      font-size: 0.85em;
+      color: #6c757d;
+      text-align: center;
+      font-style: italic;
+      line-height: 1.4;
+    }
+    
+    @media (max-width: 767px) {
+      .markdown-body {
+        padding: 15px;
+      }
+    }
+    `
+    
+    return baseStyles
+  }, [exportConfig, editorTheme])
+
+  // PNG 快捷导出：直接在当前页面截图并下载
+  const exportAsPNG = useCallback(async (fileName) => {
+    const el = document.querySelector('.markdown-body')
+    if (!el) { showToast('找不到预览区', 'error'); return }
+    showToast('正在生成图片...', 'info', 5000)
+    // 用右上角 Toast 通知代替状态栏
+    const previewPane = el.closest('.preview-pane') || el.parentElement
+    const savedScrollTop = previewPane ? previewPane.scrollTop : 0
+    const savedScrollLeft = previewPane ? previewPane.scrollLeft : 0
+    if (previewPane) { previewPane.scrollTop = 0; previewPane.scrollLeft = 0 }
+    const inlineStyleMap = new Map()
+    const imgOrigSrcs = new Map()
+
+    // 临时将 app 容器切换为 theme-light，让 CSS 自然渲染亮色模式
+    // 这是解决暗黑模式下截图白底浅字问题的根本方案
+    const appEl = el.closest('.app') || document.querySelector('.app')
+    const wasThemeDark = appEl && appEl.classList.contains('theme-dark')
+
+    // 判断当前主题是否配置了背景色
+    // 有背景色的主题：切换到 theme-light（让背景色正确渲染）
+    // 无背景色的主题：在暗黑模式下保持 theme-dark（保留暗色风格）
+    const themesWithBg = ['gradient', 'morandi']
+    const builtinHasBg = themesWithBg.includes(exportConfig.theme)
+    const customHasBg = exportConfig.theme === 'custom' &&
+      /background(?:-color)?\s*:/.test(exportConfig.customCSS || '')
+    const themeHasBg = builtinHasBg || customHasBg
+
+    if (wasThemeDark && themeHasBg) {
+      appEl.classList.remove('theme-dark')
+      appEl.classList.add('theme-light')
+    }
+
+    // 少量必要的内联样式覆盖（处理不受 theme class 控制的样式）
+    const styleRules = [
+      { el, styles: { padding: '40px 48px' } },
+      ...Array.from(el.querySelectorAll('.sr-only, [class*="sr-only"]')).map(node => ({ el: node, styles: { position: 'static', width: 'auto', height: 'auto', overflow: 'visible', clip: 'auto', whiteSpace: 'normal', fontSize: '1.2em', fontWeight: '600', marginBottom: '0.5em' } })),
+    ]
+    styleRules.forEach(({ el: node, styles }) => {
+      const saved = {}
+      Object.keys(styles).forEach(prop => { saved[prop] = node.style[prop]; node.style[prop] = styles[prop] })
+      inlineStyleMap.set(node, saved)
+    })
+    const macDots = []
+    if (exportConfig && exportConfig.macCodeBlock) {
+      Array.from(el.querySelectorAll('pre')).forEach(pre => {
+        const wrap = document.createElement('span')
+        wrap.style.cssText = 'position:absolute;top:10px;left:12px;display:flex;gap:8px;pointer-events:none;z-index:10;'
+        ;['#ff5f56', '#ffbd2e', '#27c93f'].forEach(color => {
+          const dot = document.createElement('span')
+          dot.style.cssText = `display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};`
+          wrap.appendChild(dot)
+        })
+        pre.appendChild(wrap)
+        macDots.push(wrap)
+      })
+    }
+    try {
+      await new Promise(resolve => setTimeout(resolve, 50))
+      const imgEls = Array.from(el.querySelectorAll('img'))
+      await Promise.all(imgEls.map(async (img) => {
+        const src = img.getAttribute('src')
+        if (!src || src.startsWith('data:')) return
+        // 同源相对路径直接 fetch（无 CORS 问题），局域网绝对地址走代理
+        const isRelative = src.startsWith('/')
+        const isSameOrigin = src.startsWith(window.location.origin)
+        const isLocalAbsolute = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(src)
+        try {
+          let fetchUrl
+          if (isRelative || isSameOrigin) {
+            fetchUrl = src
+          } else if (isLocalAbsolute) {
+            fetchUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`
+          } else {
+            fetchUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`
+          }
+          const resp = await fetch(fetchUrl)
+          if (resp.ok) {
+            const blob = await resp.blob()
+            const base64 = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob) })
+            imgOrigSrcs.set(img, src); img.src = base64
+          }
+        } catch (e) { console.warn('[PNG导出] 图片获取失败:', src, e) }
+      }))
+      // 渲染中
+      const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, allowTaint: false, logging: false, imageTimeout: 15000, removeContainer: true, foreignObjectRendering: false })
+      // 保存中
+      canvas.toBlob((blob) => {
+        if (!blob) { showToast('生成图片失败', 'error'); return }
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = `${fileName}.png`
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        showToast('PNG 导出成功', 'success')
+      }, 'image/png')
+    } catch (err) {
+      showToast('PNG 导出失败: ' + err.message, 'error')
+      console.error('[PNG导出] 错误:', err)
+    } finally {
+      inlineStyleMap.forEach((saved, node) => { Object.keys(saved).forEach(prop => { node.style[prop] = saved[prop] }) })
+      // 恢复暗黑模式 theme class
+      if (wasThemeDark && themeHasBg && appEl) {
+        appEl.classList.remove('theme-light')
+        appEl.classList.add('theme-dark')
+      }
+      imgOrigSrcs.forEach((src, img) => { img.src = src })
+      macDots.forEach(dot => dot.parentNode && dot.parentNode.removeChild(dot))
+      if (previewPane) { previewPane.scrollTop = savedScrollTop; previewPane.scrollLeft = savedScrollLeft }
+    }
+  }, [exportConfig])
+
+  const inlineImagesInHtml = useCallback(async (html) => {
+    const container = document.createElement('div')
+    container.innerHTML = html
+
+    const images = Array.from(container.querySelectorAll('img'))
+
+    await Promise.all(
+      images.map(async (img) => {
+        const src = img.getAttribute('src')
+        if (!src || src.startsWith('data:')) return
+
+        const isRelative = src.startsWith('/')
+        const isSameOrigin = src.startsWith(window.location.origin)
+        const isLocalAbsolute = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/i.test(src)
+
+        if (!isRelative && !isSameOrigin && !isLocalAbsolute) return
+
+        try {
+          let fetchUrl
+          if (isRelative || isSameOrigin) {
+            fetchUrl = src
+          } else {
+            fetchUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`
+          }
+
+          const resp = await fetch(fetchUrl)
+          if (!resp.ok) return
+
+          const blob = await resp.blob()
+          const base64 = await new Promise((resolve) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result)
+            reader.readAsDataURL(blob)
+          })
+
+          img.setAttribute('src', base64)
+        } catch (e) {
+          console.warn('[HTML导出] 图片转 base64 失败:', src, e)
+        }
+      })
+    )
+
+    return container.innerHTML
+  }, [])
+
   const handleExport = useCallback(async (format) => {
     if (!format) {
       // 如果没有指定格式，打开导出对话框让用户选择
@@ -1853,16 +4222,30 @@ HTML
     try {
       switch (format) {
         case 'html':
-        case 'html-plain':
-          // HTML 导出
+        case 'html-plain': {
+          // HTML 导出 — 与对话框 exportAsHTML 使用完全相同的逻辑
           const includeCSS = format !== 'html-plain'
+          const exportConfigStyleEl = includeCSS ? document.getElementById('export-config-styles') : null
+          const exportStyles = exportConfigStyleEl ? exportConfigStyleEl.textContent : ''
+          const codeThemeEl = document.getElementById('code-theme-style')
+          const codeThemeUrl = codeThemeEl ? codeThemeEl.href : ''
+
+          const rawHtml = previewRef.current?.innerHTML || ''
+          if (!rawHtml || rawHtml.trim() === '') {
+            showToast('导出失败：预览内容为空，请先渲染文档', 'error')
+            break
+          }
+
+          const inlinedHtml = await inlineImagesInHtml(rawHtml)
+
           const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${fileName}</title>
-  ${includeCSS ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  ${includeCSS ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-${editorTheme === 'dark' ? 'dark' : 'light'}.min.css">
+  ${codeThemeUrl ? `<link rel="stylesheet" href="${codeThemeUrl}">` : ''}
   <script>
     window.MathJax = {
       tex: {
@@ -1892,14 +4275,21 @@ HTML
         padding: 15px;
       }
     }
-  </style>` : ''}
+    /* 导出配置的主题样式 */
+    ${exportStyles}
+    /* 强制注脚返回箭头 ↩ 显示为文本而非 emoji */
+    .markdown-body .data-footnote-backref { font-family: monospace; font-variant-emoji: text; }
+    .markdown-body .footnotes .data-footnote-backref g-emoji { font-family: monospace; font-variant-emoji: text; }
+  </style>` : `<!-- 无样式导出：仅引入 KaTeX CSS 保证数学公式正确显示 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">`}
 </head>
 <body>
   <div class="markdown-body">
-    ${previewRef.current?.innerHTML || ''}
+    ${inlinedHtml}
   </div>
 </body>
 </html>`
+
           const htmlBlob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
           const htmlUrl = URL.createObjectURL(htmlBlob)
           const htmlLink = document.createElement('a')
@@ -1911,6 +4301,7 @@ HTML
           URL.revokeObjectURL(htmlUrl)
           setStatus('已导出为 HTML')
           break
+        }
 
         case 'md':
           // Markdown 导出
@@ -1959,10 +4350,28 @@ HTML
                 setStatus('已复制微信公众号格式到剪贴板')
                 setStatusType('success')
                 showToast('已复制，可直接粘贴到公众号编辑器', 'success')
-                setTimeout(() => {
-                  setStatus('就绪')
-                  setStatusType('normal')
-                }, 3000)
+                // 检测当前主题是否含有微信不支持的背景效果
+                const hasBgImageTheme = (() => {
+                  const themeEl = document.querySelector('#export-config-styles')
+                  if (!themeEl) return false
+                  const css = themeEl.textContent || ''
+                  return css.includes('background-image') || css.includes('linear-gradient') || css.includes('radial-gradient') || css.includes('repeating-linear-gradient')
+                })()
+                if (hasBgImageTheme) {
+                  setTimeout(() => {
+                    setStatus('⚠️ 注意：当前主题的网格/渐变背景在微信中不支持，已自动降级为纯色背景')
+                    setStatusType('error')
+                    setTimeout(() => {
+                      setStatus('就绪')
+                      setStatusType('normal')
+                    }, 5000)
+                  }, 2000)
+                } else {
+                  setTimeout(() => {
+                    setStatus('就绪')
+                    setStatusType('normal')
+                  }, 3000)
+                }
               }).catch((error) => {
                 console.error('Clipboard.write 失败:', error)
                 console.error('错误详情:', error.message, error.stack)
@@ -1979,10 +4388,23 @@ HTML
           }
           break
 
-        case 'pdf':
+        case 'pdf': {
+          const pdfCfgEl = document.getElementById('export-config-styles')
+          const pdfStyles = pdfCfgEl ? pdfCfgEl.textContent : ''
+          const pdfCodeEl = document.getElementById('code-theme-style')
+          const pdfCodeHref = pdfCodeEl ? pdfCodeEl.href : ''
+          const pdfHtml = previewRef.current?.innerHTML || ''
+          if (!pdfHtml.trim()) { setStatus('导出失败：预览内容为空'); break }
+          const pdfWin = window.open('', '_blank')
+          if (!pdfWin) { setStatus('无法打开打印窗口'); break }
+          pdfWin.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + fileName + '</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">' + (pdfCodeHref ? '<link rel="stylesheet" href="' + pdfCodeHref + '">' : '') + '<style>@media print{*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}body{margin:0;padding:20px;background:#fff;}.markdown-body{box-sizing:border-box;max-width:980px;margin:0 auto;padding:45px;}' + pdfStyles + '</style></head><body><div class="markdown-body">' + pdfHtml + '</div><script>window.onload=function(){var l=Array.from(document.querySelectorAll("link[rel=stylesheet]"));var n=0;function d(){n++;if(n>=l.length)setTimeout(function(){window.print();setTimeout(function(){window.close();},100);},300);}if(!l.length){window.print();setTimeout(function(){window.close();},100);}else l.forEach(function(x){if(x.sheet)d();else{x.addEventListener("load",d);x.addEventListener("error",d);}});};<\/script></body></html>')
+          pdfWin.document.close()
+          setStatus('PDF 导出窗口已打开，请选择另存为 PDF')
+          break
+        }
+
         case 'png':
-          // PDF 和 PNG 需要更多选项，打开导出对话框
-          setShowExportDialog(true)
+          exportAsPNG(fileName)
           break
 
         default:
@@ -1993,14 +4415,14 @@ HTML
       setStatusType('error')
       console.error('Export error:', error)
     }
-  }, [content, currentPath]) // 依赖 content 和 currentPath
+  }, [content, currentPath, generateExportStyles, exportConfig, editorTheme, previewRef])
 
   const handleSettings = useCallback(() => {
     setShowSettingsDialog(true)
   }, [])
 
-  // 应用图注格式到 HTML
-  const applyImageCaptionFormat = (html, format) => {
+  // 应用图注格式到 HTML（新版本：生成固定结构，通过 CSS 控制显示）
+  const applyImageCaptionFormat = (html) => {
     // 匹配 <img> 标签，提取 src, alt, title, style 属性
     const imgRegex = /<img([^>]*?)>/g
     
@@ -2016,63 +4438,128 @@ HTML
       const title = titleMatch ? titleMatch[1] : ''
       const style = styleMatch ? styleMatch[1] : ''
       
-      // 调试日志
-      if (style) {
-        console.log('[图注格式] 提取到图片样式:', { src: src.substring(0, 50), style })
-      }
-      
-      
-      // 根据格式设置决定显示什么
-      let caption = ''
-      
-      switch (format) {
-        case 'title-first':
-          // title 优先：显示 alt 文本作为图注
-          caption = alt
-          break
-        case 'alt-first':
-          // alt 优先：优先显示 title，如果没有则显示 alt
-          caption = title || alt
-          break
-        case 'title-only':
-          // 只显示 title：仅显示 alt 文本
-          caption = alt
-          break
-        case 'alt-only':
-          // 只显示 alt：仅显示 alt 属性
-          caption = alt
-          break
-        case 'no-caption':
-          // 不显示图注
-          caption = ''
-          break
-        default:
-          caption = alt
-      }
-      
-      // 如果有图注，包装成 figure 元素
-      if (caption) {
-        return `<figure class="image-figure">
-          <img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}${style ? ` style="${style}"` : ''}>
-          <figcaption class="image-caption">${caption}</figcaption>
-        </figure>`
-      } else {
-        // 没有图注，包装成 figure 元素但不显示 figcaption，并添加居中样式
-        return `<figure class="image-figure image-figure-no-caption">
-          <img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}${style ? ` style="${style}"` : ''}>
-        </figure>`
-      }
+      // 生成固定的 figure 结构，通过 data 属性传递信息
+      // CSS 会根据 #output 的 data-caption-format 属性来控制显示
+      return `<figure class="image-figure" data-alt="${alt}" data-title="${title}">
+        <img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''}${style ? ` style="${style}"` : ''}>
+        <figcaption class="image-caption"></figcaption>
+      </figure>`
     })
   }
 
-  const renderMarkdown = useCallback(async () => {
+  // 外链转脚注功能（新版本：生成固定结构，通过 CSS 控制显示）
+  const convertLinksToFootnotes = (html) => {
+    const footnotes = []
+    let footnoteIndex = 1
+
+    // 匹配所有外部链接，添加 class 和 data 属性
+    const processedHtml = html.replace(/<a\s+href="(https?:\/\/[^"]+)"[^>]*>([^<]+)<\/a>/g, (match, url, text) => {
+      // 添加到脚注列表
+      footnotes.push({ index: footnoteIndex, url, text })
+      const result = `<a href="${url}" class="external-link" data-footnote-index="${footnoteIndex}" target="_blank" rel="noopener noreferrer">${text}</a>`
+      footnoteIndex++
+      return result
+    })
+
+    // 始终添加脚注区域（通过 CSS 控制显示/隐藏）
+    const footnotesHtml = footnotes.length > 0 ? `
+      <div class="footnotes-section">
+        <hr>
+        <h3>参考资料:</h3>
+        <ol class="footnotes-list">
+          ${footnotes.map(fn => `<li id="fn-${fn.index}">${fn.text}: <a href="${fn.url}" target="_blank" rel="noopener noreferrer">${fn.url}</a></li>`).join('\n')}
+        </ol>
+      </div>
+    ` : ''
+
+    return processedHtml + footnotesHtml
+  }
+
+  // DOM diff 更新函数：智能更新预览区，避免不必要的 DOM 重建
+  const updatePreviewDOM = useCallback((container, newHTML, mermaidCache) => {
+    // 保存滚动位置
+    const scrollTop = container.scrollTop
+    
+    // 保存当前所有 Mermaid 节点的状态
+    const existingMermaidNodes = new Map()
+    container.querySelectorAll('.mermaid[data-rendered-code]').forEach(node => {
+      const code = node.getAttribute('data-rendered-code')
+      const id = node.id
+      if (code && id) {
+        existingMermaidNodes.set(id, {
+          code,
+          element: node.cloneNode(true)
+        })
+      }
+    })
+    
+    // 更新 HTML（使用 requestAnimationFrame 减少抖动）
+    requestAnimationFrame(() => {
+      container.innerHTML = newHTML
+      
+      // 恢复未变化的 Mermaid 节点
+      container.querySelectorAll('.mermaid').forEach(node => {
+        const encodedCode = node.getAttribute('data-code')
+        const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
+        const id = node.id
+        
+        // 检查是否有缓存的节点
+        if (existingMermaidNodes.has(id)) {
+          const cached = existingMermaidNodes.get(id)
+          // 如果代码未变化，使用缓存的节点
+          if (cached.code === code) {
+            node.innerHTML = cached.element.innerHTML
+            node.setAttribute('data-rendered-code', code)
+            console.log(`恢复缓存的 Mermaid 节点: ${id}`)
+          }
+        }
+      })
+      
+      // 恢复滚动位置
+      if (scrollTop > 0) {
+        requestAnimationFrame(() => {
+          container.scrollTop = scrollTop
+        })
+      }
+    })
+  }, [])
+  
+  // 后处理 HTML：应用固定结构（不依赖配置）
+  const postProcessHtml = useCallback((html) => {
+    let processedHtml = html
+    
+    // 应用图注格式（生成固定结构）
+    processedHtml = applyImageCaptionFormat(processedHtml)
+    
+    // 应用外链转脚注（生成固定结构）
+    processedHtml = convertLinksToFootnotes(processedHtml)
+    
+    return processedHtml
+  }, [])
+
+  const renderMarkdown = useCallback(async (contentToRender) => {
     if (!previewRef.current) return
 
     const startTime = performance.now() // 性能监控
 
     try {
+      // 保存滚动位置和 Mermaid 缓存
+      const scrollTop = previewRef.current.scrollTop
+      const renderedMermaidCache = new Map()
+      
+      if (previewRef.current) {
+        const existingMermaidNodes = previewRef.current.querySelectorAll('.mermaid[data-rendered-code]')
+        existingMermaidNodes.forEach(node => {
+          const code = node.getAttribute('data-rendered-code')
+          const svg = node.querySelector('svg')
+          if (code && svg) {
+            renderedMermaidCache.set(code, svg.outerHTML)
+          }
+        })
+      }
+      
       // 大文件优化：检测文件大小
-      const contentSize = new Blob([content]).size
+      const contentSize = new Blob([contentToRender]).size
       const isLargeFile = contentSize > 1024 * 1024 // 1MB
       
       if (isLargeFile) {
@@ -2084,23 +4571,19 @@ HTML
       }
       
       // 预处理：将 ==高亮== 转换为 <mark>高亮</mark>
-      let processedContent = content.replace(/==([^=\n]+)==/g, '<mark>$1</mark>')
+      let processedContent = contentToRender.replace(/==([^=\n]+)==/g, '<mark>$1</mark>')
       
       // 使用缓存的 unified 处理器渲染 Markdown
       const file = await markdownProcessor.process(processedContent)
       let html = String(file)
 
-      // 根据图注格式设置处理图片标签
-      html = applyImageCaptionFormat(html, imageCaptionFormat)
-
-      
-      // 提取 Mermaid 代码块
+      // 提取 Mermaid 代码块及其内容
       const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
       let match
       let mermaidIndex = 0
       const mermaidBlocks = []
       
-      while ((match = mermaidRegex.exec(content)) !== null) {
+      while ((match = mermaidRegex.exec(contentToRender)) !== null) {
         const code = match[1]
         const id = `mermaid-${mermaidIndex++}`
         mermaidBlocks.push({ id, code })
@@ -2134,7 +4617,14 @@ HTML
         }
       )
 
-      previewRef.current.innerHTML = html
+      // 保存原始 HTML（未经后处理）
+      lastRenderedHtmlRef.current = html
+
+      // 应用后处理（图注格式、外链转脚注等）
+      html = postProcessHtml(html)
+
+      // 使用 DOM diff 更新，而不是直接替换 innerHTML
+      updatePreviewDOM(previewRef.current, html, renderedMermaidCache)
 
       // 恢复图片的 style 属性（因为 rehypeRaw 会过滤掉）
       // 从原始内容中提取图片的 style 属性
@@ -2196,33 +4686,45 @@ HTML
           const mermaidNodes = previewRef.current.querySelectorAll('.mermaid')
           console.log('Mermaid nodes found:', mermaidNodes.length)
           
-          // 逐个渲染 Mermaid 图表
+          // 逐个检查并渲染 Mermaid 图表（只渲染变化的）
           for (let i = 0; i < mermaidNodes.length; i++) {
             const node = mermaidNodes[i]
             const encodedCode = node.getAttribute('data-code')
             const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
             const id = node.id || `mermaid-${i}`
             
-            console.log(`Rendering node ${i}:`, code.substring(0, 50))
-            
-            try {
-              const { svg } = await mermaid.render(id + '-svg', code)
-              node.innerHTML = svg
-            } catch (err) {
-              console.error(`Failed to render mermaid ${i}:`, err)
+            // 检查缓存中是否有已渲染的版本
+            if (renderedMermaidCache.has(code)) {
+              // 使用缓存的 SVG，避免重新渲染
+              const cachedSvg = renderedMermaidCache.get(code)
+              node.innerHTML = cachedSvg
+              node.setAttribute('data-rendered-code', code)
+              console.log(`Using cached Mermaid ${i}:`, code.substring(0, 30))
+            } else {
+              // 需要重新渲染
+              console.log(`Rendering new Mermaid ${i}:`, code.substring(0, 50))
               
-              // 检查是否是中文导致的错误
-              const hasChinese = /[\u4e00-\u9fa5]/.test(code)
-              let errorMsg = `Mermaid 渲染失败: ${err.message}`
-              
-              if (hasChinese && (code.includes('erDiagram') || code.includes('classDiagram'))) {
-                errorMsg += '\n\n💡 提示：erDiagram 和 classDiagram 对中文支持有限，建议：\n'
-                errorMsg += '1. 使用英文或拼音命名实体\n'
-                errorMsg += '2. 使用引号包裹中文标签，如: "用户"\n'
-                errorMsg += '3. 或改用 flowchart/graph 类型'
+              try {
+                const { svg } = await mermaid.render(id + '-svg', code)
+                node.innerHTML = svg
+                // 保存已渲染的代码，用于下次对比
+                node.setAttribute('data-rendered-code', code)
+              } catch (err) {
+                console.error(`Failed to render mermaid ${i}:`, err)
+                
+                // 检查是否是中文导致的错误
+                const hasChinese = /[\u4e00-\u9fa5]/.test(code)
+                let errorMsg = `Mermaid 渲染失败: ${err.message}`
+                
+                if (hasChinese && (code.includes('erDiagram') || code.includes('classDiagram'))) {
+                  errorMsg += '\n\n💡 提示：erDiagram 和 classDiagram 对中文支持有限，建议：\n'
+                  errorMsg += '1. 使用英文或拼音命名实体\n'
+                  errorMsg += '2. 使用引号包裹中文标签，如: "用户"\n'
+                  errorMsg += '3. 或改用 flowchart/graph 类型'
+                }
+                
+                node.innerHTML = `<pre style="color: #f85149; background: #161b22; padding: 16px; border-radius: 6px; border: 1px solid #30363d; white-space: pre-wrap;">${errorMsg}\n\n原始代码：\n${code}</pre>`
               }
-              
-              node.innerHTML = `<pre style="color: #f85149; background: #161b22; padding: 16px; border-radius: 6px; border: 1px solid #30363d; white-space: pre-wrap;">${errorMsg}\n\n原始代码：\n${code}</pre>`
             }
           }
           
@@ -2243,7 +4745,7 @@ HTML
     } catch (err) {
       const formattedError = handleError(err, {
         operation: 'Markdown 渲染',
-        contentSize: new Blob([content]).size,
+        contentSize: new Blob([contentToRender]).size,
         showDetails: true
       })
       previewRef.current.innerHTML = `<pre style="color: #f85149; background: #161b22; padding: 16px; border-radius: 6px; border: 1px solid #30363d; white-space: pre-wrap;">${formattedError.title}\n\n${formattedError.message}\n\n💡 ${formattedError.suggestion}\n\n详细信息：${formattedError.details}</pre>`
@@ -2251,7 +4753,7 @@ HTML
       // 性能监控：记录渲染时间
       const endTime = performance.now()
       const renderTime = endTime - startTime
-      const contentSize = new Blob([content]).size
+      const contentSize = new Blob([contentToRender]).size
       console.log(`Markdown 渲染完成: ${renderTime.toFixed(2)}ms, 文件大小: ${(contentSize / 1024).toFixed(2)}KB`)
       
       // 如果渲染时间过长，给出提示
@@ -2259,24 +4761,73 @@ HTML
         console.warn(`⚠️ 渲染时间较长 (${renderTime.toFixed(2)}ms)，建议优化文档内容`)
       }
     }
-
-  }, [content, mermaidLoaded, imageCaptionFormat])
+  }, [mermaidLoaded, markdownProcessor, postProcessHtml])
 
   // 使用 debounce 优化 Markdown 渲染性能
-  const debouncedContent = useDebounce(content, 500) // 500ms 延迟
+  const debouncedContent = useDebounce(content, 300) // 300ms 防抖，平衡实时性与稳定性
+  
+  // 记录上次渲染的内容，避免重复渲染
+  const lastRenderedContentRef = useRef('')
+  const lastRenderedHtmlRef = useRef('') // 缓存原始 HTML（未经后处理）
+  
+  // 记录是否正在渲染中
+  const isRenderingRef = useRef(false)
+  const prevRenderMarkdownRef = useRef(renderMarkdown)
+  const contentRef = useRef(debouncedContent)
+
+  // 保持 contentRef 最新
+  useEffect(() => {
+    contentRef.current = debouncedContent
+  }, [debouncedContent])
 
   useEffect(() => {
-    renderMarkdown()
-  }, [debouncedContent, renderMarkdown])
+    // 如果正在渲染中，跳过
+    if (isRenderingRef.current) {
+      return
+    }
+    
+    // 只在内容真正变化时才渲染
+    if (debouncedContent !== lastRenderedContentRef.current) {
+      lastRenderedContentRef.current = debouncedContent
+      isRenderingRef.current = true
+      
+      renderMarkdown(debouncedContent).finally(() => {
+        isRenderingRef.current = false
+      })
+    }
+  }, [debouncedContent])
+
+  // 初始化时应用导出配置样式
+  // useEffect(() => {
+  //   applyExportConfigStyles(exportConfig)
+  // }, [])
+
+  // 当导出配置改变时，只更新 CSS，不重新渲染 Markdown
+  // 注释掉，因为第 168 行的 useEffect 已经处理了所有样式
+  // useEffect(() => {
+  //   applyExportConfigStyles(exportConfig)
+  // }, [
+  //   exportConfig.captionFormat, 
+  //   exportConfig.wechatLinkToFootnote, 
+  //   exportConfig.themeColor, 
+  //   JSON.stringify(exportConfig.headingStyles)
+  // ])
 
   useEffect(() => {
     if (layout === 'preview-only' || layout === 'vertical') {
       const timer = setTimeout(() => {
-        renderMarkdown()
+        // 布局切换时强制渲染（即使内容相同）
+        if (!isRenderingRef.current && previewRef.current) {
+          console.log('布局切换，触发渲染')
+          isRenderingRef.current = true
+          renderMarkdown(content).finally(() => {
+            isRenderingRef.current = false
+          })
+        }
       }, 50)
       return () => clearTimeout(timer)
     }
-  }, [layout, renderMarkdown])
+  }, [layout, content, renderMarkdown])
 
   // 处理脚注链接点击，防止页面滚动
   useEffect(() => {
@@ -2850,6 +5401,32 @@ HTML
     }
   }, [])
 
+  // 菜单栏「公众号格式」- 与工具栏复制微信格式按钮行为一致
+  const handleMenuCopyToWeChat = useCallback(async () => {
+    const previewEl = document.querySelector('.markdown-body')
+    if (!previewEl) {
+      showToast('未找到预览内容，请确保文档已渲染', 'error')
+      return
+    }
+    const htmlContent = previewEl.innerHTML
+    if (!htmlContent || htmlContent.trim() === '') {
+      showToast('预览内容为空，请先编辑文档', 'error')
+      return
+    }
+    const primaryColor = (exportConfig && exportConfig.themeColor) ? exportConfig.themeColor : '#0F4C81'
+    try {
+      const success = await copyToWeChat(htmlContent, primaryColor)
+      if (success) {
+        showToast('已复制微信格式，可直接粘贴到微信公众号编辑器', 'success')
+      } else {
+        showToast('复制失败，请重试', 'error')
+      }
+    } catch (err) {
+      console.error('复制微信格式失败:', err)
+      showToast('复制失败: ' + err.message, 'error')
+    }
+  }, [exportConfig, showToast])
+
   const handleInsertCode = (type) => {
     if (!editorRef.current) return
     
@@ -3413,7 +5990,8 @@ HTML
           content={content}
           currentPath={currentPath}
           theme={editorTheme}
-          previewHtml={previewRef.current?.innerHTML}
+          previewHtml={previewRef.current?.innerHTML || ''}
+          exportConfig={exportConfig}
         />
       )}
 
@@ -3422,6 +6000,11 @@ HTML
           onClose={() => setShowSettingsDialog(false)}
           theme={editorTheme}
           onThemeChange={toggleEditorTheme}
+          onSave={(s) => {
+            if (s.fontSize) setEditorFontSize(s.fontSize)
+            if (s.lineHeight) setEditorLineHeight(s.lineHeight)
+            if (s.fontFamily) setEditorFontFamily(s.fontFamily)
+          }}
         />
       )}
 
@@ -3473,6 +6056,7 @@ HTML
             onSave={handleSaveClick}
             onSaveAs={handleSaveAs}
             onExport={handleExport}
+            onCopyToWeChat={handleMenuCopyToWeChat}
             onUndo={handleMenuUndo}
             onRedo={handleMenuRedo}
             onCopy={handleMenuCopy}
@@ -3517,6 +6101,7 @@ HTML
             className="btn-secondary" 
             onClick={() => setShowExportConfigPanel(!showExportConfigPanel)}
             title="导出配置"
+            style={{ height: '32px', padding: '0 16px', fontSize: '13px', borderRadius: '6px' }}
           >
             {showExportConfigPanel ? '关闭配置' : '导出配置'}
           </button>
@@ -3556,6 +6141,15 @@ HTML
                 onImageUpload={handleImageUpload}
                 onOpenImageManager={() => setShowImageManager(true)}
                 onOpenTableInsert={() => setShowTableDialog(true)}
+                onShowToast={(message, type) => {
+                  setStatus(message)
+                  setStatusType(type === 'error' ? 'error' : type === 'success' ? 'success' : 'normal')
+                  setTimeout(() => {
+                    setStatus('就绪')
+                    setStatusType('normal')
+                  }, 3000)
+                }}
+                exportConfig={exportConfig}
                 disabled={false}
               />
             )}
@@ -3573,13 +6167,13 @@ HTML
                 onMount={handleEditorMount}
                 options={{
                   fontSize: editorFontSize,
-                  lineHeight: 24,
+                  lineHeight: editorLineHeight,
                   minimap: { enabled: false },
                   wordWrap: 'on',
                   scrollBeyondLastLine: false,
                   automaticLayout: true,
                   tabSize: 2,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
                   fontLigatures: true,
                   contextmenu: false, // 禁用默认右键菜单
                   // 行号配置
@@ -3623,6 +6217,14 @@ HTML
             <div 
               ref={previewRef}
               className="markdown-body"
+              style={{
+                fontSize: exportConfig.fontSize || '16px',
+                lineHeight: exportConfig.lineHeight || 1.8,
+                textAlign: exportConfig.textAlign || 'left',
+                fontFamily: exportConfig.fontFamily === 'serif' ? 'Georgia, serif' :
+                           exportConfig.fontFamily === 'monospace' ? 'Monaco, Consolas, monospace' :
+                           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}
             />
           </div>
         )}

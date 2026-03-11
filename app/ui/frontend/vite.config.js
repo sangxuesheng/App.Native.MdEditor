@@ -18,6 +18,10 @@ export default defineConfig({
       '/images': {
         target: 'http://localhost:18080',
         changeOrigin: true
+      },
+      '/math-svg': {
+        target: 'http://localhost:18080',
+        changeOrigin: true
       }
     }
   },

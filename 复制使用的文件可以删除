@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件预览卡片</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 适配暗色背景的基础页面样式 */
+        body {
+            background-color: #121212;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <!-- 核心卡片组件 -->
+    <div class="w-full max-w-3xl rounded-2xl bg-black/50 backdrop-blur border border-white/10 shadow-xl overflow-hidden text-white">
+        <!-- 卡片内容：图片预览（置顶） -->
+        <div class="p-4">
+            <div>
+                <!-- 示例图片地址（可替换为实际图片URL） -->
+                <img src="https://picsum.photos/800/500" 
+                     class="max-h-[70vh] w-full object-contain rounded-xl bg-white/5 border border-white/10 mb-2" 
+                     alt="图片预览">
+            </div>
+            <!-- 移到下方的文件信息区域 -->
+            <div class="px-2 py-2 border-t border-white/10 mt-2">
+                <div class="min-w-0">
+                    <div class="text-sm font-bold text-white truncate">C4A5C0A5-B790-46F0-82A1-4CC2A31CC192.jpeg</div>
+                    <div class="text-[11px] text-white/60">48.6 KB · image/jpeg</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

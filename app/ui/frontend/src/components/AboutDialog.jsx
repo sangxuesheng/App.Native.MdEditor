@@ -39,7 +39,7 @@ function AboutDialog({ onClose, theme }) {
 
           <div className="about-info">
             <h3 className="app-name">Markdown 编辑器</h3>
-            <p className="app-version">版本 v1.6.0</p>
+            <p className="app-version">版本 v1.7.0</p>
             <p className="app-description">
               专为飞牛 NAS 设计的专业 Markdown 编辑器
             </p>
