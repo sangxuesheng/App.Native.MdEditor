@@ -33,8 +33,28 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
   const chartButtonRef = useRef(null)
   const fileInputRef = useRef(null)
   
-  const handleUploadClick = () => {
+  const doOpenUploadPicker = () => {
     fileInputRef.current?.click()
+  }
+
+  const doOpenImageManager = () => {
+    onOpenImageManager?.()
+  }
+
+  const doOpenTableInsert = () => {
+    onOpenTableInsert?.()
+  }
+
+  const handleUploadClick = () => {
+    doOpenUploadPicker()
+  }
+
+  const handleOpenImageManagerClick = () => {
+    doOpenImageManager()
+  }
+
+  const handleOpenTableInsertClick = () => {
+    doOpenTableInsert()
   }
   
   const handleFileChange = async (e) => {
@@ -48,7 +68,7 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
     }
   }
   
-  const handleCopyToWeChat = async () => {
+  const doCopyToWeChat = async () => {
     if (copying) return
     
     setCopying(true)
@@ -116,6 +136,10 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
     } finally {
       setCopying(false)
     }
+  }
+
+  const handleCopyToWeChatClick = async () => {
+    await doCopyToWeChat()
   }
   
   useEffect(() => {
@@ -286,7 +310,7 @@ ${'```'}`
       <div className="toolbar-group">
         <button 
           className={`toolbar-btn wechat-copy-btn ${copying ? 'copying' : ''}`}
-          onClick={handleCopyToWeChat} 
+          onClick={handleCopyToWeChatClick} 
           disabled={disabled || copying} 
           title="复制微信公众号格式 - 可直接粘贴到微信编辑器"
           style={{ display: 'none' }}
@@ -317,7 +341,7 @@ ${'```'}`
       <div className="toolbar-divider"></div>
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={insertLink} disabled={disabled} title="插入链接"><Link2 size={iconSize} /></button>
-        <button className="toolbar-btn" onClick={onOpenImageManager} disabled={disabled} title="图片管理"><Image size={iconSize} /></button>
+        <button className="toolbar-btn" onClick={handleOpenImageManagerClick} disabled={disabled} title="图片管理"><Image size={iconSize} /></button>
         <button className="toolbar-btn" onClick={handleUploadClick} disabled={disabled} title="上传图片 (支持多选)"><Upload size={iconSize} /></button>
         <button className="toolbar-btn" onClick={insertCodeBlock} disabled={disabled} title="代码块"><FileCode size={iconSize} /></button>
         <button className="toolbar-btn" onClick={insertInlineCode} disabled={disabled} title="行内代码"><Code2 size={iconSize} /></button>
@@ -325,7 +349,7 @@ ${'```'}`
       <div className="toolbar-divider"></div>
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={insertQuote} disabled={disabled} title="引用"><Quote size={iconSize} /></button>
-        <button className="toolbar-btn" onClick={onOpenTableInsert} disabled={disabled} title="插入表格"><Table size={iconSize} /></button>
+        <button className="toolbar-btn" onClick={handleOpenTableInsertClick} disabled={disabled} title="插入表格"><Table size={iconSize} /></button>
         <button className="toolbar-btn" onClick={insertHorizontalRule} disabled={disabled} title="分隔线"><Minus size={iconSize} /></button>
       </div>
       <div className="toolbar-divider"></div>

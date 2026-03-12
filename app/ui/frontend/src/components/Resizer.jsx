@@ -9,17 +9,34 @@ import './Resizer.css'
 function Resizer({ direction = 'vertical', onResize }) {
   const isResizing = useRef(false)
   const startPos = useRef(0)
+  const activePointerId = useRef(null)
 
-  const handleMouseDown = useCallback((e) => {
+  const resetResizeState = useCallback(() => {
+    isResizing.current = false
+    activePointerId.current = null
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }, [])
+
+  const handlePointerDown = useCallback((e) => {
+    if (!e.isPrimary) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+
     e.preventDefault()
     isResizing.current = true
+    activePointerId.current = e.pointerId
     startPos.current = direction === 'vertical' ? e.clientX : e.clientY
     document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize'
     document.body.style.userSelect = 'none'
+
+    if (e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    }
   }, [direction])
 
-  const handleMouseMove = useCallback((e) => {
+  const handlePointerMove = useCallback((e) => {
     if (!isResizing.current) return
+    if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return
     
     const currentPos = direction === 'vertical' ? e.clientX : e.clientY
     const delta = currentPos - startPos.current
@@ -31,28 +48,29 @@ function Resizer({ direction = 'vertical', onResize }) {
     startPos.current = currentPos
   }, [direction, onResize])
 
-  const handleMouseUp = useCallback(() => {
-    if (isResizing.current) {
-      isResizing.current = false
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-  }, [])
+  const handlePointerUp = useCallback((e) => {
+    if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return
+    resetResizeState()
+  }, [resetResizeState])
+
+  const handlePointerCancel = useCallback((e) => {
+    if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return
+    resetResizeState()
+  }, [resetResizeState])
 
   useEffect(() => {
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-    
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
+      resetResizeState()
     }
-  }, [handleMouseMove, handleMouseUp])
+  }, [resetResizeState])
 
   return (
     <div 
       className={`resizer resizer-${direction}`}
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       <div className="resizer-handle" />
     </div>

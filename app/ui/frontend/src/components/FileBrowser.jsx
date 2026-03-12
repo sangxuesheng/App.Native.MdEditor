@@ -96,11 +96,15 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
     });
   };
 
-  const handleRootDirSelect = (dir) => {
+  const doSelectRootDirectory = (dir) => {
     setSelectedRootDir(dir);
     loadDirectoryTree(dir.path);
     setExpandedDirs(new Set());
     onPathSelect(dir.path);
+  };
+
+  const handleRootDirClick = (dir) => {
+    doSelectRootDirectory(dir);
   };
 
   const handleToggleExpand = async (e, dir) => {
@@ -125,18 +129,26 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
     setExpandedDirs(newExpanded);
   };
 
-  const handleDirSelect = (dir) => {
+  const doSelectDirectory = (dir) => {
     onPathSelect(dir.path);
   };
 
-  const handleNewFolder = (parentPath) => {
+  const handleDirClick = (dir) => {
+    doSelectDirectory(dir);
+  };
+
+  const doOpenNewFolderDialog = (parentPath) => {
     setNewFolderParent(parentPath);
     setNewFolderName('');
     setShowNewFolderDialog(true);
     setError('');
   };
 
-  const handleCreateFolder = async () => {
+  const handleNewFolderClick = (parentPath) => {
+    doOpenNewFolderDialog(parentPath);
+  };
+
+  const doCreateFolder = async () => {
     if (!newFolderName.trim()) {
       setError('请输入文件夹名称');
       return;
@@ -171,6 +183,22 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
     }
   };
 
+  const handleOverlayClick = () => {
+    setShowNewFolderDialog(false);
+  };
+
+  const handleCloseClick = () => {
+    setShowNewFolderDialog(false);
+  };
+
+  const handleCancelClick = () => {
+    setShowNewFolderDialog(false);
+  };
+
+  const handleConfirmClick = () => {
+    doCreateFolder();
+  };
+
   const renderDirectoryTree = (dirs, depth = 0) => {
     if (!dirs || dirs.length === 0) return null;
 
@@ -184,7 +212,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
           <div 
             className={`directory-node ${isSelected ? 'selected' : ''}`}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
-            onClick={() => handleDirSelect(dir)}
+            onClick={() => handleDirClick(dir)}
           >
             {dir.hasChildren && (
               <button 
@@ -222,7 +250,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
               <div
                 key={dir.path}
                 className={`root-directory ${selectedRootDir?.path === dir.path ? 'selected' : ''}`}
-                onClick={() => handleRootDirSelect(dir)}
+                onClick={() => handleRootDirClick(dir)}
               >
                 <Folder size={28} className="folder-icon" />
                 <span className="directory-name">{dir.name}</span>
@@ -237,7 +265,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
           <span className="content-title">{selectedRootDir?.name || '请选择目录'}</span>
           <button 
             className="btn-new-folder"
-            onClick={() => handleNewFolder(selectedPath || selectedRootDir?.path)}
+            onClick={() => handleNewFolderClick(selectedPath || selectedRootDir?.path)}
             disabled={!selectedRootDir}
             title="新建文件夹"
           >
@@ -263,7 +291,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
             <span className="empty-text">此目录为空</span>
             <button 
               className="btn-secondary btn-sm"
-              onClick={() => handleNewFolder(selectedPath || selectedRootDir?.path)}
+              onClick={() => handleNewFolderClick(selectedPath || selectedRootDir?.path)}
             >
               创建第一个文件夹
             </button>
@@ -280,11 +308,11 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
       </div>
 
       {showNewFolderDialog && (
-        <div className="new-folder-overlay" onClick={() => setShowNewFolderDialog(false)}>
+        <div className="new-folder-overlay" onClick={handleOverlayClick}>
           <div className="new-folder-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <h3>新建文件夹</h3>
-              <button className="dialog-close" onClick={() => setShowNewFolderDialog(false)}>
+              <button className="dialog-close" onClick={handleCloseClick}>
                 <X size={20} />
               </button>
             </div>
@@ -295,7 +323,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
                   type="text"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
+                  onKeyPress={(e) => e.key === 'Enter' && handleConfirmClick()}
                   placeholder="输入文件夹名称"
                   className="form-input"
                   autoFocus
@@ -308,8 +336,8 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
               {error && <div className="error-message">{error}</div>}
             </div>
             <div className="dialog-footer">
-              <button className="btn-secondary" onClick={() => setShowNewFolderDialog(false)}>取消</button>
-              <button className="btn-primary" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+              <button className="btn-secondary" onClick={handleCancelClick}>取消</button>
+              <button className="btn-primary" onClick={handleConfirmClick} disabled={!newFolderName.trim()}>
                 创建
               </button>
             </div>

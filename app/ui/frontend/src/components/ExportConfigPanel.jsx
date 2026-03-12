@@ -876,15 +876,24 @@ const Toggle = ({ label, checked, onChange }) => {
 /**
  * 导出配置面板
  */
-const ExportConfigPanel = ({ config, onChange, onClose }) => {
-  // 获取保存的自定义主题
-  const [customThemes, setCustomThemes] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('customThemes') || '{}')
-    } catch {
-      return {}
+const ExportConfigPanel = ({ config, onChange, onClose, compact = false, style }) => {
+  // 获取保存的自定义主题（从后端数据库加载）
+  const [customThemes, setCustomThemes] = useState({})
+
+  useEffect(() => {
+    const loadThemes = async () => {
+      try {
+        const res = await fetch('/api/export-themes')
+        if (!res.ok) return
+        const data = await res.json()
+        if (!data || !data.ok || !data.themes) return
+        setCustomThemes(data.themes)
+      } catch (e) {
+        console.error('[ExportConfigPanel] 加载自定义主题失败:', e)
+      }
     }
-  })
+    loadThemes()
+  }, [])
   
   // 对话框状态
   const [dialog, setDialog] = useState({
@@ -1182,33 +1191,52 @@ const ExportConfigPanel = ({ config, onChange, onClose }) => {
           return
         }
         
+        const saveTheme = async () => {
+          try {
+            const res = await fetch('/api/export-themes/save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, css: config.customCSS || '' }),
+            })
+            const data = await res.json()
+            if (!res.ok || !data.ok) {
+              console.error('[ExportConfigPanel] 保存自定义主题失败:', data)
+              showDialog({
+                type: 'alert',
+                title: '错误',
+                message: '保存主题失败，请稍后重试',
+                onConfirm: closeDialog,
+              })
+              return
+            }
+            const newThemes = { ...customThemes, [name]: config.customCSS }
+            setCustomThemes(newThemes)
+            showDialog({
+              type: 'alert',
+              title: '成功',
+              message: `主题 "${name}" 已保存！`,
+              onConfirm: closeDialog
+            })
+          } catch (e) {
+            console.error('[ExportConfigPanel] 保存自定义主题异常:', e)
+            showDialog({
+              type: 'alert',
+              title: '错误',
+              message: '保存主题时发生错误',
+              onConfirm: closeDialog,
+            })
+          }
+        }
+
         if (customThemes[name]) {
           showDialog({
             type: 'alert',
             title: '确认覆盖',
             message: `主题 "${name}" 已存在，是否覆盖？`,
-            onConfirm: () => {
-              const newThemes = { ...customThemes, [name]: config.customCSS }
-              localStorage.setItem('customThemes', JSON.stringify(newThemes))
-              setCustomThemes(newThemes)
-              showDialog({
-                type: 'alert',
-                title: '成功',
-                message: `主题 "${name}" 已保存！`,
-                onConfirm: closeDialog
-              })
-            }
+            onConfirm: saveTheme
           })
         } else {
-          const newThemes = { ...customThemes, [name]: config.customCSS }
-          localStorage.setItem('customThemes', JSON.stringify(newThemes))
-          setCustomThemes(newThemes)
-          showDialog({
-            type: 'alert',
-            title: '成功',
-            message: `主题 "${name}" 已保存！`,
-            onConfirm: closeDialog
-          })
+          saveTheme()
         }
       }
     })
@@ -1253,18 +1281,45 @@ const ExportConfigPanel = ({ config, onChange, onClose }) => {
           title: '确认删除',
           message: `确定要删除主题 "${name}" 吗？`,
           onConfirm: () => {
-            const newThemes = { ...customThemes }
-            delete newThemes[name]
-            localStorage.setItem('customThemes', JSON.stringify(newThemes))
-            setCustomThemes(newThemes)
+            const deleteTheme = async () => {
+              try {
+                const res = await fetch('/api/export-themes/delete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name }),
+                })
+                const data = await res.json()
+                if (!res.ok || !data.ok) {
+                  console.error('[ExportConfigPanel] 删除自定义主题失败:', data)
+                  showDialog({
+                    type: 'alert',
+                    title: '错误',
+                    message: '删除主题失败，请稍后重试',
+                    onConfirm: closeDialog,
+                  })
+                  return
+                }
+                const newThemes = { ...customThemes }
+                delete newThemes[name]
+                setCustomThemes(newThemes)
             
-            // 如果当前正在使用被删除的主题，切换到默认主题
-            if (config.theme === 'custom' && config.customCSS === customThemes[name]) {
-              onChange({
-                ...config,
-                theme: 'default',
-                customCSS: ''
-              })
+                // 如果当前正在使用被删除的主题，切换到默认主题
+                if (config.theme === 'custom' && config.customCSS === customThemes[name]) {
+                  onChange({
+                    ...config,
+                    theme: 'default',
+                    customCSS: ''
+                  })
+                }
+              } catch (e) {
+                console.error('[ExportConfigPanel] 删除自定义主题异常:', e)
+                showDialog({
+                  type: 'alert',
+                  title: '错误',
+                  message: '删除主题时发生错误',
+                  onConfirm: closeDialog,
+                })
+              }
             }
             
             showDialog({
@@ -1279,11 +1334,15 @@ const ExportConfigPanel = ({ config, onChange, onClose }) => {
     })
   }
 
+  const handleCloseClick = () => {
+    onClose()
+  }
+
   return (
-    <div className="export-config-panel">
+    <div className={`export-config-panel ${compact ? 'compact' : ''}`} style={style}>
       <div className="panel-header">
         <h3>导出配置</h3>
-        <button className="panel-close" onClick={onClose}>×</button>
+        <button className="panel-close" onClick={handleCloseClick}>×</button>
       </div>
 
       <div className="panel-body">
@@ -1345,31 +1404,56 @@ const ExportConfigPanel = ({ config, onChange, onClose }) => {
                             type: 'alert',
                             title: '确认删除',
                             message: `确定要删除主题 "${themeName}" 吗？`,
-                            onConfirm: () => {
-                              const newThemes = { ...customThemes }
-                              delete newThemes[themeName]
-                              localStorage.setItem('customThemes', JSON.stringify(newThemes))
-                              setCustomThemes(newThemes)
-                              
-                              // 如果当前正在使用被删除的主题，切换到默认主题
-                              if (config.theme === 'custom' && config.customCSS === customThemes[themeName]) {
-                                onChange({
-                                  ...config,
-                                  theme: 'default',
-                                  customCSS: ''
+                            onConfirm: async () => {
+                              try {
+                                const res = await fetch('/api/export-themes/delete', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ name: themeName }),
+                                })
+                                const data = await res.json()
+                                if (!res.ok || !data.ok) {
+                                  console.error('[ExportConfigPanel] 删除自定义主题失败:', data)
+                                  showDialog({
+                                    type: 'alert',
+                                    title: '错误',
+                                    message: '删除主题失败，请稍后重试',
+                                    onConfirm: closeDialog,
+                                  })
+                                  return
+                                }
+
+                                const newThemes = { ...customThemes }
+                                delete newThemes[themeName]
+                                setCustomThemes(newThemes)
+
+                                if (config.theme === 'custom' && config.customCSS === customThemes[themeName]) {
+                                  onChange({
+                                    ...config,
+                                    theme: 'default',
+                                    customCSS: ''
+                                  })
+                                }
+
+                                showDialog({
+                                  type: 'alert',
+                                  title: '成功',
+                                  message: `主题 "${themeName}" 已删除！`,
+                                  onConfirm: closeDialog
+                                })
+                              } catch (e) {
+                                console.error('[ExportConfigPanel] 删除自定义主题异常:', e)
+                                showDialog({
+                                  type: 'alert',
+                                  title: '错误',
+                                  message: '删除主题时发生错误',
+                                  onConfirm: closeDialog,
                                 })
                               }
-                              
-                              showDialog({
-                                type: 'alert',
-                                title: '成功',
-                                message: `主题 "${themeName}" 已删除！`,
-                                onConfirm: closeDialog
-                              })
                             }
                           })
                         },
-                        onEdit: (oldThemeName, newCSS, newThemeName) => {
+                        onEdit: async (oldThemeName, newCSS, newThemeName) => {
                           // 如果主题名称改变了，需要删除旧的，添加新的
                           if (newThemeName && newThemeName !== oldThemeName) {
                             // 检查新名称是否已存在
@@ -1383,47 +1467,91 @@ const ExportConfigPanel = ({ config, onChange, onClose }) => {
                               return
                             }
                             
-                            // 删除旧主题，添加新主题
-                            const newThemes = { ...customThemes }
-                            delete newThemes[oldThemeName]
-                            newThemes[newThemeName] = newCSS
-                            localStorage.setItem('customThemes', JSON.stringify(newThemes))
-                            setCustomThemes(newThemes)
-                            
-                            // 如果当前正在使用这个主题，更新 CSS
-                            if (config.theme === 'custom' && config.customCSS === customThemes[oldThemeName]) {
-                              onChange({
-                                ...config,
-                                customCSS: newCSS
+                            try {
+                              const saveRes = await fetch('/api/export-themes/save', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: newThemeName, css: newCSS }),
+                              })
+                              const saveData = await saveRes.json()
+                              if (!saveRes.ok || !saveData.ok) {
+                                throw new Error(saveData?.message || '保存主题失败')
+                              }
+
+                              const deleteRes = await fetch('/api/export-themes/delete', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: oldThemeName }),
+                              })
+                              const deleteData = await deleteRes.json()
+                              if (!deleteRes.ok || !deleteData.ok) {
+                                throw new Error(deleteData?.message || '删除旧主题失败')
+                              }
+
+                              const newThemes = { ...customThemes }
+                              delete newThemes[oldThemeName]
+                              newThemes[newThemeName] = newCSS
+                              setCustomThemes(newThemes)
+
+                              if (config.theme === 'custom' && config.customCSS === customThemes[oldThemeName]) {
+                                onChange({
+                                  ...config,
+                                  customCSS: newCSS
+                                })
+                              }
+
+                              showDialog({
+                                type: 'alert',
+                                title: '成功',
+                                message: `主题已重命名为 "${newThemeName}" 并更新！`,
+                                onConfirm: closeDialog
+                              })
+                            } catch (e) {
+                              console.error('[ExportConfigPanel] 重命名主题失败:', e)
+                              showDialog({
+                                type: 'alert',
+                                title: '错误',
+                                message: '重命名主题失败，请稍后重试',
+                                onConfirm: closeDialog
                               })
                             }
-                            
-                            showDialog({
-                              type: 'alert',
-                              title: '成功',
-                              message: `主题已重命名为 "${newThemeName}" 并更新！`,
-                              onConfirm: closeDialog
-                            })
                           } else {
-                            // 只更新 CSS
-                            const newThemes = { ...customThemes, [oldThemeName]: newCSS }
-                            localStorage.setItem('customThemes', JSON.stringify(newThemes))
-                            setCustomThemes(newThemes)
-                            
-                            // 如果当前正在使用这个主题，更新 CSS
-                            if (config.theme === 'custom' && config.customCSS === customThemes[oldThemeName]) {
-                              onChange({
-                                ...config,
-                                customCSS: newCSS
+                            try {
+                              const res = await fetch('/api/export-themes/save', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: oldThemeName, css: newCSS }),
+                              })
+                              const data = await res.json()
+                              if (!res.ok || !data.ok) {
+                                throw new Error(data?.message || '更新主题失败')
+                              }
+
+                              const newThemes = { ...customThemes, [oldThemeName]: newCSS }
+                              setCustomThemes(newThemes)
+
+                              if (config.theme === 'custom' && config.customCSS === customThemes[oldThemeName]) {
+                                onChange({
+                                  ...config,
+                                  customCSS: newCSS
+                                })
+                              }
+
+                              showDialog({
+                                type: 'alert',
+                                title: '成功',
+                                message: `主题 "${oldThemeName}" 已更新！`,
+                                onConfirm: closeDialog
+                              })
+                            } catch (e) {
+                              console.error('[ExportConfigPanel] 更新主题失败:', e)
+                              showDialog({
+                                type: 'alert',
+                                title: '错误',
+                                message: '更新主题失败，请稍后重试',
+                                onConfirm: closeDialog
                               })
                             }
-                            
-                            showDialog({
-                              type: 'alert',
-                              title: '成功',
-                              message: `主题 "${oldThemeName}" 已更新！`,
-                              onConfirm: closeDialog
-                            })
                           }
                         },
                         onConfirm: closeDialog

@@ -149,6 +149,21 @@
   --border-color: #30363d;
 }
 
+@media (max-width: 768px) {
+  .about-content {
+    max-width: none;
+  }
+
+  .about-features ul {
+    grid-template-columns: 1fr;
+  }
+
+  .about-features li:hover,
+  .tech-tag:hover {
+    transform: none;
+  }
+}
+
 
 
 

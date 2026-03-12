@@ -38,7 +38,8 @@ import {
   X,
   Settings,
   File,
-  FileJson
+  FileJson,
+  MoreHorizontal
 } from 'lucide-react'
 
 /**
@@ -119,6 +120,7 @@ function MenuBar({
   onSaveAs, 
   onExport,
   onCopyToWeChat,
+  onPublish,
   recentFiles,
   onOpenRecentFile,
   onClearRecentFiles,
@@ -153,10 +155,12 @@ function MenuBar({
   imageCaptionFormat,
   onImageCaptionFormatChange,
   disabled,
-  theme
+  theme,
+  compact = false
 }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const menuRef = useRef(null)
+  const compactMenuKey = '__compact__'
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -291,21 +295,149 @@ function MenuBar({
         { divider: true },
         { label: '关于', icon: 'about', action: onShowAbout }
       ]
+    },
+    {
+      name: '发布',
+      items: [
+        { label: '发布到多平台', icon: 'export', action: onPublish }
+      ]
     }
   ]
 
+  const renderCompactMenuContent = () => {
+    return (
+      <div className="menu-dropdown compact-menu-dropdown">
+        {menuConfig.map((menu, menuIndex) => (
+          <div key={menu.name} className="compact-menu-section">
+            {menuIndex > 0 && <div className="menu-divider compact-menu-divider" />}
+            <div className="compact-menu-section-title">{menu.name}</div>
+            <div className="compact-menu-section-body">
+              {menu.items.map((item, index) => {
+                if (item.divider) {
+                  return <div key={`divider-${menu.name}-${index}`} className="menu-divider compact-menu-divider" />
+                }
+
+                if (item.type === 'recent-files') {
+                  return (
+                    <div key={`${menu.name}-recent`} className="compact-menu-block">
+                      <div className="compact-submenu-label">
+                        {item.icon && <MenuItemIcon type={item.icon} />}
+                        <span className="menu-label">{item.label}</span>
+                      </div>
+                      {recentFiles && recentFiles.length > 0 ? (
+                        <>
+                          {recentFiles.map((file) => (
+                            <button
+                              key={file.path}
+                              className="menu-dropdown-item compact-submenu-item recent-file-item"
+                              onClick={() => handleMenuItemClick(() => onOpenRecentFile(file.path))}
+                              title={file.path}
+                            >
+                              {getFileIcon(file.path)}
+                              <span className="menu-label">{file.name}</span>
+                              <span className="menu-shortcut recent-time">{formatTime(file.timestamp)}</span>
+                            </button>
+                          ))}
+                          <button
+                            className="menu-dropdown-item compact-submenu-item"
+                            onClick={() => handleMenuItemClick(onClearRecentFiles)}
+                          >
+                            <span className="menu-label">清空列表</span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="menu-dropdown-item disabled compact-submenu-item">
+                          <span className="menu-label">无最近文件</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
+                if (item.submenu) {
+                  return (
+                    <div key={`${menu.name}-${item.label}`} className="compact-menu-block">
+                      <div className="compact-submenu-label">
+                        {item.icon && <MenuItemIcon type={item.icon} />}
+                        <span className="menu-label">{item.label}</span>
+                      </div>
+                      {item.submenu.map((subItem, subIdx) => {
+                        if (subItem.divider) {
+                          return <div key={`divider-${menu.name}-${item.label}-${subIdx}`} className="menu-divider compact-menu-divider" />
+                        }
+
+                        return (
+                          <button
+                            key={`${menu.name}-${item.label}-${subItem.label || subIdx}`}
+                            className={`menu-dropdown-item compact-submenu-item ${subItem.checked ? 'checked' : ''}`}
+                            onClick={() => handleMenuItemClick(subItem.action)}
+                            disabled={subItem.disabled}
+                            title={subItem.description}
+                          >
+                            {subItem.checked && <span className="menu-check">✓</span>}
+                            {subItem.icon && <MenuItemIcon type={subItem.icon} />}
+                            <span className="menu-label">{subItem.label}</span>
+                            {subItem.shortcut && (
+                              <span className="menu-shortcut">{subItem.shortcut}</span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )
+                }
+
+                return (
+                  <button
+                    key={`${menu.name}-${item.label}`}
+                    className="menu-dropdown-item compact-menu-item"
+                    onClick={() => handleMenuItemClick(item.action)}
+                    disabled={item.disabled}
+                  >
+                    {item.icon && <MenuItemIcon type={item.icon} />}
+                    <span className="menu-label">{item.label}</span>
+                    {item.shortcut && (
+                      <span className="menu-shortcut">{item.shortcut}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div ref={menuRef} style={{ display: 'contents' }}>
-      {menuConfig.map((menu) => (
+      {compact && (
+        <div className="menu-item menu-item-compact">
+          <button
+            className={`menu-button compact-trigger ${activeMenu === compactMenuKey ? 'active' : ''}`}
+            onClick={() => handleMenuClick(compactMenuKey)}
+          >
+            <MoreHorizontal size={16} />
+            菜单
+          </button>
+          {activeMenu === compactMenuKey && renderCompactMenuContent()}
+        </div>
+      )}
+
+      {!compact && menuConfig.map((menu) => (
         <div key={menu.name} className="menu-item">
           <button
             className={`menu-button ${activeMenu === menu.name ? 'active' : ''}`}
-            onClick={() => handleMenuClick(menu.name)}
+            onClick={
+              menu.name === '发布'
+                ? () => handleMenuItemClick(onPublish)
+                : () => handleMenuClick(menu.name)
+            }
           >
             {menu.name}
           </button>
-          
-          {activeMenu === menu.name && (
+
+          {menu.name !== '发布' && activeMenu === menu.name && (
             <div className="menu-dropdown">
               {menu.items.map((item, index) => {
                 if (item.divider) {

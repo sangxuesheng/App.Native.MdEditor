@@ -240,6 +240,9 @@
   border-bottom: 1px solid #e5e5e5;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
 }
 
 /* 响应式标签页 */
@@ -299,6 +302,9 @@
   overflow-y: auto;
   padding: 16px;
   min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 /* 响应式内容区域 */
@@ -752,45 +758,64 @@
   margin-top: 32px;
 }
 
-.cancel-button,
-.insert-button {
-  padding: 10px 24px;
+.image-manager-dialog .cancel-button,
+.image-manager-dialog .insert-button {
+  min-height: 38px;
+  min-width: 90px;
+  padding: 0 20px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
-.cancel-button {
-  background: #f3f4f6;
-  color: #666;
+.image-manager-dialog .cancel-button {
+  background: #ffffff;
+  color: #24292f;
+  border: 1px solid #d0d7de;
 }
 
-.cancel-button:hover {
-  background: #e5e7eb;
-  color: #333;
+.image-manager-dialog .cancel-button:hover {
+  background: #f6f8fa;
+  color: #24292f;
 }
 
-.insert-button {
-  background: #2563eb;
+.image-manager-dialog .insert-button {
+  background: #086ADA;
   color: white;
 }
 
-.insert-button:hover {
-  background: #1d4ed8;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+.image-manager-dialog.dark .insert-button {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
+.image-manager-dialog .insert-button:hover {
+  background: #0757b8;
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.image-manager-dialog.dark .insert-button:hover {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
 }
 
 .image-manager-dialog.dark .cancel-button {
-  background: #333;
-  color: #999;
+  background: #21262d;
+  color: #c9d1d9;
+  border-color: #30363d;
 }
 
 .image-manager-dialog.dark .cancel-button:hover {
-  background: #444;
-  color: #fff;
+  background: #30363d;
+  color: #f0f6fc;
 }
 
 /* 图片库标签页 */
@@ -1135,56 +1160,81 @@
   border-top-color: #30363d;
 }
 
-.save-settings-button {
-  padding: 10px 24px;
-  background: #2563eb;
+.image-manager-dialog .save-settings-button {
+  min-height: 38px;
+  min-width: 90px;
+  padding: 0 20px;
+  background: #086ADA;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
-.save-settings-button:hover:not(:disabled) {
-  background: #1d4ed8;
+.image-manager-dialog.dark .save-settings-button {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
+.image-manager-dialog .save-settings-button:hover:not(:disabled) {
+  background: #0757b8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
 }
 
-.save-settings-button:disabled {
+.image-manager-dialog.dark .save-settings-button:hover:not(:disabled) {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
+}
+
+.image-manager-dialog .save-settings-button:disabled {
   background: #9ca3af;
   cursor: not-allowed;
   transform: none;
   opacity: 0.6;
 }
 
-.close-footer-button {
-  padding: 10px 24px;
-  background: #f3f4f6;
-  color: #666;
-  border: none;
-  border-radius: 8px;
+.image-manager-dialog .close-footer-button {
+  min-height: 38px;
+  min-width: 90px;
+  padding: 0 20px;
+  background: #ffffff;
+  color: #24292f;
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
-.close-footer-button:hover {
-  background: #e5e7eb;
-  color: #333;
+.image-manager-dialog .close-footer-button:hover {
+  background: #f6f8fa;
+  color: #24292f;
 }
 
 .image-manager-dialog.dark .close-footer-button {
-  background: #333;
-  color: #999;
+  background: #21262d;
+  color: #c9d1d9;
+  border-color: #30363d;
 }
 
 .image-manager-dialog.dark .close-footer-button:hover {
-  background: #444;
-  color: #fff;
+  background: #30363d;
+  color: #f0f6fc;
 }
 
 /* 滚动条样式 */
@@ -1367,86 +1417,102 @@
     gap: 6px;
   }
   
-  .selection-mode-button,
-  .select-all-button,
-  .batch-delete-button,
-  .cancel-selection-button,
-  .batch-manage-button {
+  .image-manager-dialog .selection-mode-button,
+  .image-manager-dialog .select-all-button,
+  .image-manager-dialog .batch-delete-button,
+  .image-manager-dialog .cancel-selection-button,
+  .image-manager-dialog .batch-manage-button {
     padding: 6px 10px;
     font-size: 13px;
   }
   
-  .selection-mode-button svg,
-  .select-all-button svg,
-  .batch-delete-button svg,
-  .cancel-selection-button svg,
-  .batch-manage-button svg {
+  .image-manager-dialog .selection-mode-button svg,
+  .image-manager-dialog .select-all-button svg,
+  .image-manager-dialog .batch-delete-button svg,
+  .image-manager-dialog .cancel-selection-button svg,
+  .image-manager-dialog .batch-manage-button svg {
     width: 16px;
     height: 16px;
   }
 }
 
-.selection-mode-button,
-.select-all-button,
-.batch-delete-button,
-.cancel-selection-button {
+.image-manager-dialog .selection-mode-button,
+.image-manager-dialog .select-all-button,
+.image-manager-dialog .batch-delete-button,
+.image-manager-dialog .cancel-selection-button {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  min-height: 38px;
+  min-width: 90px;
+  padding: 0 20px;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
-.selection-mode-button {
+.image-manager-dialog .selection-mode-button {
   background: #086ADA;
   color: white;
 }
 
-.selection-mode-button:hover:not(:disabled) {
+.image-manager-dialog.dark .selection-mode-button {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
+.image-manager-dialog .selection-mode-button:hover:not(:disabled) {
   background: #0757b8;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
 }
 
-.selection-mode-button:disabled {
+.image-manager-dialog.dark .selection-mode-button:hover:not(:disabled) {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
+}
+
+.image-manager-dialog .selection-mode-button:disabled {
   background: #ccc;
   cursor: not-allowed;
 }
 
-.select-all-button {
+.image-manager-dialog .select-all-button {
   background: #4caf50;
   color: white;
 }
 
-.select-all-button:hover {
+.image-manager-dialog .select-all-button:hover {
   background: #45a049;
 }
 
-.batch-delete-button {
+.image-manager-dialog .batch-delete-button {
   background: #f44336;
   color: white;
 }
 
-.batch-delete-button:hover:not(:disabled) {
+.image-manager-dialog .batch-delete-button:hover:not(:disabled) {
   background: #d32f2f;
 }
 
-.batch-delete-button:disabled {
+.image-manager-dialog .batch-delete-button:disabled {
   background: #ccc;
   cursor: not-allowed;
   opacity: 0.6;
 }
 
-.cancel-selection-button {
+.image-manager-dialog .cancel-selection-button {
   background: #757575;
   color: white;
 }
 
-.cancel-selection-button:hover {
+.image-manager-dialog .cancel-selection-button:hover {
   background: #616161;
 }
 
@@ -1588,41 +1654,138 @@
 }
 
 /* Footer 中的按钮样式 */
-.footer-right-actions .cancel-button,
-.footer-right-actions .insert-button {
+.image-manager-dialog .footer-right-actions .cancel-button,
+.image-manager-dialog .footer-right-actions .insert-button {
   border: none;
   outline: none;
 }
 
-.footer-right-actions .cancel-button {
+.image-manager-dialog .footer-right-actions .cancel-button {
   background: #f3f4f6;
   color: #666;
 }
 
-.footer-right-actions .cancel-button:hover {
-  background: #e5e7eb;
-  color: #333;
+.image-manager-dialog .footer-right-actions .cancel-button:hover {
+  background: #f6f8fa;
+  color: #24292f;
 }
 
 .image-manager-dialog.dark .footer-right-actions .cancel-button {
-  background: #333;
-  color: #999;
-  border: none;
+  background: #21262d;
+  color: #c9d1d9;
+  border-color: #30363d;
 }
 
 .image-manager-dialog.dark .footer-right-actions .cancel-button:hover {
-  background: #444;
-  color: #fff;
+  background: #30363d;
+  color: #f0f6fc;
 }
 
-.footer-right-actions .insert-button {
-  background: #2563eb;
+.image-manager-dialog .footer-right-actions .insert-button {
+  background: #086ADA;
   color: white;
 }
 
-.footer-right-actions .insert-button:hover {
-  background: #1d4ed8;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+.image-manager-dialog.dark .footer-right-actions .insert-button {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
+.image-manager-dialog .footer-right-actions .insert-button:hover {
+  background: #0757b8;
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.image-manager-dialog.dark .footer-right-actions .insert-button:hover {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
+}
+
+@media (pointer: coarse) {
+  .image-manager-dialog .close-button,
+  .image-manager-dialog .select-button,
+  .image-manager-dialog .refresh-button,
+  .image-manager-dialog .selection-mode-button,
+  .image-manager-dialog .select-all-button,
+  .image-manager-dialog .batch-delete-button,
+  .image-manager-dialog .cancel-selection-button,
+  .image-manager-dialog .close-footer-button,
+  .image-manager-dialog .save-settings-button,
+  .image-manager-dialog .cancel-button,
+  .image-manager-dialog .insert-button {
+    min-height: 40px;
+  }
+
+  .close-button {
+    min-width: 40px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .tab-button {
+    min-height: 40px;
+    padding: 10px 14px;
+  }
+
+  .settings-icon-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 8px;
+  }
+
+  .image-item .img-preview-icon-btn,
+  .image-item .delete-image-btn {
+    opacity: 1;
+    width: 36px;
+    height: 36px;
+  }
+
+  .image-overlay {
+    opacity: 1;
+    align-items: flex-end;
+    padding: 8px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 55%);
+    pointer-events: none;
+  }
+
+  .image-overlay button {
+    min-height: 34px;
+    padding: 8px 14px;
+    pointer-events: auto;
+  }
+
+  .image-checkbox {
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .toggle-switch {
+    width: 52px;
+    height: 30px;
+  }
+
+  .toggle-slider:before {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .footer-left-actions,
+  .footer-right-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .footer-right-actions {
+    margin-left: 0;
+  }
+
+  .footer-left-actions > button,
+  .footer-right-actions > button {
+    flex: 1 1 calc(50% - 6px);
+  }
 }
 
 /* 移除之前的固定定位样式 */

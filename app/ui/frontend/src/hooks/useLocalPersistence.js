@@ -1,6 +1,25 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { saveFullState } from '../utils/localPersistence'
 
+const safeStringify = (value) => {
+  const seen = new WeakSet()
+
+  return JSON.stringify(value, (key, currentValue) => {
+    if (typeof currentValue === 'function') {
+      return undefined
+    }
+
+    if (currentValue && typeof currentValue === 'object') {
+      if (seen.has(currentValue)) {
+        return '[Circular]'
+      }
+      seen.add(currentValue)
+    }
+
+    return currentValue
+  })
+}
+
 /**
  * 本地持久化自动保存 Hook
  * 
@@ -23,19 +42,18 @@ export const useLocalPersistence = (state, delay = 500, enabled = true) => {
 
     // 设置新的定时器
     timeoutRef.current = setTimeout(() => {
-      try {
-        saveFullState(state)
-        console.log('[LocalPersistence] State saved to localStorage')
-      } catch (error) {
-        console.error('[LocalPersistence] Failed to save state:', error)
-      }
+      saveFullState(state).then((ok) => {
+        if (ok) {
+          console.log('[LocalPersistence] State saved to database')
+        }
+      })
     }, delay)
   }, [state, delay, enabled])
 
   // 监听状态变化
   useEffect(() => {
-    // 检查状态是否真的变化了
-    const hasChanged = JSON.stringify(state) !== JSON.stringify(previousStateRef.current)
+    // 检查状态是否真的变化了，避免循环引用导致 JSON.stringify 崩溃
+    const hasChanged = safeStringify(state) !== safeStringify(previousStateRef.current)
     
     if (hasChanged && enabled) {
       debouncedSave()
@@ -54,19 +72,17 @@ export const useLocalPersistence = (state, delay = 500, enabled = true) => {
   const saveNow = useCallback(() => {
     if (!enabled) return false
 
-    try {
-      // 清除防抖定时器
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-      
-      saveFullState(state)
-      console.log('[LocalPersistence] State saved immediately')
-      return true
-    } catch (error) {
-      console.error('[LocalPersistence] Failed to save state immediately:', error)
-      return false
+    // 清除防抖定时器
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
     }
+
+    saveFullState(state).then((ok) => {
+      if (ok) {
+        console.log('[LocalPersistence] State saved immediately')
+      }
+    })
+    return true
   }, [state, enabled])
 
   return { saveNow }
@@ -80,13 +96,11 @@ export const useBeforeUnload = (state, enabled = true) => {
     if (!enabled) return
 
     const handleBeforeUnload = (e) => {
-      try {
-        // 立即保存状态
-        saveFullState(state)
-        console.log('[LocalPersistence] State saved before unload')
-      } catch (error) {
-        console.error('[LocalPersistence] Failed to save state before unload:', error)
-      }
+      saveFullState(state, { keepalive: true }).then((ok) => {
+        if (ok) {
+          console.log('[LocalPersistence] State saved before unload')
+        }
+      })
     }
 
     // 监听页面关闭/刷新
@@ -107,13 +121,11 @@ export const useVisibilityChange = (state, enabled = true) => {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        try {
-          // 页面隐藏时立即保存
-          saveFullState(state)
-          console.log('[LocalPersistence] State saved on visibility change')
-        } catch (error) {
-          console.error('[LocalPersistence] Failed to save state on visibility change:', error)
-        }
+        saveFullState(state, { keepalive: true }).then((ok) => {
+          if (ok) {
+            console.log('[LocalPersistence] State saved on visibility change')
+          }
+        })
       }
     }
 

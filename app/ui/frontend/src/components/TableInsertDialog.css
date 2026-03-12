@@ -242,9 +242,9 @@
 
 .table-insert-footer button {
   height: 38px;
-  min-width: 80px;
+  min-width: 90px;
   padding: 0 20px;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -256,13 +256,13 @@
   box-sizing: border-box;
 }
 
-.cancel-button {
+.table-insert-dialog .cancel-button {
   background: #ffffff;
   color: #24292f;
   border: 1px solid #d0d7de;
 }
 
-.cancel-button:hover {
+.table-insert-dialog .cancel-button:hover {
   background: #f3f4f6;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -288,13 +288,13 @@
   background: #30363d;
 }
 
-.confirm-button {
+.table-insert-dialog .confirm-button {
   background: #086ADA;
   color: white;
   border: none;
 }
 
-.confirm-button:hover {
+.table-insert-dialog .confirm-button:hover {
   background: #0757b8;
   opacity: 0.9;
   transform: translateY(-1px);
@@ -310,9 +310,11 @@
 }
 
 .table-insert-dialog.dark .confirm-button {
-  background: #086ADA;
+  background: #59A6FF;
+  color: #0d1117;
 }
 
 .table-insert-dialog.dark .confirm-button:hover {
-  background: #0757b8;
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
 }

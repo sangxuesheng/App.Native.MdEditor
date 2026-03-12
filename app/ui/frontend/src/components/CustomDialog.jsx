@@ -22,7 +22,7 @@ const CustomDialog = ({ isOpen, onClose, onConfirm, title, message, type = 'aler
 
   if (!isOpen) return null
 
-  const handleConfirm = () => {
+  const confirmDialog = () => {
     if (type === 'prompt') {
       onConfirm(inputValue)
     } else {
@@ -31,7 +31,7 @@ const CustomDialog = ({ isOpen, onClose, onConfirm, title, message, type = 'aler
     setInputValue('')
   }
 
-  const handleCancel = () => {
+  const cancelDialog = () => {
     // 如果在编辑模式，只退出编辑模式
     if (type === 'theme-list' && editTheme) {
       setEditTheme(null)
@@ -44,16 +44,32 @@ const CustomDialog = ({ isOpen, onClose, onConfirm, title, message, type = 'aler
     }
   }
 
+  const handleOverlayClick = () => {
+    cancelDialog()
+  }
+
+  const handleCloseClick = () => {
+    cancelDialog()
+  }
+
+  const handleCancelClick = () => {
+    cancelDialog()
+  }
+
+  const handleConfirmClick = () => {
+    confirmDialog()
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && type !== 'theme-list') {
-      handleConfirm()
+      confirmDialog()
     } else if (e.key === 'Escape') {
-      handleCancel()
+      cancelDialog()
     }
   }
 
   return (
-    <div className="custom-dialog-overlay" onClick={handleCancel}>
+    <div className="custom-dialog-overlay" onClick={handleOverlayClick}>
       <div className="custom-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="custom-dialog-header">
           <h3>{title}</h3>
@@ -182,16 +198,16 @@ const CustomDialog = ({ isOpen, onClose, onConfirm, title, message, type = 'aler
             </>
           ) : type === 'theme-list' ? (
             // 列表模式只显示关闭按钮
-            <button className="custom-dialog-btn custom-dialog-btn-confirm" onClick={handleCancel}>
+            <button className="custom-dialog-btn custom-dialog-btn-confirm" onClick={handleCloseClick}>
               关闭
             </button>
           ) : (
             // 其他类型的对话框
             <>
-              <button className="custom-dialog-btn custom-dialog-btn-cancel" onClick={handleCancel}>
+              <button className="custom-dialog-btn custom-dialog-btn-cancel" onClick={handleCancelClick}>
                 取消
               </button>
-              <button className="custom-dialog-btn custom-dialog-btn-confirm" onClick={handleConfirm}>
+              <button className="custom-dialog-btn custom-dialog-btn-confirm" onClick={handleConfirmClick}>
                 确定
               </button>
             </>

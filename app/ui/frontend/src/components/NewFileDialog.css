@@ -535,9 +535,9 @@
 .new-file-dialog .btn-secondary,
 .new-file-dialog .btn-primary {
   height: 38px;
-  min-width: 80px;
+  min-width: 90px;
   padding: 0 20px;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -555,10 +555,20 @@
   border: none;
 }
 
+.theme-dark .new-file-dialog .btn-primary {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
 .new-file-dialog .btn-primary:hover:not(:disabled) {
   background: #0757b8;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.theme-dark .new-file-dialog .btn-primary:hover:not(:disabled) {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
 }
 
 .new-file-dialog .btn-primary:disabled {

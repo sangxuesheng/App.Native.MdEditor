@@ -9,6 +9,14 @@ function ShortcutsDialog({ onClose, theme }) {
     return 'theme-dark'
   }
 
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
   const shortcuts = [
     {
       category: '文件操作',
@@ -60,11 +68,11 @@ function ShortcutsDialog({ onClose, theme }) {
   ]
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className={`dialog-container ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
+    <div className="dialog-overlay compact-panel-overlay" onClick={handleOverlayClick}>
+      <div className={`dialog-container compact-panel-dialog shortcuts-dialog ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>快捷键列表</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
         
         <div className="dialog-content shortcuts-content">
@@ -84,7 +92,7 @@ function ShortcutsDialog({ onClose, theme }) {
         </div>
 
         <div className="dialog-footer">
-          <button className="btn-primary" onClick={onClose}>关闭</button>
+          <button className="btn-primary" onClick={handleCloseClick}>关闭</button>
         </div>
       </div>
     </div>

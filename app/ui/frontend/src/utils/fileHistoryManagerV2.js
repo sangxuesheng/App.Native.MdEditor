@@ -197,3 +197,29 @@ export function getRelativeTime(timestamp) {
   if (seconds < 2592000) return `${Math.floor(seconds / 604800)} 周前`
   return `${Math.floor(seconds / 2592000)} 月前`
 }
+
+export function calculateDiff(oldText, newText) {
+  const oldLines = String(oldText || '').split('\n')
+  const newLines = String(newText || '').split('\n')
+
+  let added = 0
+  let removed = 0
+  let modified = 0
+
+  const maxLen = Math.max(oldLines.length, newLines.length)
+
+  for (let i = 0; i < maxLen; i++) {
+    const oldLine = oldLines[i]
+    const newLine = newLines[i]
+
+    if (oldLine === undefined) {
+      added++
+    } else if (newLine === undefined) {
+      removed++
+    } else if (oldLine !== newLine) {
+      modified++
+    }
+  }
+
+  return { added, removed, modified }
+}

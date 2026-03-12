@@ -9,12 +9,20 @@ function MarkdownHelpDialog({ onClose, theme }) {
     return 'theme-dark'
   }
 
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className={`dialog-container ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
+    <div className="dialog-overlay compact-panel-overlay" onClick={handleOverlayClick}>
+      <div className={`dialog-container compact-panel-dialog markdown-help-dialog ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>Markdown 语法帮助</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
         
         <div className="dialog-content markdown-help-content">
@@ -113,7 +121,7 @@ graph LR
         </div>
 
         <div className="dialog-footer">
-          <button className="btn-primary" onClick={onClose}>关闭</button>
+          <button className="btn-primary" onClick={handleCloseClick}>关闭</button>
         </div>
       </div>
     </div>

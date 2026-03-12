@@ -3,20 +3,18 @@
  * 负责管理用户收藏的文件和文件夹
  */
 
-const STORAGE_KEY = 'md-editor-favorites'
 const MAX_FAVORITES = 50
 
 /**
  * 获取收藏夹列表
  * @returns {Array} 收藏项列表
  */
-export function getFavorites() {
+export async function getFavorites() {
   try {
-    const data = localStorage.getItem(STORAGE_KEY)
-    if (!data) return []
-    
-    const favorites = JSON.parse(data)
-    return Array.isArray(favorites) ? favorites : []
+    const res = await fetch('/api/favorites')
+    const data = await res.json()
+    if (!res.ok || !data.ok) return []
+    return Array.isArray(data.items) ? data.items.slice(0, MAX_FAVORITES) : []
   } catch (error) {
     console.error('Failed to load favorites:', error)
     return []
@@ -29,33 +27,17 @@ export function getFavorites() {
  * @param {string} type - 类型: 'file' 或 'directory'
  * @returns {boolean} 是否添加成功
  */
-export function addFavorite(path, type = 'file') {
+export async function addFavorite(path, type = 'file') {
   if (!path) return false
-  
   try {
-    let favorites = getFavorites()
-    
-    // 检查是否已存在
-    if (favorites.some(item => item.path === path)) {
-      return false
-    }
-    
-    // 添加到列表
-    favorites.push({
-      path,
-      type,
-      name: getFileName(path),
-      timestamp: Date.now(),
-      order: favorites.length
+    const res = await fetch('/api/favorites/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, name: getFileName(path), type }),
     })
-    
-    // 限制数量
-    if (favorites.length > MAX_FAVORITES) {
-      favorites = favorites.slice(0, MAX_FAVORITES)
-    }
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites))
-    return true
+    const data = await res.json()
+    if (!res.ok || !data.ok) return false
+    return !!data.favorited
   } catch (error) {
     console.error('Failed to add favorite:', error)
     return false
@@ -67,20 +49,17 @@ export function addFavorite(path, type = 'file') {
  * @param {string} path - 文件或文件夹路径
  * @returns {boolean} 是否移除成功
  */
-export function removeFavorite(path) {
+export async function removeFavorite(path) {
+  // 直接调用 toggle 接口，后端会根据是否存在决定删除
   try {
-    let favorites = getFavorites()
-    const originalLength = favorites.length
-    
-    favorites = favorites.filter(item => item.path !== path)
-    
-    // 重新排序
-    favorites.forEach((item, index) => {
-      item.order = index
+    const res = await fetch('/api/favorites/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
     })
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites))
-    return favorites.length < originalLength
+    const data = await res.json()
+    if (!res.ok || !data.ok) return false
+    return !data.favorited
   } catch (error) {
     console.error('Failed to remove favorite:', error)
     return false
@@ -92,8 +71,8 @@ export function removeFavorite(path) {
  * @param {string} path - 文件或文件夹路径
  * @returns {boolean}
  */
-export function isFavorite(path) {
-  const favorites = getFavorites()
+export async function isFavorite(path) {
+  const favorites = await getFavorites()
   return favorites.some(item => item.path === path)
 }
 
@@ -103,13 +82,19 @@ export function isFavorite(path) {
  * @param {string} type - 类型: 'file' 或 'directory'
  * @returns {boolean} 新的收藏状态
  */
-export function toggleFavorite(path, type = 'file') {
-  if (isFavorite(path)) {
-    removeFavorite(path)
+export async function toggleFavorite(path, type = 'file') {
+  try {
+    const res = await fetch('/api/favorites/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, name: getFileName(path), type }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.ok) return false
+    return !!data.favorited
+  } catch (error) {
+    console.error('Failed to toggle favorite:', error)
     return false
-  } else {
-    addFavorite(path, type)
-    return true
   }
 }
 
@@ -117,14 +102,24 @@ export function toggleFavorite(path, type = 'file') {
  * 更新收藏项顺序
  * @param {Array} favorites - 新的收藏列表（已排序）
  */
-export function updateFavoritesOrder(favorites) {
+export async function updateFavoritesOrder(favorites) {
+  if (!Array.isArray(favorites)) {
+    console.warn('updateFavoritesOrder expected an array, received:', favorites)
+    return false
+  }
+
   try {
-    // 更新 order 字段
-    favorites.forEach((item, index) => {
-      item.order = index
+    const items = favorites.map((item, index) => ({
+      id: item.id,
+      order_index: index,
+    }))
+    const res = await fetch('/api/favorites/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
     })
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites))
+    const data = await res.json()
+    if (!res.ok || !data.ok) return false
     return true
   } catch (error) {
     console.error('Failed to update favorites order:', error)
@@ -135,9 +130,11 @@ export function updateFavoritesOrder(favorites) {
 /**
  * 清空收藏夹
  */
-export function clearFavorites() {
+export async function clearFavorites() {
   try {
-    localStorage.removeItem(STORAGE_KEY)
+    const res = await fetch('/api/favorites/clear', { method: 'POST' })
+    const data = await res.json()
+    if (!res.ok || !data.ok) return false
     return true
   } catch (error) {
     console.error('Failed to clear favorites:', error)
@@ -151,20 +148,11 @@ export function clearFavorites() {
  * @param {string} newPath - 新路径
  * @returns {boolean} 是否更新成功
  */
-export function updateFavoritePath(oldPath, newPath) {
+export async function updateFavoritePath(oldPath, newPath) {
+  // 目前 favorites 表以 path 为唯一键，重命名时可以简单：先删除旧路径再添加新路径
   try {
-    const favorites = getFavorites()
-    const index = favorites.findIndex(item => item.path === oldPath)
-    
-    if (index === -1) {
-      return false // 不在收藏夹中
-    }
-    
-    // 更新路径和名称
-    favorites[index].path = newPath
-    favorites[index].name = getFileName(newPath)
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites))
+    await removeFavorite(oldPath)
+    await addFavorite(newPath, 'file')
     return true
   } catch (error) {
     console.error('Failed to update favorite path:', error)

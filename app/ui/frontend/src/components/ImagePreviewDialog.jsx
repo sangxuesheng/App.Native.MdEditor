@@ -5,7 +5,7 @@ import './ImagePreviewDialog.css'
 function ImagePreviewDialog({ image, onClose, theme }) {
   if (!image) return null
 
-  const handleDownload = () => {
+  const doDownloadImage = () => {
     const link = document.createElement('a')
     link.href = image.url
     link.download = image.filename || 'image'
@@ -26,8 +26,20 @@ function ImagePreviewDialog({ image, onClose, theme }) {
     return date.toLocaleString('zh-CN')
   }
 
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
+  const handleDownloadClick = () => {
+    doDownloadImage()
+  }
+
   return (
-    <div className="image-preview-overlay" onClick={onClose}>
+    <div className="image-preview-overlay" onClick={handleOverlayClick}>
       <div 
         className={`image-preview-dialog ${theme}`}
         onClick={(e) => e.stopPropagation()}
@@ -38,14 +50,14 @@ function ImagePreviewDialog({ image, onClose, theme }) {
           <div className="header-actions">
             <button 
               className="action-button"
-              onClick={handleDownload}
+              onClick={handleDownloadClick}
               title="下载图片"
             >
               <Download size={20} />
             </button>
             <button 
               className="close-button"
-              onClick={onClose}
+              onClick={handleCloseClick}
               title="关闭"
             >
               <X size={20} />

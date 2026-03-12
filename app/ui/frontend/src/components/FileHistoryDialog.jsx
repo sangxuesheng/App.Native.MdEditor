@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import { Scroll, Trash2, ArrowLeft } from 'lucide-react'
 import { 
+  getVersionContent,
   formatHistoryTime, 
   formatFileSize, 
   calculateDiff 
-} from '../utils/fileHistoryManager'
+} from '../utils/fileHistoryManagerV2'
 import './FileHistoryDialog.css'
 
 /**
@@ -21,30 +22,62 @@ function FileHistoryDialog({
 }) {
   const [selectedVersion, setSelectedVersion] = useState(null)
   const [showDiff, setShowDiff] = useState(false)
+  const themeClass = theme === 'light' ? 'theme-light' : theme === 'md3' ? 'theme-md3' : 'theme-dark'
 
-  const handleVersionClick = (version) => {
-    setSelectedVersion(version)
-    setShowDiff(false)
+  const doSelectVersion = async (version) => {
+    try {
+      const fullVersion = await getVersionContent(filePath, version.versionNumber)
+      setSelectedVersion(fullVersion)
+      setShowDiff(false)
+    } catch (error) {
+      console.error('加载历史版本内容失败:', error)
+      alert('加载版本内容失败: ' + error.message)
+    }
   }
 
-  const handleRestore = () => {
+  const handleVersionClick = async (version) => {
+    await doSelectVersion(version)
+  }
+
+  const doRestoreSelectedVersion = () => {
     if (selectedVersion && window.confirm('确定要恢复到此版本吗？当前内容将被替换。')) {
       onRestore(selectedVersion.content)
       onClose()
     }
   }
 
-  const handleDelete = (version) => {
+  const doDeleteVersion = (version) => {
     if (window.confirm('确定要删除此历史版本吗？')) {
-      onDelete(version.timestamp)
-      if (selectedVersion && selectedVersion.timestamp === version.timestamp) {
+      onDelete(version.versionNumber)
+      if (selectedVersion && selectedVersion.versionNumber === version.versionNumber) {
         setSelectedVersion(null)
       }
     }
   }
 
-  const handleShowDiff = () => {
+  const doToggleDiffView = () => {
     setShowDiff(!showDiff)
+  }
+
+  const handleDeleteClick = (e, version) => {
+    e.stopPropagation()
+    doDeleteVersion(version)
+  }
+
+  const handleToggleDiffClick = () => {
+    doToggleDiffView()
+  }
+
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
+  const handleConfirmClick = () => {
+    doRestoreSelectedVersion()
   }
 
   const renderDiff = () => {
@@ -64,11 +97,11 @@ function FileHistoryDialog({
   }
 
   return (
-    <div className={`dialog-overlay ${theme}`} onClick={onClose}>
-      <div className="dialog-content history-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className={`dialog-overlay compact-panel-overlay ${themeClass}`} onClick={handleOverlayClick}>
+      <div className={`dialog-container compact-panel-dialog history-dialog ${themeClass}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>文件历史记录</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
 
         <div className="dialog-body">
@@ -88,9 +121,9 @@ function FileHistoryDialog({
                 </div>
                 {history.map((version, index) => (
                   <div
-                    key={version.timestamp}
-                    className={`history-item ${selectedVersion?.timestamp === version.timestamp ? 'selected' : ''}`}
-                    onClick={() => handleVersionClick(version)}
+                    key={version.versionNumber}
+                    className={`history-item ${selectedVersion?.versionNumber === version.versionNumber ? 'selected' : ''}`}
+                    onClick={() => { void handleVersionClick(version) }}
                   >
                     <div className="history-item-header">
                       <span className="history-index">#{index + 1}</span>
@@ -102,10 +135,7 @@ function FileHistoryDialog({
                     </div>
                     <button
                       className="history-delete-btn"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDelete(version)
-                      }}
+                      onClick={(e) => handleDeleteClick(e, version)}
                       title="删除此版本"
                     >
                       <Trash2 size={16} />
@@ -122,13 +152,13 @@ function FileHistoryDialog({
                       <div className="preview-actions">
                         <button
                           className="btn-secondary"
-                          onClick={handleShowDiff}
+                          onClick={handleToggleDiffClick}
                         >
                           {showDiff ? '隐藏差异' : '显示差异'}
                         </button>
                         <button
                           className="btn-primary"
-                          onClick={handleRestore}
+                          onClick={handleConfirmClick}
                         >
                           恢复此版本
                         </button>
@@ -153,7 +183,7 @@ function FileHistoryDialog({
         </div>
 
         <div className="dialog-footer">
-          <button className="btn-secondary" onClick={onClose}>
+          <button className="btn-secondary" onClick={handleCloseClick}>
             关闭
           </button>
         </div>

@@ -38,7 +38,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
     setSelectedPath(path);
   };
 
-  const handleSaveAs = async () => {
+  const saveToSelectedPath = async () => {
     if (!fileName.trim()) {
       setError('请输入文件名');
       return;
@@ -96,15 +96,39 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
     }
   };
 
-  const handleOverwriteConfirm = () => {
+  const confirmOverwriteSave = () => {
     setShowOverwriteConfirm(false);
     performSaveAs(targetPath);
   };
 
-  const handleOverwriteCancel = () => {
+  const cancelOverwriteSave = () => {
     setShowOverwriteConfirm(false);
     setTargetPath('');
     setLoading(false);
+  };
+
+  const handleOverlayClick = () => {
+    onClose();
+  };
+
+  const handleCloseClick = () => {
+    onClose();
+  };
+
+  const handleCancelClick = () => {
+    if (showOverwriteConfirm) {
+      cancelOverwriteSave();
+      return;
+    }
+    onClose();
+  };
+
+  const handleConfirmClick = () => {
+    if (showOverwriteConfirm) {
+      confirmOverwriteSave();
+      return;
+    }
+    saveToSelectedPath();
   };
 
   const getFullPath = () => {
@@ -119,11 +143,14 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
   };
 
   return (
-    <div className={`dialog-overlay theme-${theme}`} onClick={onClose}>
-      <div className="dialog-content save-as-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
+      <div
+        className={`dialog-container compact-panel-dialog save-as-dialog ${showOverwriteConfirm ? 'overwrite-mode' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="dialog-header">
           <h2>{isSaveAs ? '另存为' : '保存到'}</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
 
         <div className="dialog-body">
@@ -160,7 +187,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
                     type="text"
                     value={fileName}
                     onChange={(e) => setFileName(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSaveAs()}
+                    onKeyPress={(e) => e.key === 'Enter' && handleConfirmClick()}
                     placeholder="输入文件名"
                     className="form-input"
                     autoFocus
@@ -169,10 +196,10 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
                 </div>
               </div>
               <div className="footer-right">
-                <button className="btn-secondary" onClick={onClose}>取消</button>
+                <button className="btn-secondary" onClick={handleCancelClick}>取消</button>
                 <button 
                   className="btn-primary" 
-                  onClick={handleSaveAs}
+                  onClick={handleConfirmClick}
                   disabled={loading || !fileName.trim() || !selectedPath}
                 >
                   {loading ? '保存中...' : (isSaveAs ? '另存为' : '保存')}
@@ -181,8 +208,8 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
             </>
           ) : (
             <>
-              <button className="btn-secondary" onClick={handleOverwriteCancel}>取消</button>
-              <button className="btn-danger" onClick={handleOverwriteConfirm}>
+              <button className="btn-secondary" onClick={handleCancelClick}>取消</button>
+              <button className="btn-danger" onClick={handleConfirmClick}>
                 覆盖
               </button>
             </>

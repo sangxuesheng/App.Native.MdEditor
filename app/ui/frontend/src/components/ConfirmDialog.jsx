@@ -13,8 +13,20 @@ function ConfirmDialog({
   onCancel,
   theme = 'light'
 }) {
+  const handleOverlayClick = () => {
+    onCancel()
+  }
+
+  const handleCancelClick = () => {
+    onCancel()
+  }
+
+  const handleConfirmClick = () => {
+    onConfirm()
+  }
+
   return (
-    <div className={`dialog-overlay ${theme}`} onClick={onCancel}>
+    <div className={`dialog-overlay ${theme}`} onClick={handleOverlayClick}>
       <div className="dialog-content confirm-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>{title}</h2>
@@ -25,10 +37,10 @@ function ConfirmDialog({
         </div>
         
         <div className="dialog-footer">
-          <button className="btn-secondary" onClick={onCancel}>
+          <button className="btn-secondary" onClick={handleCancelClick}>
             {cancelText}
           </button>
-          <button className="btn-danger" onClick={onConfirm}>
+          <button className="btn-danger" onClick={handleConfirmClick}>
             {confirmText}
           </button>
         </div>

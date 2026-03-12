@@ -188,7 +188,7 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
     setSelectedTemplate(templateId);
   };
 
-  const handleCreate = () => {
+  const createFileFromTemplate = () => {
     // 获取模板内容
     const template = TEMPLATES.find(t => t.id === selectedTemplate);
     const content = template ? template.content : '';
@@ -199,14 +199,30 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
     onClose();
   };
 
+  const handleOverlayClick = () => {
+    onClose();
+  };
+
+  const handleCloseClick = () => {
+    onClose();
+  };
+
+  const handleCancelClick = () => {
+    onClose();
+  };
+
+  const handleConfirmClick = () => {
+    createFileFromTemplate();
+  };
+
   const selectedTemplateData = TEMPLATES.find(t => t.id === selectedTemplate);
 
   return (
-    <div className={`dialog-overlay theme-${theme}`} onClick={onClose}>
+    <div className={`dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
       <div className="dialog-content new-file-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>新建文件</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
 
         <div className="dialog-body">
@@ -250,10 +266,10 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
         </div>
 
         <div className="dialog-footer">
-          <button className="btn-secondary" onClick={onClose}>取消</button>
+          <button className="btn-secondary" onClick={handleCancelClick}>取消</button>
           <button 
             className="btn-primary" 
-            onClick={handleCreate}
+            onClick={handleConfirmClick}
           >
             创建并编辑
           </button>

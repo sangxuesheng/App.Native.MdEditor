@@ -6,6 +6,7 @@ const ElasticSlider = ({ min = 0, max = 100, value, onChange, className = '' }) 
   const [localValue, setLocalValue] = useState(value)
   const sliderRef = useRef(null)
   const thumbRef = useRef(null)
+  const activePointerId = useRef(null)
 
   useEffect(() => {
     setLocalValue(value)
@@ -15,47 +16,76 @@ const ElasticSlider = ({ min = 0, max = 100, value, onChange, className = '' }) 
     return ((val - min) / (max - min)) * 100
   }
 
-  const handleMouseDown = (e) => {
-    setIsDragging(true)
-    updateValue(e)
-  }
-
-  const handleMouseMove = (e) => {
-    if (isDragging) {
-      updateValue(e)
-    }
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  const updateValue = (e) => {
+  const updateValueFromClientX = (clientX) => {
     if (!sliderRef.current) return
 
     const rect = sliderRef.current.getBoundingClientRect()
-    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
-    const percentage = x / rect.width
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width))
+    const percentage = rect.width === 0 ? 0 : x / rect.width
     const newValue = Math.round(min + percentage * (max - min))
-    
+
     setLocalValue(newValue)
     onChange?.(newValue)
   }
 
-  const handleTrackClick = (e) => {
-    if (e.target === sliderRef.current || e.target.classList.contains('elastic-slider-track')) {
-      updateValue(e)
+  const updateValue = (e) => {
+    updateValueFromClientX(e.clientX)
+  }
+
+  const handleThumbPointerDown = (e) => {
+    if (!e.isPrimary) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+
+    e.preventDefault()
+    e.stopPropagation()
+    activePointerId.current = e.pointerId
+    setIsDragging(true)
+    updateValue(e)
+
+    if (e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    }
+  }
+
+  const handlePointerMove = (e) => {
+    if (!isDragging) return
+    if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return
+
+    updateValue(e)
+  }
+
+  const handlePointerUp = (e) => {
+    if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return
+    activePointerId.current = null
+    setIsDragging(false)
+  }
+
+  const handlePointerCancel = (e) => {
+    if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return
+    activePointerId.current = null
+    setIsDragging(false)
+  }
+
+  const handleTrackPointerDown = (e) => {
+    if (!e.isPrimary) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    if (thumbRef.current?.contains(e.target)) return
+
+    activePointerId.current = e.pointerId
+    setIsDragging(true)
+    updateValue(e)
+
+    if (sliderRef.current?.setPointerCapture) {
+      sliderRef.current.setPointerCapture(e.pointerId)
     }
   }
 
   useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
-      }
+    if (!isDragging) return
+
+    return () => {
+      activePointerId.current = null
+      setIsDragging(false)
     }
   }, [isDragging])
 
@@ -65,7 +95,10 @@ const ElasticSlider = ({ min = 0, max = 100, value, onChange, className = '' }) 
     <div 
       className={`elastic-slider ${className} ${isDragging ? 'dragging' : ''}`}
       ref={sliderRef}
-      onClick={handleTrackClick}
+      onPointerDown={handleTrackPointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       <div className="elastic-slider-track">
         <div 
@@ -76,7 +109,7 @@ const ElasticSlider = ({ min = 0, max = 100, value, onChange, className = '' }) 
           className="elastic-slider-thumb"
           ref={thumbRef}
           style={{ left: `${percentage}%` }}
-          onMouseDown={handleMouseDown}
+          onPointerDown={handleThumbPointerDown}
         >
           <div className="elastic-slider-thumb-inner" />
         </div>

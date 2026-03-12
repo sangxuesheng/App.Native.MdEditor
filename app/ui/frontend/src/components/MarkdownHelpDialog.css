@@ -63,5 +63,15 @@
   --code-inline-bg: #0d1117;
 }
 
+@media (max-width: 768px) {
+  .markdown-help-content {
+    max-width: none;
+  }
+
+  .help-section {
+    margin-bottom: 20px;
+  }
+}
+
 
 

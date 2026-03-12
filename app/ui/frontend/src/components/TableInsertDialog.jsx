@@ -58,7 +58,7 @@ function TableInsertDialog({ onClose, onInsert, theme }) {
     setCells(newCells)
   }
 
-  const handleConfirm = () => {
+  const insertTableMarkdown = () => {
     // 生成 Markdown 表格
     let markdown = '| '
     
@@ -88,8 +88,24 @@ function TableInsertDialog({ onClose, onInsert, theme }) {
     onClose()
   }
 
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
+  const handleCancelClick = () => {
+    onClose()
+  }
+
+  const handleConfirmClick = () => {
+    insertTableMarkdown()
+  }
+
   return (
-    <div className="table-insert-overlay" onClick={onClose}>
+    <div className="table-insert-overlay" onClick={handleOverlayClick}>
       <div 
         className={`table-insert-dialog ${theme}`}
         onClick={(e) => e.stopPropagation()}
@@ -97,7 +113,7 @@ function TableInsertDialog({ onClose, onInsert, theme }) {
         {/* 头部 */}
         <div className="table-insert-header">
           <h3>插入表格</h3>
-          <button className="close-button" onClick={onClose}>
+          <button className="close-button" onClick={handleCloseClick}>
             <X size={20} />
           </button>
         </div>
@@ -160,10 +176,10 @@ function TableInsertDialog({ onClose, onInsert, theme }) {
 
         {/* 底部按钮 */}
         <div className="table-insert-footer">
-          <button className="cancel-button" onClick={onClose}>
+          <button className="cancel-button" onClick={handleCancelClick}>
             取消
           </button>
-          <button className="confirm-button" onClick={handleConfirm}>
+          <button className="confirm-button" onClick={handleConfirmClick}>
             确定
           </button>
         </div>

@@ -4,8 +4,8 @@
 }
 
 .properties-dialog {
-  width: 90%;
-  max-width: 400px;
+  width: min(90vw, 420px);
+  max-width: 420px;
 }
 
 .properties-dialog .dialog-body {
@@ -138,6 +138,30 @@
 
 .theme-dark .property-value {
   color: #c9d1d9;
+}
+
+@media (max-width: 768px) {
+  .properties-dialog {
+    width: 100%;
+    max-width: none;
+  }
+
+  .properties-dialog .dialog-body,
+  .properties-dialog .dialog-header,
+  .properties-dialog .dialog-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .property-item {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .property-value {
+    margin-left: 0;
+    text-align: left;
+  }
 }
 
 

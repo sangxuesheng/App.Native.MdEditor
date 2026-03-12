@@ -35,15 +35,15 @@ const ImageManager = ({ onInsert, onClose }) => {
     setLoading(false);
   };
 
-  const handleUploadSuccess = (imageData) => {
+  const doRefreshImages = () => {
     loadImages();
   };
 
-  const handleImageClick = (image) => {
+  const doOpenImagePreview = (image) => {
     setPreviewImage(image);
   };
 
-  const handleInsert = (image) => {
+  const doInsertImage = (image) => {
     if (onInsert) {
       const filename = image.filename || image.url.split('/').pop();
       const altText = filename.replace(/\.[^.]+$/, '');
@@ -52,7 +52,7 @@ const ImageManager = ({ onInsert, onClose }) => {
     onClose();
   };
 
-  const handleDelete = async (image) => {
+  const doDeleteImage = async (image) => {
     if (!confirm(`确定要删除 ${image.filename} 吗？`)) {
       return;
     }
@@ -74,9 +74,61 @@ const ImageManager = ({ onInsert, onClose }) => {
     }
   };
 
-  const handleCopyLink = (image) => {
+  const doCopyImageLink = (image) => {
     navigator.clipboard.writeText(image.url);
     alert('链接已复制到剪贴板');
+  };
+
+  const handleUploadSuccess = () => {
+    doRefreshImages();
+  };
+
+  const handleImageClick = (image) => {
+    doOpenImagePreview(image);
+  };
+
+  const handleInsertClick = (image) => {
+    doInsertImage(image);
+  };
+
+  const handleCopyLinkClick = (image) => {
+    doCopyImageLink(image);
+  };
+
+  const handleDeleteClick = async (image) => {
+    await doDeleteImage(image);
+  };
+
+  const doOpenUploaderDialog = () => {
+    setShowUploader(true);
+  };
+
+  const doCloseUploaderDialog = () => {
+    setShowUploader(false);
+  };
+
+  const doClosePreviewDialog = () => {
+    setPreviewImage(null);
+  };
+
+  const handleOpenUploaderClick = () => {
+    doOpenUploaderDialog();
+  };
+
+  const handleUploaderClose = () => {
+    doCloseUploaderDialog();
+  };
+
+  const handlePreviewClose = () => {
+    doClosePreviewDialog();
+  };
+
+  const handleOverlayClick = () => {
+    onClose();
+  };
+
+  const handleCloseClick = () => {
+    onClose();
   };
 
   const formatFileSize = (bytes) => {
@@ -88,11 +140,11 @@ const ImageManager = ({ onInsert, onClose }) => {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="image-manager-overlay" onClick={onClose}>
+    <div className="image-manager-overlay" onClick={handleOverlayClick}>
       <div className="image-manager-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="image-manager-header">
           <h3><Image size={20} /> 图片管理器</h3>
-          <button className="close-btn" onClick={onClose}><X size={20} /></button>
+          <button className="close-btn" onClick={handleCloseClick}><X size={20} /></button>
         </div>
 
         <div className="image-manager-toolbar">
@@ -103,7 +155,7 @@ const ImageManager = ({ onInsert, onClose }) => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className="upload-btn" onClick={() => setShowUploader(true)}>
+          <button className="upload-btn" onClick={handleOpenUploaderClick}>
             <Upload size={16} /> 上传图片
           </button>
         </div>
@@ -115,7 +167,7 @@ const ImageManager = ({ onInsert, onClose }) => {
             <div className="empty-state">
               <div className="empty-icon"><Image size={64} /></div>
               <p>还没有上传图片</p>
-              <button className="upload-btn" onClick={() => setShowUploader(true)}>
+              <button className="upload-btn" onClick={handleOpenUploaderClick}>
                 上传第一张图片
               </button>
             </div>
@@ -135,21 +187,21 @@ const ImageManager = ({ onInsert, onClose }) => {
                   <div className="image-actions">
                     <button
                       className="action-btn"
-                      onClick={() => handleInsert(image)}
+                      onClick={() => handleInsertClick(image)}
                       title="插入到编辑器"
                     >
                       <Plus size={16} />
                     </button>
                     <button
                       className="action-btn"
-                      onClick={() => handleCopyLink(image)}
+                      onClick={() => handleCopyLinkClick(image)}
                       title="复制链接"
                     >
                       <Copy size={16} />
                     </button>
                     <button
                       className="action-btn delete-btn"
-                      onClick={() => handleDelete(image)}
+                      onClick={() => handleDeleteClick(image)}
                       title="删除"
                     >
                       <Trash2 size={16} />
@@ -187,16 +239,16 @@ const ImageManager = ({ onInsert, onClose }) => {
       {showUploader && (
         <ImageUploader
           onUploadSuccess={handleUploadSuccess}
-          onClose={() => setShowUploader(false)}
+          onClose={handleUploaderClose}
         />
       )}
 
       {previewImage && (
         <ImagePreview
           image={previewImage}
-          onInsert={handleInsert}
-          onDelete={handleDelete}
-          onClose={() => setPreviewImage(null)}
+          onInsert={doInsertImage}
+          onDelete={doDeleteImage}
+          onClose={handlePreviewClose}
         />
       )}
     </div>

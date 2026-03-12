@@ -1,29 +1,17 @@
-/* 另存为对话框 - 强制固定宽度 */
-.dialog-overlay .dialog-content.save-as-dialog {
-  width: 600px !important;
-  min-width: 600px !important;
-  max-width: 600px !important;
-  height: 484px !important;
-  max-height: 85vh !important;
+.save-as-dialog {
+  width: min(600px, 92vw) !important;
+  height: min(484px, 88vh) !important;
+  max-width: 92vw !important;
   display: flex !important;
   flex-direction: column !important;
   flex-shrink: 0 !important;
   box-sizing: border-box !important;
 }
 
-/* 确保所有子元素不超出宽度 */
-.dialog-overlay .dialog-content.save-as-dialog > * {
-  max-width: 600px !important;
-  box-sizing: border-box !important;
-}
-
-/* 确保在所有主题下都生效 */
-.dialog-overlay.theme-light .dialog-content.save-as-dialog,
-.dialog-overlay.theme-dark .dialog-content.save-as-dialog {
-  width: 600px !important;
-  min-width: 600px !important;
-  max-width: 600px !important;
-  height: 484px !important;
+.save-as-dialog.overwrite-mode {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: min(85vh, 560px) !important;
 }
 
 .save-as-dialog .dialog-body {
@@ -32,9 +20,13 @@
   padding: 0;
   min-height: 0;
   width: 100%;
-  max-width: 600px;
   height: calc(100% - 80px);
   background: #0d1117;
+}
+
+.save-as-dialog.overwrite-mode .dialog-body {
+  overflow-y: auto;
+  height: auto;
 }
 
 .theme-light .save-as-dialog .dialog-body {
@@ -50,7 +42,6 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 600px;
 }
 
 /* 文件浏览器容器 */
@@ -62,7 +53,6 @@
   overflow: hidden;
   background: transparent;
   width: 100%;
-  max-width: 600px;
 }
 
 .theme-light .file-browser-container {
@@ -93,19 +83,19 @@
 }
 
 
-.footer-left {
+.save-as-dialog .footer-left {
   flex: 1;
   display: flex;
   align-items: center;
 }
 
-.footer-right {
+.save-as-dialog .footer-right {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.file-name-input-footer {
+.save-as-dialog .file-name-input-footer {
   display: flex;
   align-items: center;
   position: relative;
@@ -113,7 +103,7 @@
   max-width: 400px;
 }
 
-.file-name-input-footer .form-input {
+.save-as-dialog .file-name-input-footer .form-input {
   flex: 1;
   padding: 10px 50px 10px 14px;
   border: 2px solid #30363d;
@@ -124,26 +114,26 @@
   transition: all 0.2s ease;
 }
 
-.theme-light .file-name-input-footer .form-input {
+.theme-light .save-as-dialog .file-name-input-footer .form-input {
   background: #ffffff;
   border-color: #d0d7de;
   color: #24292f;
 }
 
 
-.file-name-input-footer .form-input:focus {
+.save-as-dialog .file-name-input-footer .form-input:focus {
   outline: none;
   border-color: #1f6feb;
   box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
 }
 
-.theme-light .file-name-input-footer .form-input:focus {
+.theme-light .save-as-dialog .file-name-input-footer .form-input:focus {
   border-color: #0165ff;
   box-shadow: 0 0 0 3px rgba(1, 101, 255, 0.1);
 }
 
 
-.file-name-input-footer .file-extension {
+.save-as-dialog .file-name-input-footer .file-extension {
   position: absolute;
   right: 14px;
   color: #8b949e;
@@ -152,62 +142,8 @@
   pointer-events: none;
 }
 
-.theme-light .file-name-input-footer .file-extension {
+.theme-light .save-as-dialog .file-name-input-footer .file-extension {
   color: #57606a;
-}
-
-
-/* 覆盖确认 */
-.overwrite-confirm {
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.confirm-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.overwrite-confirm h3 {
-  margin: 0 0 12px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #c9d1d9;
-}
-
-.theme-light .overwrite-confirm h3 {
-  color: #24292f;
-}
-
-
-.overwrite-confirm p {
-  margin: 8px 0;
-  font-size: 14px;
-  color: #8b949e;
-  line-height: 1.6;
-}
-
-.theme-light .overwrite-confirm p {
-  color: #57606a;
-}
-
-
-.confirm-path {
-  margin: 16px 0;
-  padding: 12px;
-  background: #161b22;
-  border: 1px solid #f85149;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #f85149;
-  font-family: 'JetBrains Mono', monospace;
-  word-break: break-all;
-}
-
-.theme-light .confirm-path {
-  background: #ffebe9;
-  border-color: #cf222e;
-  color: #cf222e;
 }
 
 
@@ -215,9 +151,9 @@
 .save-as-dialog .btn-secondary,
 .save-as-dialog .btn-primary {
   height: 38px;
-  min-width: 80px;
+  min-width: 90px;
   padding: 0 20px;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -252,24 +188,34 @@
 }
 
 .save-as-dialog .btn-primary {
-  background: #1f6feb;
+  background: #086ADA;
   color: #ffffff;
   border: none;
 }
 
+.theme-dark .save-as-dialog .btn-primary {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
 .theme-light .save-as-dialog .btn-primary {
-  background: #0165ff;
+  background: #086ADA;
 }
 
 
 .save-as-dialog .btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
+  background: #0757b8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(31, 111, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.theme-dark .save-as-dialog .btn-primary:hover:not(:disabled) {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
 }
 
 .theme-light .save-as-dialog .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(1, 101, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
 }
 
 .save-as-dialog .btn-primary:disabled {
@@ -312,16 +258,20 @@
 /* 覆盖确认对话框 */
 .overwrite-confirm {
   text-align: center;
-  padding: 60px 40px;
+  padding: 32px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .confirm-icon {
-  margin-bottom: 20px;
   color: #f85149;
+  line-height: 0;
 }
 
 .overwrite-confirm h3 {
-  margin: 0 0 16px 0;
+  margin: 0;
   font-size: 20px;
   font-weight: 600;
   color: #c9d1d9;
@@ -333,7 +283,7 @@
 
 
 .overwrite-confirm p {
-  margin: 12px 0;
+  margin: 0;
   font-size: 14px;
   color: #8b949e;
   line-height: 1.6;
@@ -345,7 +295,7 @@
 
 
 .confirm-path {
-  margin: 24px 0;
+  margin: 4px 0;
   padding: 16px;
   background: #161b22;
   border: 2px solid #f85149;
@@ -354,6 +304,11 @@
   color: #f85149;
   font-family: 'JetBrains Mono', monospace;
   word-break: break-all;
+  width: 100%;
+  max-width: 100%;
+  max-height: 108px;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .theme-light .confirm-path {
@@ -364,19 +319,53 @@
 
 
 /* 响应式 */
-@media (max-width: 768px) {
-  .dialog-overlay .dialog-content.save-as-dialog {
-    width: 600px !important;
-    min-width: 600px !important;
-    max-width: 600px !important;
+@media (max-width: 1024px) {
+  .save-as-dialog {
+    width: min(760px, 100%) !important;
+    height: calc(100vh - 24px) !important;
+    max-height: none !important;
+  }
+
+  .save-as-dialog .dialog-footer {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .save-as-dialog .footer-left,
+  .save-as-dialog .footer-right {
+    width: 100%;
+  }
+
+  .save-as-dialog .file-name-input-footer {
+    max-width: none;
   }
 }
 
-@media (max-width: 480px) {
-  .dialog-overlay .dialog-content.save-as-dialog {
-    width: 600px !important;
-    min-width: 600px !important;
-    max-width: 600px !important;
-    border-radius: 12px;
+@media (max-width: 768px) {
+  .save-as-dialog {
+    width: 100% !important;
+    height: calc(100vh - 16px) !important;
+  }
+
+  .overwrite-confirm {
+    padding: 24px 16px 20px;
+  }
+
+  .save-as-dialog .dialog-footer {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .save-as-dialog .footer-right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .save-as-dialog .btn-secondary,
+  .save-as-dialog .btn-primary,
+  .btn-danger {
+    width: 100%;
+    min-width: 0;
   }
 }

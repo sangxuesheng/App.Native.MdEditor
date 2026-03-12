@@ -83,6 +83,26 @@
   --key-bg: #0d1117;
 }
 
+@media (max-width: 768px) {
+  .shortcuts-content {
+    max-width: none;
+  }
+
+  .shortcut-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .shortcut-keys {
+    min-width: 0;
+  }
+
+  .shortcut-description {
+    text-align: left;
+  }
+}
+
 
 
 

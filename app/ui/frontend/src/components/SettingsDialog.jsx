@@ -4,61 +4,61 @@ import './SettingsDialog.css';
 const SettingsDialog = ({ 
   onClose, 
   theme,
+  fontSize = 14,
+  lineHeight = 24,
+  fontFamily = 'JetBrains Mono',
+  syncPreviewWithEditor = true,
   onThemeChange,
   onSave
 }) => {
   const [settings, setSettings] = useState({
     theme: theme,
-    fontSize: 14,
-    lineHeight: 24,
+    fontSize,
+    lineHeight,
     tabSize: 2,
     wordWrap: true,
     lineNumbers: true,
-    fontFamily: 'JetBrains Mono'
+    fontFamily,
+    // 编辑与预览联动（编辑滚动时预览是否跟随）
+    syncPreviewWithEditor,
   });
 
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    // 从 localStorage 加载设置
-    const savedSettings = localStorage.getItem('md-editor-settings');
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        // 使用传入的 theme 而不是保存的值
-        setSettings(prev => ({ ...prev, ...parsed, theme: theme }));
-      } catch (err) {
-        console.error('Failed to load settings:', err);
-      }
-    }
-  }, [theme]);
+    // 弹窗中的设置项始终以父组件当前状态为准，避免显示默认值
+    setSettings(prev => ({
+      ...prev,
+      theme,
+      fontSize,
+      lineHeight,
+      fontFamily,
+      syncPreviewWithEditor,
+    }))
+    setHasChanges(false)
+  }, [theme, fontSize, lineHeight, fontFamily, syncPreviewWithEditor]);
 
   const handleChange = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    // 保存到 localStorage
-    localStorage.setItem('md-editor-settings', JSON.stringify(settings));
-
-    // 应用主题设置
-    if (settings.theme !== theme) {
-      // 直接设置主题
-      localStorage.setItem('md-editor-theme', settings.theme);
-      onThemeChange();
-    }
-
-    // 回调设置值给父组件
+  const saveSettings = () => {
+    // 回调设置值给父组件，由父组件负责持久化到数据库
     if (onSave) {
       onSave(settings);
+    }
+
+    // 如果主题变更，通知父组件触发主题切换逻辑
+    if (settings.theme !== theme && onThemeChange) {
+      onThemeChange(settings.theme);
     }
 
     setHasChanges(false);
     onClose();
   };
 
-  const handleReset = () => {
+  const doRestoreDefaults = () => {
     const defaultSettings = {
       theme: 'light',
       fontSize: 14,
@@ -66,18 +66,39 @@ const SettingsDialog = ({
       tabSize: 2,
       wordWrap: true,
       lineNumbers: true,
-      fontFamily: 'JetBrains Mono'
+      fontFamily: 'JetBrains Mono',
+      syncPreviewWithEditor: true,
     };
     setSettings(defaultSettings);
     setHasChanges(true);
   };
 
+  const handleOverlayClick = () => {
+    onClose();
+  };
+
+  const handleCloseClick = () => {
+    onClose();
+  };
+
+  const handleCancelClick = () => {
+    onClose();
+  };
+
+  const handleConfirmClick = () => {
+    saveSettings();
+  };
+
+  const handleResetClick = () => {
+    doRestoreDefaults();
+  };
+
   return (
-    <div className={`dialog-overlay theme-${theme}`} onClick={onClose}>
-      <div className="dialog-content settings-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
+      <div className={`dialog-container compact-panel-dialog settings-dialog`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>设置</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
 
         <div className="dialog-body">
@@ -202,17 +223,32 @@ const SettingsDialog = ({
                 </label>
               </div>
 
+              <div className="setting-item">
+                <div className="setting-label">
+                  <label>编辑-预览联动</label>
+                  <p className="setting-description">编辑器滚动时，预览区域自动跟随滚动</p>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.syncPreviewWithEditor}
+                    onChange={(e) => handleChange('syncPreviewWithEditor', e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
             </div>
           </div>
         </div>
 
         <div className="dialog-footer">
-          <button className="btn-secondary" onClick={handleReset}>恢复默认</button>
+          <button className="btn-secondary" onClick={handleResetClick}>恢复默认</button>
           <div className="footer-right">
-            <button className="btn-secondary" onClick={onClose}>取消</button>
+            <button className="btn-secondary" onClick={handleCancelClick}>取消</button>
             <button 
               className="btn-primary" 
-              onClick={handleSave}
+              onClick={handleConfirmClick}
               disabled={!hasChanges}
             >
               保存

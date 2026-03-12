@@ -63,6 +63,22 @@
   margin: 4px 8px;
 }
 
+@media (pointer: coarse) {
+  .context-menu {
+    min-width: 220px;
+    padding: 6px 0;
+  }
+
+  .context-menu-item {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .menu-icon {
+    margin-right: 10px;
+  }
+}
+
 /* 浅色主题 */
 .theme-light {
   --menu-bg: #ffffff;

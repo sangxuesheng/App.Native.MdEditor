@@ -286,31 +286,50 @@
 }
 
 .custom-dialog-btn {
-  padding: 8px 16px;
-  border-radius: 6px;
+  min-height: 38px;
+  min-width: 90px;
+  padding: 0 20px;
+  border-radius: 10px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  border: none;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .custom-dialog-btn-cancel {
-  background: var(--bg-secondary, #f3f4f6);
+  background: var(--button-secondary-bg, #ffffff);
+  border-color: var(--button-secondary-border, #d0d7de);
   color: var(--text-primary, #374151);
 }
 
 .custom-dialog-btn-cancel:hover {
-  background: var(--hover-bg, #e5e7eb);
+  background: var(--button-secondary-hover, #f3f4f6);
 }
 
 .custom-dialog-btn-confirm {
-  background: #3b82f6;
+  background: #086ADA;
   color: white;
 }
 
+.theme-dark .custom-dialog-btn-confirm {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
 .custom-dialog-btn-confirm:hover {
-  background: #2563eb;
+  background: #0757b8;
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.theme-dark .custom-dialog-btn-confirm:hover {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
 }
 
 .custom-dialog-btn:active {
@@ -325,6 +344,9 @@
   --text-primary: #f9fafb;
   --text-secondary: #d1d5db;
   --border-color: #374151;
+  --button-secondary-bg: #21262d;
+  --button-secondary-border: #30363d;
+  --button-secondary-hover: #30363d;
 }
 
 /* 浅色主题 */
@@ -335,4 +357,7 @@
   --text-primary: #1f2937;
   --text-secondary: #6b7280;
   --border-color: #e5e7eb;
+  --button-secondary-bg: #ffffff;
+  --button-secondary-border: #d0d7de;
+  --button-secondary-hover: #f6f8fa;
 }

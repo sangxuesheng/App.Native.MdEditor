@@ -31,11 +31,12 @@ import ShortcutsDialog from './components/ShortcutsDialog'
 import ImageManagerDialog from './components/ImageManagerDialog'
 import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
+import SyncDialog from './components/SyncDialog'
 import FileHistoryDialog from './components/FileHistoryDialog'
 import EditorContextMenu from './components/EditorContextMenu'
 import { ToastContainer } from './components/Toast'
 import { useDebounce } from './hooks/useDebounce'
-import { saveFileHistory } from './utils/fileHistoryManagerV2'
+import { saveFileHistory, getFileHistory as getFileHistoryVersions, deleteVersion } from './utils/fileHistoryManagerV2'
 import { handleError, logError, getUserFriendlyMessage } from './utils/errorHandler'
 import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
@@ -43,7 +44,8 @@ import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentF
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
 import { FolderArchive, Sun, Moon, Columns, FileText, Eye } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
-import { restoreFullState, clearContent as clearPersistedContent } from './utils/localPersistence'
+import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
+import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting } from './utils/settingsApi'
 import { copyToWeChat } from './utils/wechatExporter'
 
 // 初始化 unified 处理器
@@ -89,18 +91,15 @@ const loadMermaid = async () => {
 }
 
 function App() {
-  // 恢复保存的状态
-  const savedState = restoreFullState()
-  
-  const [content, setContent] = useState(savedState?.content || '')
+  const [content, setContent] = useState(DEFAULT_APP_STATE.content)
   const [showImageManager, setShowImageManager] = useState(false)
-  const [currentPath, setCurrentPath] = useState(savedState?.currentPath || '')
+  const [currentPath, setCurrentPath] = useState(DEFAULT_APP_STATE.currentPath)
   const [status, setStatus] = useState('就绪')
   const [statusType, setStatusType] = useState('normal') // normal, success, error
   const [showTableDialog, setShowTableDialog] = useState(false)
-  const [editorTheme, setEditorTheme] = useState(savedState?.theme || localStorage.getItem('md-editor-theme') || 'light')
-  const [layout, setLayout] = useState(savedState?.layout || 'vertical')
-  const [showFileTree, setShowFileTree] = useState(savedState?.showFileTree || false)
+  const [editorTheme, setEditorTheme] = useState('light')
+  const [layout, setLayout] = useState('vertical')
+  const [showFileTree, setShowFileTree] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
   const [isSaveAsMode, setIsSaveAsMode] = useState(true)
@@ -109,26 +108,18 @@ function App() {
   const [showMarkdownHelp, setShowMarkdownHelp] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
+  const [showSyncDialog, setShowSyncDialog] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
-  const [showToolbar, setShowToolbar] = useState(savedState?.showToolbar !== false)
-  const [editorFontSize, setEditorFontSize] = useState(() => {
-    const saved = localStorage.getItem('md-editor-settings')
-    if (saved) { try { const p = JSON.parse(saved); if (p.fontSize) return p.fontSize } catch {} }
-    return savedState?.fontSize || 14
-  })
-  const [editorLineHeight, setEditorLineHeight] = useState(() => {
-    const saved = localStorage.getItem('md-editor-settings')
-    if (saved) { try { const p = JSON.parse(saved); if (p.lineHeight) return p.lineHeight } catch {} }
-    return 24
-  })
-  const [editorFontFamily, setEditorFontFamily] = useState(() => {
-    const saved = localStorage.getItem('md-editor-settings')
-    if (saved) { try { const p = JSON.parse(saved); if (p.fontFamily) return p.fontFamily } catch {} }
-    return 'JetBrains Mono'
-  })
+  const [historyVersions, setHistoryVersions] = useState([])
+  const [showToolbar, setShowToolbar] = useState(true)
+  const [initialStateLoaded, setInitialStateLoaded] = useState(false)
+  const [editorFontSize, setEditorFontSize] = useState(14)
+  const [editorLineHeight, setEditorLineHeight] = useState(24)
+  const [editorFontFamily, setEditorFontFamily] = useState('JetBrains Mono')
+  const [syncPreviewWithEditor, setSyncPreviewWithEditor] = useState(true)
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
-  const [imageCaptionFormat, setImageCaptionFormat] = useState(savedState?.imageCaptionFormat || 'title-first')
+  const [imageCaptionFormat, setImageCaptionFormat] = useState(DEFAULT_APP_STATE.imageCaptionFormat)
 
   // 导出配置面板状态
   const [showExportConfigPanel, setShowExportConfigPanel] = useState(false)
@@ -186,6 +177,10 @@ function App() {
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState(null)
   const [clipboardContent, setClipboardContent] = useState(null)
+
+  const handleExportConfigChange = useCallback((nextConfig) => {
+    setExportConfig(nextConfig)
+  }, [])
 
   // 应用导出配置到预览区
   useEffect(() => {
@@ -295,17 +290,6 @@ function App() {
         // 自定义主题：使用用户输入的 CSS
         // 转换特殊选择器为标准 CSS 选择器
         let customCSS = exportConfig.customCSS || ''
-        
-        // 如果没有自定义 CSS，尝试从 localStorage 加载
-        if (!customCSS && exportConfig.theme.startsWith('custom:')) {
-          const themeName = exportConfig.theme.substring(7)
-          try {
-            const savedThemes = JSON.parse(localStorage.getItem('customThemes') || '{}')
-            customCSS = savedThemes[themeName] || ''
-          } catch (e) {
-            console.error('加载自定义主题失败:', e)
-          }
-        }
         
         console.log('=== 自定义主题 CSS 转换 ===')
         console.log('原始 CSS:', customCSS)
@@ -1491,17 +1475,137 @@ function App() {
   const previewRef = useRef(null)
   const editorRef = useRef(null)
   const fileTreeRef = useRef(null)
+  const [isCompactViewport, setIsCompactViewport] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(max-width: 1024px)').matches
+  })
+  const [editorInstance, setEditorInstance] = useState(null)
+  const syncPreviewWithEditorRef = useRef(syncPreviewWithEditor)
   // 跟踪上次保存的内容（用于自动保存优化）
   const lastSavedContentRef = useRef('')
   const lastSavedPathRef = useRef('')
+  const initialDocumentHandledRef = useRef(false)
   // 自动保存定时器
   const autoSaveTimerRef = useRef(null)
   // 面板宽度状态
-  const [fileTreeWidth, setFileTreeWidth] = useState(savedState?.fileTreeWidth || 280)
-  const [editorWidth, setEditorWidth] = useState(savedState?.editorWidth || 50)
+  const [fileTreeWidth, setFileTreeWidth] = useState(DEFAULT_APP_STATE.fileTreeWidth)
+  const [editorWidth, setEditorWidth] = useState(DEFAULT_APP_STATE.editorWidth)
+  const [exportConfigPanelWidth, setExportConfigPanelWidth] = useState(DEFAULT_APP_STATE.exportConfigPanelWidth)
 
   // Toast 通知状态
   const [toasts, setToasts] = useState([])
+
+  // 从后端加载共享设置与编辑状态
+  useEffect(() => {
+    const loadInitialState = async () => {
+      try {
+        const [settings, persistedState] = await Promise.all([
+          fetchAllSettings(),
+          loadPersistedState(),
+        ])
+
+        const s = settings || {}
+        if (s.editorTheme) setEditorTheme(s.editorTheme)
+        if (typeof s.editorFontSize === 'number') setEditorFontSize(s.editorFontSize)
+        if (typeof s.editorLineHeight === 'number') setEditorLineHeight(s.editorLineHeight)
+        if (typeof s.editorFontFamily === 'string') setEditorFontFamily(s.editorFontFamily)
+        if (typeof s.syncPreviewWithEditor === 'boolean') setSyncPreviewWithEditor(s.syncPreviewWithEditor)
+        if (typeof s.layout === 'string') setLayout(s.layout)
+        if (typeof s.showFileTree === 'boolean') setShowFileTree(s.showFileTree)
+        if (typeof s.showToolbar === 'boolean') setShowToolbar(s.showToolbar)
+        if (typeof s.showExportConfigPanel === 'boolean') setShowExportConfigPanel(s.showExportConfigPanel)
+        if (typeof s.showSettingsDialog === 'boolean') setShowSettingsDialog(s.showSettingsDialog)
+        if (typeof s.showMarkdownHelp === 'boolean') setShowMarkdownHelp(s.showMarkdownHelp)
+        if (typeof s.showShortcuts === 'boolean') setShowShortcuts(s.showShortcuts)
+        if (typeof s.showAbout === 'boolean') setShowAbout(s.showAbout)
+        if (typeof s.showHistory === 'boolean') setShowHistory(s.showHistory)
+
+        setContent(persistedState.content || '')
+        setCurrentPath(persistedState.currentPath || '')
+        setFileTreeWidth(persistedState.fileTreeWidth || DEFAULT_APP_STATE.fileTreeWidth)
+        setEditorWidth(persistedState.editorWidth || DEFAULT_APP_STATE.editorWidth)
+        setExportConfigPanelWidth(
+          persistedState.exportConfigPanelWidth || DEFAULT_APP_STATE.exportConfigPanelWidth
+        )
+        setImageCaptionFormat(
+          persistedState.imageCaptionFormat || DEFAULT_APP_STATE.imageCaptionFormat
+        )
+      } catch (e) {
+        console.error('[App] 加载共享状态失败:', e)
+      } finally {
+        setInitialStateLoaded(true)
+      }
+    }
+
+    loadInitialState()
+  }, [])
+
+  // 从后端加载导出配置预设（仅加载当前激活的一份）
+  useEffect(() => {
+    const loadExportPreset = async () => {
+      try {
+        const res = await fetch('/api/export-presets/active')
+        if (!res.ok) return
+        const data = await res.json()
+        if (!data || !data.ok || !data.preset || !data.preset.config) return
+        setExportConfig(prev => ({ ...prev, ...data.preset.config }))
+      } catch (e) {
+        console.error('[App] 加载导出配置失败:', e)
+      }
+    }
+    loadExportPreset()
+  }, [])
+
+  // 同步 ref 中的联动开关值，供非 React 事件处理使用
+  useEffect(() => {
+    syncPreviewWithEditorRef.current = syncPreviewWithEditor
+  }, [syncPreviewWithEditor])
+
+  // 编辑器滚动与预览联动
+  useEffect(() => {
+    const editor = editorInstance
+    if (!editor) return
+
+    console.log('[联动滚动] 初始化滚动联动监听, 开关 =', syncPreviewWithEditorRef.current)
+
+    const scrollDisposable = editor.onDidScrollChange(() => {
+      if (!syncPreviewWithEditorRef.current) return
+      if (!previewRef.current) return
+
+      const editorScrollTop = editor.getScrollTop()
+      const editorScrollHeight = editor.getScrollHeight()
+      const editorLayout = editor.getLayoutInfo()
+      const editorClientHeight = editorLayout ? editorLayout.height : 0
+      const editorMaxScroll = Math.max(editorScrollHeight - editorClientHeight, 0)
+
+      const previewRoot = previewRef.current
+      const previewPane = previewRoot.parentElement || previewRoot
+      const previewMaxScroll = Math.max(previewPane.scrollHeight - previewPane.clientHeight, 0)
+
+      console.log('[联动滚动] editor:', {
+        editorScrollTop,
+        editorScrollHeight,
+        editorClientHeight,
+        editorMaxScroll
+      })
+      console.log('[联动滚动] preview:', {
+        scrollHeight: previewPane.scrollHeight,
+        clientHeight: previewPane.clientHeight,
+        previewMaxScroll
+      })
+
+      if (editorMaxScroll <= 0 || previewMaxScroll <= 0) return
+
+      const ratio = editorScrollTop / editorMaxScroll
+      const targetScrollTop = previewMaxScroll * ratio
+
+      previewPane.scrollTop = targetScrollTop
+    })
+
+    return () => {
+      scrollDisposable?.dispose()
+    }
+  }, [syncPreviewWithEditor, editorInstance])
 
   // Toast 通知辅助函数
   const showToast = useCallback((message, type = 'info', duration = 3000) => {
@@ -1865,22 +1969,18 @@ function App() {
     })
   }, [layout, detectPreviewImage, findImageInEditor])
 
-  // 本地持久化自动保存
+  // 编辑状态持久化到数据库
   const persistenceState = {
     content,
     currentPath,
     editorWidth,
     fileTreeWidth,
-    theme: editorTheme,
-    layout,
-    showFileTree,
-    showToolbar,
-    fontSize: editorFontSize,
-    imageCaptionFormat
+    exportConfigPanelWidth,
+    imageCaptionFormat,
   }
   
   // 启用自动保存（防抖 500ms）
-  const { saveNow } = useLocalPersistence(persistenceState, 500, true)
+  useLocalPersistence(persistenceState, 500, true)
   
   // 页面关闭/刷新时保存
   useBeforeUnload(persistenceState, true)
@@ -1888,19 +1988,23 @@ function App() {
   // 页面隐藏时保存
   useVisibilityChange(persistenceState, true)
 
-  // 保存面板宽度到 localStorage（保留原有逻辑以兼容）
   useEffect(() => {
-    localStorage.setItem('md-editor-filetree-width', fileTreeWidth.toString())
-  }, [fileTreeWidth])
+    if (typeof window === 'undefined') return undefined
 
-  useEffect(() => {
-    localStorage.setItem('md-editor-editor-width', editorWidth.toString())
-  }, [editorWidth])
+    const mediaQuery = window.matchMedia('(max-width: 1024px)')
+    const handleViewportChange = (event) => {
+      setIsCompactViewport(event.matches)
+    }
 
-  // 初始化主题
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('md-editor-theme') || 'light'
-    setEditorTheme(savedTheme)
+    setIsCompactViewport(mediaQuery.matches)
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleViewportChange)
+      return () => mediaQuery.removeEventListener('change', handleViewportChange)
+    }
+
+    mediaQuery.addListener(handleViewportChange)
+    return () => mediaQuery.removeListener(handleViewportChange)
   }, [])
 
   // 当主题变化时，应用到 Monaco Editor
@@ -1994,27 +2098,145 @@ function App() {
     })
   }, [])
 
+  const handleExportConfigPanelResize = useCallback((delta) => {
+    setExportConfigPanelWidth(prev => {
+      const newWidth = prev - delta
+      return Math.max(240, Math.min(520, newWidth))
+    })
+  }, [])
+
   // 处理编辑器宽度调整
   const handleEditorResize = useCallback((delta) => {
-    const mainContent = document.querySelector('.main-content')
-    if (!mainContent) return
-    
-    const totalWidth = mainContent.offsetWidth - (showFileTree ? fileTreeWidth : 0) - 8 // 减去分隔条宽度
+    const contentArea = document.querySelector('.editor-preview-content')
+    if (!contentArea) return
+
+    const totalWidth = contentArea.offsetWidth - 8
+    if (totalWidth <= 0) return
+
     const deltaPercent = (delta / totalWidth) * 100
     
     setEditorWidth(prev => {
       const newWidth = prev + deltaPercent
-      return Math.max(10, Math.min(90, newWidth)) // 限制在 10%-90%
+      return Math.max(5, Math.min(95, newWidth))
     })
-  }, [showFileTree, fileTreeWidth])
+  }, [])
 
-  const toggleEditorTheme = async () => {
-    // 在 light 和 dark 之间切换
-    const newTheme = editorTheme === 'light' ? 'dark' : 'light'
-    
+  const updateShowFileTree = useCallback((nextValue) => {
+    setShowFileTree(prev => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
+      persistSetting('showFileTree', resolvedValue).catch((e) => {
+        console.error('[App] 保存文件树显示状态失败:', e)
+      })
+      return resolvedValue
+    })
+  }, [])
+
+  const updateShowToolbar = useCallback((nextValue) => {
+    setShowToolbar(prev => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
+      persistSetting('showToolbar', resolvedValue).catch((e) => {
+        console.error('[App] 保存工具栏显示状态失败:', e)
+      })
+      return resolvedValue
+    })
+  }, [])
+
+  const updateLayout = useCallback((nextLayout) => {
+    setLayout(nextLayout)
+    persistSetting('layout', nextLayout).catch((e) => {
+      console.error('[App] 保存布局设置失败:', e)
+    })
+  }, [])
+
+  const updateShowExportConfigPanel = useCallback((nextValue) => {
+    setShowExportConfigPanel(prev => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
+      persistSetting('showExportConfigPanel', resolvedValue).catch((e) => {
+        console.error('[App] 保存导出配置面板状态失败:', e)
+      })
+      return resolvedValue
+    })
+  }, [])
+
+  const updateShowSettingsDialog = useCallback((nextValue) => {
+    setShowSettingsDialog(prev => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
+      persistSetting('showSettingsDialog', resolvedValue).catch((e) => {
+        console.error('[App] 保存设置面板状态失败:', e)
+      })
+      return resolvedValue
+    })
+  }, [])
+
+  const updateShowMarkdownHelp = useCallback((nextValue) => {
+    setShowMarkdownHelp(prev => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
+      persistSetting('showMarkdownHelp', resolvedValue).catch((e) => {
+        console.error('[App] 保存 Markdown 帮助面板状态失败:', e)
+      })
+      return resolvedValue
+    })
+  }, [])
+
+  const updateShowShortcuts = useCallback((nextValue) => {
+    setShowShortcuts(prev => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
+      persistSetting('showShortcuts', resolvedValue).catch((e) => {
+        console.error('[App] 保存快捷键面板状态失败:', e)
+      })
+      return resolvedValue
+    })
+  }, [])
+
+  const updateShowAbout = useCallback((nextValue) => {
+    setShowAbout(prev => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
+      persistSetting('showAbout', resolvedValue).catch((e) => {
+        console.error('[App] 保存关于面板状态失败:', e)
+      })
+      return resolvedValue
+    })
+  }, [])
+
+  const updateShowHistory = useCallback((nextValue) => {
+    setShowHistory(prev => {
+      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
+      persistSetting('showHistory', resolvedValue).catch((e) => {
+        console.error('[App] 保存历史面板状态失败:', e)
+      })
+      return resolvedValue
+    })
+  }, [])
+
+  const handleToggleFileTree = useCallback(() => {
+    updateShowFileTree((prev) => !prev)
+  }, [updateShowFileTree])
+
+  const handleCloseFileTree = useCallback(() => {
+    updateShowFileTree(false)
+  }, [updateShowFileTree])
+
+  const handleToggleExportConfigPanel = useCallback(() => {
+    updateShowExportConfigPanel((prev) => !prev)
+  }, [updateShowExportConfigPanel])
+
+  const handleCloseExportConfigPanel = useCallback(() => {
+    updateShowExportConfigPanel(false)
+  }, [updateShowExportConfigPanel])
+
+  const toggleEditorTheme = async (forcedTheme) => {
+    // 事件处理函数可能会把 click event 作为第一个参数传进来，这里只接受合法主题值
+    const normalizedTheme =
+      forcedTheme === 'light' || forcedTheme === 'dark' ? forcedTheme : null
+
+    // 在 light 和 dark 之间切换，或使用指定主题
+    const newTheme = normalizedTheme || (editorTheme === 'light' ? 'dark' : 'light')
+
     // 保存主题设置
     setEditorTheme(newTheme)
-    localStorage.setItem('md-editor-theme', newTheme)
+    persistSetting('editorTheme', newTheme).catch((e) => {
+      console.error('[App] 保存主题设置失败:', e)
+    })
     
     // 如果 Mermaid 已加载，根据主题设置
     if (mermaidLoaded && mermaidModule) {
@@ -2158,8 +2380,11 @@ function App() {
 
   // 加载最近文件列表和收藏夹
   useEffect(() => {
-    setRecentFiles(getRecentFiles())
-    setFavorites(getFavorites())
+    ;(async () => {
+      const [rf, favs] = await Promise.all([getRecentFiles(), getFavorites()])
+      setRecentFiles(rf)
+      setFavorites(favs)
+    })()
   }, [])
 
   // 加载根目录列表
@@ -2209,7 +2434,7 @@ function App() {
       // Ctrl+\ - 切换文件树
       if (e.ctrlKey && e.key === '\\') {
         e.preventDefault()
-        setShowFileTree(prev => !prev)
+        updateShowFileTree(prev => !prev)
         return
       }
       
@@ -2237,12 +2462,17 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!initialStateLoaded || initialDocumentHandledRef.current) {
+      return
+    }
+
+    initialDocumentHandledRef.current = true
     const params = new URLSearchParams(window.location.search)
     const path = params.get('path')
     if (path) {
       setCurrentPath(path)
       loadFile(path)
-    } else if (!savedState?.content) {
+    } else if (!content) {
       // 只在没有保存内容时才显示默认文本
       setContent(`# Markdown 编辑器功能展示
 这是一个完整的 Markdown 功能展示文档，包含了各种常用的格式和元素，可直观呈现编辑器的核心能力。
@@ -2479,12 +2709,12 @@ CSS
 点击工具栏的「新建」按钮创建新文件，或从左侧文件树打开现有文件。  
 开始编辑吧！体验 Markdown 带来的简洁高效写作方式 🚀`)
     }
-  }, [])
+  }, [initialStateLoaded, content])
 
   const loadFile = async (path) => {
     try {
       // 清除自动保存的内容（因为要加载新文件）
-      clearPersistedContent()
+      await clearPersistedContent()
       
       setStatus('正在加载...')
       const response = await fetch(`/api/file?path=${encodeURIComponent(path)}`)
@@ -2507,9 +2737,9 @@ CSS
           }
         }
         
-        // 添加到最近文件列表
-        addRecentFile(path)
-        setRecentFiles(getRecentFiles())
+        // 添加到最近文件列表（写入数据库）
+        await addRecentFile(path)
+        setRecentFiles(await getRecentFiles())
         
         setContent(fileContent)
         
@@ -2534,7 +2764,8 @@ CSS
   const handleFileSelect = useCallback((filePath) => {
     setCurrentPath(filePath)
     loadFile(filePath)
-  }, []) // loadFile 是稳定的函数引用
+    updateShowFileTree((prev) => (isCompactViewport ? false : prev))
+  }, [isCompactViewport]) // loadFile 是稳定的函数引用
 
   const handleNewFile = useCallback(() => {
     setShowNewFileDialog(true)
@@ -2544,7 +2775,7 @@ CSS
 
   const handleNewFileConfirm = useCallback((fileContent) => {
     // 清除自动保存的内容（因为要创建新文件）
-    clearPersistedContent()
+    void clearPersistedContent()
     
     // 直接加载模板内容到编辑器
     setContent(fileContent)
@@ -2642,10 +2873,19 @@ CSS
     }
   }, [])
 
-  // 处理大纲点击，跳转到指定行
-  const handleHeadingClick = useCallback((lineNumber) => {
+  // 处理大纲点击，联动编辑区与预览区
+  const handleHeadingClick = useCallback((headingOrLine) => {
     if (!editorRef.current) return
-    
+
+    const lineNumber =
+      typeof headingOrLine === 'number'
+        ? headingOrLine
+        : headingOrLine && typeof headingOrLine === 'object'
+        ? headingOrLine.line
+        : null
+
+    if (!lineNumber) return
+
     const editor = editorRef.current
     // 跳转到指定行并居中显示
     editor.revealLineInCenter(lineNumber)
@@ -2653,6 +2893,40 @@ CSS
     editor.setPosition({ lineNumber, column: 1 })
     // 聚焦编辑器
     editor.focus()
+
+    // 尝试联动预览区：根据标题文本定位到对应的 heading 元素并滚动到中间
+    if (!syncPreviewWithEditorRef.current) return
+
+    const headingText =
+      headingOrLine && typeof headingOrLine === 'object' ? headingOrLine.text : null
+
+    if (!previewRef.current || !headingText) return
+
+    const previewRoot = previewRef.current
+    const previewPane = previewRoot.parentElement || previewRoot
+
+    // 查找第一个匹配标题文本的 h1-h6
+    const headingEls = previewRoot.querySelectorAll('h1, h2, h3, h4, h5, h6')
+    let target = null
+    for (const el of headingEls) {
+      if (el.textContent && el.textContent.trim() === headingText) {
+        target = el
+        break
+      }
+    }
+
+    if (!target || !previewPane) return
+
+    const targetRect = target.getBoundingClientRect()
+    const paneRect = previewPane.getBoundingClientRect()
+    const currentScrollTop = previewPane.scrollTop
+    const targetOffset = targetRect.top - paneRect.top + currentScrollTop
+    const centerOffset = previewPane.clientHeight / 2 - targetRect.height / 2
+
+    previewPane.scrollTo({
+      top: targetOffset - centerOffset,
+      behavior: 'smooth'
+    })
   }, [])
 
   // 插入表格
@@ -4203,7 +4477,7 @@ CSS
     // 微信公众号格式：先显示主题选择对话框
     if (format === 'wechat') {
       // 打开导出配置面板
-      setShowExportConfigPanel(true)
+      updateShowExportConfigPanel(true)
       return
     }
 
@@ -4418,8 +4692,8 @@ CSS
   }, [content, currentPath, generateExportStyles, exportConfig, editorTheme, previewRef])
 
   const handleSettings = useCallback(() => {
-    setShowSettingsDialog(true)
-  }, [])
+    updateShowSettingsDialog(true)
+  }, [updateShowSettingsDialog])
 
   // 应用图注格式到 HTML（新版本：生成固定结构，通过 CSS 控制显示）
   const applyImageCaptionFormat = (html) => {
@@ -5039,7 +5313,8 @@ CSS
 
   const handleEditorMount = useCallback((editor) => {
     editorRef.current = editor
-    
+    setEditorInstance(editor)
+
     // 定义自定义主题 - 修改标题颜色
     monaco.editor.defineTheme('light', {
       base: 'vs',
@@ -5450,7 +5725,7 @@ CSS
 
   // 视图菜单处理函数
   const handleToggleToolbar = () => {
-    setShowToolbar(!showToolbar)
+    updateShowToolbar(!showToolbar)
   }
 
   // 图注格式处理函数
@@ -5485,25 +5760,34 @@ CSS
 
   // 帮助菜单处理函数
   const handleShowMarkdownHelp = () => {
-    setShowMarkdownHelp(true)
+    updateShowMarkdownHelp(true)
   }
 
   const handleShowShortcuts = () => {
-    setShowShortcuts(true)
+    updateShowShortcuts(true)
   }
 
   const handleShowAbout = () => {
-    setShowAbout(true)
+    updateShowAbout(true)
   }
 
   // 文件历史处理函数
-  const handleShowHistory = () => {
+  const handleShowHistory = async () => {
     if (!currentPath) {
       setStatus('请先打开一个文件')
       setTimeout(() => setStatus('就绪'), 2000)
       return
     }
-    setShowHistory(true)
+
+    try {
+      const versions = await getFileHistoryVersions(currentPath)
+      setHistoryVersions(versions)
+      updateShowHistory(true)
+    } catch (error) {
+      console.error('加载历史版本失败:', error)
+      setStatus('加载历史版本失败')
+      setTimeout(() => setStatus('就绪'), 2000)
+    }
   }
 
   const handleRestoreHistory = (historyContent) => {
@@ -5512,10 +5796,18 @@ CSS
     setTimeout(() => setStatus('就绪'), 2000)
   }
 
-  const handleDeleteHistory = (timestamp) => {
-    if (currentPath) {
-      deleteHistoryVersion(currentPath, timestamp)
+  const handleDeleteHistory = async (versionNumber) => {
+    if (!currentPath) return
+
+    try {
+      await deleteVersion(currentPath, versionNumber)
+      const versions = await getFileHistoryVersions(currentPath)
+      setHistoryVersions(versions)
       setStatus('已删除历史版本')
+      setTimeout(() => setStatus('就绪'), 2000)
+    } catch (error) {
+      console.error('删除历史版本失败:', error)
+      setStatus('删除历史版本失败')
       setTimeout(() => setStatus('就绪'), 2000)
     }
   }
@@ -5524,35 +5816,47 @@ CSS
   const handleOpenRecentFile = (filePath) => {
     setCurrentPath(filePath)
     loadFile(filePath)
+    updateShowFileTree((prev) => (isCompactViewport ? false : prev))
   }
 
   const handleClearRecentFiles = () => {
-    clearRecentFiles()
-    setRecentFiles([])
+    clearRecentFiles().then(() => setRecentFiles([]))
   }
 
   // 收藏夹处理函数
   const handleToggleFavorite = (path, type = 'file') => {
-    const newState = toggleFavorite(path, type)
-    setFavorites(getFavorites())
-    return newState
+    return toggleFavorite(path, type).then(async (newState) => {
+      setFavorites(await getFavorites())
+      return newState
+    })
   }
 
   const handleRemoveFavorite = (path) => {
-    toggleFavorite(path)
-    setFavorites(getFavorites())
+    toggleFavorite(path).then(async () => {
+      setFavorites(await getFavorites())
+    })
   }
 
   const handleClearFavorites = () => {
     if (window.confirm('确定要清空收藏夹吗？')) {
-      clearFavorites()
-      setFavorites([])
+      clearFavorites().then(() => setFavorites([]))
     }
   }
 
-  const handleReorderFavorites = (newFavorites) => {
-    updateFavoritesOrder(newFavorites)
-    setFavorites(newFavorites)
+  const handleReorderFavorites = (newFavorites, options = {}) => {
+    if (!Array.isArray(newFavorites)) {
+      console.warn('[App] handleReorderFavorites ignored non-array payload:', newFavorites)
+      return
+    }
+
+    if (options.skipPersist) {
+      setFavorites(newFavorites)
+      return
+    }
+
+    updateFavoritesOrder(newFavorites).then((ok) => {
+      if (ok) setFavorites(newFavorites)
+    })
   }
 
   const handleOpenFavorite = async (path) => {
@@ -5574,10 +5878,16 @@ CSS
         }
         loadFile(path)
       }
+      if (isCompactViewport) {
+        updateShowFileTree(false)
+      }
     } else {
       // 如果找不到收藏项，尝试作为文件加载
       setCurrentPath(path)
       loadFile(path)
+      if (isCompactViewport) {
+        updateShowFileTree(false)
+      }
     }
   }
 
@@ -5997,35 +6307,62 @@ CSS
 
       {showSettingsDialog && (
         <SettingsDialog
-          onClose={() => setShowSettingsDialog(false)}
+          onClose={() => updateShowSettingsDialog(false)}
           theme={editorTheme}
-          onThemeChange={toggleEditorTheme}
+          fontSize={editorFontSize}
+          lineHeight={editorLineHeight}
+          fontFamily={editorFontFamily}
+          syncPreviewWithEditor={syncPreviewWithEditor}
+          onThemeChange={(t) => toggleEditorTheme(t)}
           onSave={(s) => {
-            if (s.fontSize) setEditorFontSize(s.fontSize)
-            if (s.lineHeight) setEditorLineHeight(s.lineHeight)
-            if (s.fontFamily) setEditorFontFamily(s.fontFamily)
+            if (s.fontSize) {
+              setEditorFontSize(s.fontSize)
+              persistSetting('editorFontSize', s.fontSize)
+            }
+            if (s.lineHeight) {
+              setEditorLineHeight(s.lineHeight)
+              persistSetting('editorLineHeight', s.lineHeight)
+            }
+            if (s.fontFamily) {
+              setEditorFontFamily(s.fontFamily)
+              persistSetting('editorFontFamily', s.fontFamily)
+            }
+            if (typeof s.syncPreviewWithEditor === 'boolean') {
+              setSyncPreviewWithEditor(s.syncPreviewWithEditor)
+              persistSetting('syncPreviewWithEditor', s.syncPreviewWithEditor)
+            }
           }}
         />
       )}
 
       {showMarkdownHelp && (
         <MarkdownHelpDialog
-          onClose={() => setShowMarkdownHelp(false)}
+          onClose={() => updateShowMarkdownHelp(false)}
           theme={editorTheme}
         />
       )}
 
       {showShortcuts && (
         <ShortcutsDialog
-          onClose={() => setShowShortcuts(false)}
+          onClose={() => updateShowShortcuts(false)}
           theme={editorTheme}
         />
       )}
 
       {showAbout && (
         <AboutDialog
-          onClose={() => setShowAbout(false)}
+          onClose={() => updateShowAbout(false)}
           theme={editorTheme}
+        />
+      )}
+
+      {showSyncDialog && (
+        <SyncDialog
+          onClose={() => setShowSyncDialog(false)}
+          theme={editorTheme}
+          currentPath={currentPath}
+          markdown={content}
+          renderedHtml={previewRef.current?.innerHTML || ''}
         />
       )}
 
@@ -6033,10 +6370,10 @@ CSS
         <FileHistoryDialog
           filePath={currentPath}
           currentContent={content}
-          history={getFileHistory(currentPath)}
+          history={historyVersions}
           onRestore={handleRestoreHistory}
           onDelete={handleDeleteHistory}
-          onClose={() => setShowHistory(false)}
+          onClose={() => updateShowHistory(false)}
           theme={editorTheme}
         />
       )}
@@ -6045,7 +6382,7 @@ CSS
         <div className="toolbar-left">
           <button 
             className="btn-icon toggle-filetree-btn"
-            onClick={() => setShowFileTree(!showFileTree)}
+            onClick={handleToggleFileTree}
             title="切换文件树 (Ctrl+B)"
           >
             <FolderArchive />
@@ -6073,8 +6410,8 @@ CSS
             onInsertCode={handleInsertCode}
             onInsertTable={() => setShowTableDialog(true)}
             onOpenTableInsert={() => setShowTableDialog(true)}
-            onToggleFileTree={() => setShowFileTree(!showFileTree)}
-            onToggleTheme={toggleEditorTheme}
+            onToggleFileTree={handleToggleFileTree}
+            onToggleTheme={() => toggleEditorTheme()}
             onSettings={handleSettings}
             onToggleToolbar={handleToggleToolbar}
             onZoomIn={handleZoomIn}
@@ -6085,6 +6422,7 @@ CSS
             onShowShortcuts={handleShowShortcuts}
             onShowAbout={handleShowAbout}
             onShowHistory={handleShowHistory}
+            onPublish={() => setShowSyncDialog(true)}
             imageCaptionFormat={imageCaptionFormat}
             onImageCaptionFormatChange={handleImageCaptionFormatChange}
             recentFiles={recentFiles}
@@ -6092,30 +6430,42 @@ CSS
             onClearRecentFiles={handleClearRecentFiles}
             disabled={!currentPath}
             theme={editorTheme}
+            compact={isCompactViewport}
           />
         
         </div>
         
         <div className="toolbar-right">
           <button 
-            className="btn-secondary" 
-            onClick={() => setShowExportConfigPanel(!showExportConfigPanel)}
+            className="btn-secondary toolbar-action-btn toolbar-config-btn" 
+            onClick={handleToggleExportConfigPanel}
             title="导出配置"
             style={{ height: '32px', padding: '0 16px', fontSize: '13px', borderRadius: '6px' }}
           >
-            {showExportConfigPanel ? '关闭配置' : '导出配置'}
+            {isCompactViewport
+              ? (showExportConfigPanel ? '关闭配置' : '配置')
+              : (showExportConfigPanel ? '关闭配置' : '导出配置')}
           </button>
 
-          <button className="btn-primary" onClick={handleSaveClick} disabled={false}>
+          <button className="btn-primary toolbar-action-btn toolbar-save-btn" onClick={handleSaveClick} disabled={false}>
             保存
           </button>
         </div>
       </header>
 
-      <main className={`main-content layout-${layout} ${showFileTree ? 'with-filetree' : ''}`}>
+      <main className={`main-content layout-${layout} ${isCompactViewport ? 'is-compact-viewport' : ''} ${isCompactViewport && showFileTree ? 'filetree-overlay-open' : ''}`}>
+        {isCompactViewport && showFileTree && (
+          <div className="filetree-overlay-backdrop" onClick={handleCloseFileTree} />
+        )}
+        {isCompactViewport && showExportConfigPanel && (
+          <div className="export-config-overlay-backdrop" onClick={handleCloseExportConfigPanel} />
+        )}
         <div className="editor-preview-container">
-          {showFileTree && (
-            <>
+          {showFileTree && !isCompactViewport && (
+            <div
+              className="filetree-side-panel"
+              style={{ width: `${fileTreeWidth + 4}px`, flexShrink: 0 }}
+            >
               <FileTree 
                 ref={fileTreeRef}
                 onFileSelect={handleFileSelect} 
@@ -6130,9 +6480,40 @@ CSS
                 onVersionRestore={handleVersionRestore}
                 style={{ width: `${fileTreeWidth}px`, flexShrink: 0 }}
                 theme={editorTheme}
+                compactInteractionMode={false}
               />
               <Resizer direction="vertical" onResize={handleFileTreeResize} />
-            </>
+            </div>
+          )}
+          {showFileTree && isCompactViewport && (
+            <div className="filetree-overlay-panel">
+              <FileTree 
+                ref={fileTreeRef}
+                onFileSelect={handleFileSelect} 
+                currentPath={currentPath}
+                favorites={favorites}
+                onOpenFavorite={handleOpenFavorite}
+                onRemoveFavorite={handleRemoveFavorite}
+                onClearFavorites={handleClearFavorites}
+                onReorderFavorites={handleReorderFavorites}
+                content={content}
+                onHeadingClick={handleHeadingClick}
+                onVersionRestore={handleVersionRestore}
+                style={{ width: `min(${fileTreeWidth}px, 100%)`, flexShrink: 0 }}
+                theme={editorTheme}
+                compactInteractionMode
+              />
+            </div>
+          )}
+          {showExportConfigPanel && isCompactViewport && (
+            <div className="export-config-overlay-panel">
+              <ExportConfigPanel
+                config={exportConfig}
+                onChange={handleExportConfigChange}
+                onClose={handleCloseExportConfigPanel}
+                compact
+              />
+            </div>
           )}
           <div className="editor-preview-wrapper">
             {showToolbar && (layout === 'vertical' || layout === 'editor-only') && (
@@ -6156,7 +6537,19 @@ CSS
             <div className="editor-preview-content">
               {(layout === 'vertical' || layout === 'editor-only') && (
             <>
-              <div className="editor-pane" style={(layout === 'vertical') ? { width: `${editorWidth}%`, flexShrink: 0, flex: '1 1 auto', minHeight: 0 } : { flex: 1, minHeight: 0 }}>
+              <div
+                className="editor-pane"
+                style={
+                  (layout === 'vertical')
+                    ? {
+                        width: `${editorWidth}%`,
+                        flex: `0 0 ${editorWidth}%`,
+                        minWidth: '120px',
+                        minHeight: 0
+                      }
+                    : { flex: 1, minHeight: 0 }
+                }
+              >
               
               <Editor
                 height="100%"
@@ -6208,7 +6601,7 @@ CSS
         {(layout === 'vertical' || layout === 'preview-only') && (
           <div 
             className="preview-pane" 
-            style={(layout === 'vertical') ? { flex: 1, minHeight: 0 } : { flex: 1, minHeight: 0 }}
+            style={(layout === 'vertical') ? { flex: '1 1 0', minWidth: '120px', minHeight: 0 } : { flex: 1, minHeight: 0 }}
             onContextMenu={(e) => {
               console.log('[preview-pane] onContextMenu 触发，target:', e.target, 'currentTarget:', e.currentTarget)
               handlePreviewContextMenu(e)
@@ -6232,12 +6625,19 @@ CSS
           </div>
           
           {/* 导出配置面板 */}
-          {showExportConfigPanel && (
-            <ExportConfigPanel
-              config={exportConfig}
-              onChange={setExportConfig}
-              onClose={() => setShowExportConfigPanel(false)}
-            />
+          {showExportConfigPanel && !isCompactViewport && (
+            <div
+              className="export-config-side-panel"
+              style={{ width: `${exportConfigPanelWidth + 4}px`, flexShrink: 0 }}
+            >
+              <Resizer direction="vertical" onResize={handleExportConfigPanelResize} />
+              <ExportConfigPanel
+                config={exportConfig}
+                onChange={handleExportConfigChange}
+                onClose={handleCloseExportConfigPanel}
+                style={{ width: `${exportConfigPanelWidth}px` }}
+              />
+            </div>
           )}
         </div>
 
@@ -6247,7 +6647,7 @@ CSS
         <div className="statusbar-left">
           <button 
             className="statusbar-btn" 
-            onClick={toggleEditorTheme}
+            onClick={() => toggleEditorTheme()}
             title="主题 (Ctrl+T)"
           >
             {editorTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
@@ -6264,7 +6664,7 @@ CSS
               const layouts = ['vertical', 'editor-only', 'preview-only']
               const currentIndex = layouts.indexOf(layout)
               const nextIndex = (currentIndex + 1) % layouts.length
-              setLayout(layouts[nextIndex])
+              updateLayout(layouts[nextIndex])
             }}
             title="切换布局"
           >

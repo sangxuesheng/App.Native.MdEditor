@@ -44,6 +44,8 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
     setError('');
     setUploading(true);
     setProgress(0);
+    let hasUploadError = false;
+    let successCount = 0;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -53,12 +55,14 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
       const isHEIC = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
       
       if (!isImage && !isHEIC) {
+        hasUploadError = true;
         setError(`${file.name} 不是图片文件`);
         continue;
       }
 
       // 验证文件大小（10MB）
       if (file.size > 10 * 1024 * 1024) {
+        hasUploadError = true;
         setError(`${file.name} 超过 10MB 限制`);
         continue;
       }
@@ -75,16 +79,19 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
         const result = await response.json();
 
         if (response.ok && result.ok) {
+          successCount += 1;
           setProgress(((i + 1) / files.length) * 100);
           if (onUploadSuccess && result.images && result.images.length > 0) {
             // 后端返回的是 images 数组，取第一个图片
             onUploadSuccess(result.images[0]);
           }
         } else {
+          hasUploadError = true;
           console.error('Upload failed:', response.status, result);
           setError(result.message || `上传失败 (${response.status})`);
         }
       } catch (err) {
+        hasUploadError = true;
         console.error('Upload error:', err);
         setError('上传失败：' + err.message);
       }
@@ -93,8 +100,8 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
     setUploading(false);
     setProgress(0);
     
-    // 上传成功后延迟关闭
-    if (!error && onClose) {
+    // 只有本次全部成功且至少成功上传 1 个文件时才自动关闭
+    if (successCount > 0 && !hasUploadError && onClose) {
       setTimeout(() => {
         onClose();
       }, 500);
@@ -116,12 +123,28 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
     }
   };
 
+  const handleOverlayClick = () => {
+    onClose();
+  };
+
+  const handleCloseClick = () => {
+    onClose();
+  };
+
+  const doOpenFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleSelectFileClick = () => {
+    doOpenFilePicker();
+  };
+
   return (
-    <div className="image-uploader-overlay" onClick={onClose}>
+    <div className="image-uploader-overlay" onClick={handleOverlayClick}>
       <div className="image-uploader-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="image-uploader-header">
           <h3><Upload size={20} /> 上传图片</h3>
-          <button className="close-btn" onClick={onClose}><X size={20} /></button>
+          <button className="close-btn" onClick={handleCloseClick}><X size={20} /></button>
         </div>
 
         <div className="image-uploader-body">
@@ -147,7 +170,7 @@ const ImageUploader = ({ onUploadSuccess, onClose }) => {
                 <p className="drop-zone-or">或</p>
                 <button
                   className="select-file-btn"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleSelectFileClick}
                 >
                   选择文件
                 </button>

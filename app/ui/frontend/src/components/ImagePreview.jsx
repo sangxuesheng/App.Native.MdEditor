@@ -11,28 +11,73 @@ const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
     setScale(prev => Math.max(0.5, Math.min(3, prev + delta)));
   };
 
-  const handleZoomIn = () => {
+  const doZoomIn = () => {
     setScale(prev => Math.min(3, prev + 0.2));
   };
 
-  const handleZoomOut = () => {
+  const doZoomOut = () => {
     setScale(prev => Math.max(0.5, prev - 0.2));
   };
 
-  const handleReset = () => {
+  const doResetZoom = () => {
     setScale(1);
   };
 
-  const handleCopyLink = () => {
+  const doCopyImageLink = () => {
     navigator.clipboard.writeText(image.url);
     alert('链接已复制到剪贴板');
   };
 
-  const handleDownload = () => {
+  const doDownloadImage = () => {
     const a = document.createElement('a');
     a.href = image.url;
     a.download = image.filename;
     a.click();
+  };
+
+  const doInsertImage = () => {
+    onInsert(image);
+  };
+
+  const doDeleteImage = () => {
+    onDelete(image);
+    onClose();
+  };
+
+  const handleOverlayClick = () => {
+    onClose();
+  };
+
+  const handleCloseClick = () => {
+    onClose();
+  };
+
+  const handleZoomInClick = () => {
+    doZoomIn();
+  };
+
+  const handleZoomOutClick = () => {
+    doZoomOut();
+  };
+
+  const handleResetClick = () => {
+    doResetZoom();
+  };
+
+  const handleCopyLinkClick = () => {
+    doCopyImageLink();
+  };
+
+  const handleDownloadClick = () => {
+    doDownloadImage();
+  };
+
+  const handleInsertClick = () => {
+    doInsertImage();
+  };
+
+  const handleDeleteClick = () => {
+    doDeleteImage();
   };
 
   const formatFileSize = (bytes) => {
@@ -47,11 +92,11 @@ const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
   };
 
   return (
-    <div className="image-preview-overlay" onClick={onClose}>
+    <div className="image-preview-overlay" onClick={handleOverlayClick}>
       <div className="image-preview-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="image-preview-header">
           <div className="image-preview-title">{image.filename}</div>
-          <button className="close-btn" onClick={onClose}><X size={20} /></button>
+          <button className="close-btn" onClick={handleCloseClick}><X size={20} /></button>
         </div>
 
         <div className="image-preview-body" onWheel={handleWheel}>
@@ -63,13 +108,13 @@ const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
         </div>
 
         <div className="image-preview-controls">
-          <button className="control-btn" onClick={handleZoomOut} title="缩小">
+          <button className="control-btn" onClick={handleZoomOutClick} title="缩小">
             <ZoomOut size={18} />
           </button>
-          <button className="control-btn" onClick={handleReset} title="重置">
+          <button className="control-btn" onClick={handleResetClick} title="重置">
             {Math.round(scale * 100)}%
           </button>
-          <button className="control-btn" onClick={handleZoomIn} title="放大">
+          <button className="control-btn" onClick={handleZoomInClick} title="放大">
             <ZoomIn size={18} />
           </button>
         </div>
@@ -80,19 +125,16 @@ const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
             {image.uploadDate && <span>{formatDate(image.uploadDate)}</span>}
           </div>
           <div className="image-preview-actions">
-            <button className="action-btn" onClick={handleCopyLink}>
+            <button className="action-btn" onClick={handleCopyLinkClick}>
               <Copy size={16} /> 复制链接
             </button>
-            <button className="action-btn" onClick={() => onInsert(image)}>
+            <button className="action-btn" onClick={handleInsertClick}>
               <Plus size={16} /> 插入
             </button>
-            <button className="action-btn" onClick={handleDownload}>
+            <button className="action-btn" onClick={handleDownloadClick}>
               <Download size={16} /> 下载
             </button>
-            <button className="action-btn delete-btn" onClick={() => {
-              onDelete(image);
-              onClose();
-            }}>
+            <button className="action-btn delete-btn" onClick={handleDeleteClick}>
               <Trash2 size={16} /> 删除
             </button>
           </div>

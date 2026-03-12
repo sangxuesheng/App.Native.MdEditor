@@ -18,7 +18,11 @@ function FileSearchBox({ value, onChange, onSearch }) {
   const dropdownRef = useRef(null)
 
   useEffect(() => {
-    setSearchHistory(getSearchHistory())
+    const loadHistory = async () => {
+      setSearchHistory(await getSearchHistory())
+    }
+
+    loadHistory()
   }, [])
 
   useEffect(() => {
@@ -48,17 +52,17 @@ function FileSearchBox({ value, onChange, onSearch }) {
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && value.trim()) {
-      handleSearch(value)
+      doSearch(value)
     } else if (e.key === 'Escape') {
       setShowHistory(false)
       inputRef.current.blur()
     }
   }
 
-  const handleSearch = (query) => {
+  const doSearch = async (query) => {
     if (query.trim()) {
-      saveSearchHistory(query)
-      setSearchHistory(getSearchHistory())
+      await saveSearchHistory(query)
+      setSearchHistory(await getSearchHistory())
       if (onSearch) {
         onSearch(query)
       }
@@ -66,21 +70,33 @@ function FileSearchBox({ value, onChange, onSearch }) {
     setShowHistory(false)
   }
 
-  const handleHistoryClick = (query) => {
+  const doApplyHistoryQuery = async (query) => {
     onChange(query)
-    handleSearch(query)
+    await doSearch(query)
   }
 
-  const handleClearHistory = (e) => {
-    e.stopPropagation()
-    clearSearchHistory()
+  const handleHistoryItemClick = async (query) => {
+    await doApplyHistoryQuery(query)
+  }
+
+  const doClearHistory = async () => {
+    await clearSearchHistory()
     setSearchHistory([])
     setShowHistory(false)
   }
 
-  const handleClearInput = () => {
+  const handleClearHistoryClick = async (e) => {
+    e.stopPropagation()
+    await doClearHistory()
+  }
+
+  const doClearInput = () => {
     onChange('')
     inputRef.current.focus()
+  }
+
+  const handleClearInputClick = () => {
+    doClearInput()
   }
 
   const renderHighlightedText = (text, query) => {
@@ -115,7 +131,7 @@ function FileSearchBox({ value, onChange, onSearch }) {
         {value && (
           <button
             className="search-clear-btn"
-            onClick={handleClearInput}
+            onClick={handleClearInputClick}
             title="清空"
           >
             ×
@@ -129,7 +145,7 @@ function FileSearchBox({ value, onChange, onSearch }) {
             <span className="history-title">搜索历史</span>
             <button
               className="history-clear-btn"
-              onClick={handleClearHistory}
+              onClick={handleClearHistoryClick}
               title="清空历史"
             >
               清空
@@ -140,7 +156,7 @@ function FileSearchBox({ value, onChange, onSearch }) {
               <div
                 key={index}
                 className="search-history-item"
-                onClick={() => handleHistoryClick(query)}
+                onClick={() => handleHistoryItemClick(query)}
               >
                 <span className="history-icon"><Clock size={14} /></span>
                 <span className="history-text">

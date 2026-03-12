@@ -27,9 +27,7 @@ function RenameDialog({
     }
   }, [node])
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    
+  const doRenameNode = () => {
     // 验证
     if (!newName.trim()) {
       setError('名称不能为空')
@@ -50,23 +48,44 @@ function RenameDialog({
     onConfirm(newName)
   }
 
+  const handleConfirmClick = () => {
+    doRenameNode()
+  }
+
+  const handleConfirmSubmit = (e) => {
+    e.preventDefault()
+    doRenameNode()
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       onCancel()
     }
   }
 
+  const handleOverlayClick = () => {
+    onCancel()
+  }
+
+  const handleCloseClick = () => {
+    onCancel()
+  }
+
+  const handleCancelClick = () => {
+    onCancel()
+  }
+
   if (!node) return null
 
   return (
-    <div className={`dialog-overlay theme-${theme}`} onClick={onCancel}>
+    <div className={`dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
       <div className="dialog-content rename-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>重命名</h2>
-          <button className="dialog-close" onClick={onCancel}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
         
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleConfirmSubmit}>
           <div className="dialog-body">
             <div className="form-group">
               <label>新名称</label>
@@ -89,10 +108,10 @@ function RenameDialog({
           </div>
           
           <div className="dialog-footer">
-            <button type="button" className="btn-secondary" onClick={onCancel}>
+            <button type="button" className="btn-secondary" onClick={handleCancelClick}>
               取消
             </button>
-            <button type="submit" className="btn-primary">
+            <button type="button" className="btn-primary" onClick={handleConfirmClick}>
               确定
             </button>
           </div>

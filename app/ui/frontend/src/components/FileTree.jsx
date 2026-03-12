@@ -1,5 +1,5 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { ChevronRight, File, Folder, Star, FileText, FileJson } from 'lucide-react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { ChevronRight, File, Folder, Star, FileText, FileJson, MoreHorizontal } from 'lucide-react';
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
 import OutlinePanel from './OutlinePanel';
@@ -11,7 +11,8 @@ import FilePropertiesDialog from './FilePropertiesDialog';
 import AnimatedList from './AnimatedList';
 import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
 import { useDebounce } from '../hooks/useDebounce';
-import { toggleFavorite, isFavorite, updateFavoritePath } from '../utils/favoritesManager';
+import { toggleFavorite, getFavorites, updateFavoritePath } from '../utils/favoritesManager';
+import { loadSetting, parseStoredArray, persistSetting } from '../utils/settingsApi';
 import './FileTree.css';
 
 const FileTree = forwardRef(({ 
@@ -26,45 +27,92 @@ const FileTree = forwardRef(({
   onHeadingClick,
   onVersionRestore,
   style,
-  theme = 'light'
+  theme = 'light',
+  compactInteractionMode = false
 }, ref) => {
-  // 从 localStorage 恢复展开状态
-  const getInitialExpandedState = () => {
-    try {
-      const saved = localStorage.getItem('md-editor-expanded-folders');
-      console.log('[FileTree] Restoring expanded folders:', saved);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        console.log('[FileTree] Restored expanded folders:', parsed);
-        return new Set(parsed);
-      }
-    } catch (error) {
-      console.error('Failed to restore expanded folders:', error);
-    }
-    return new Set();
-  };
-
+  const FILE_TREE_TABS = ['files', 'outline', 'history'];
   const [activeTab, setActiveTab] = useState('files'); // 'files', 'outline', 'history'
   const [tree, setTree] = useState([]);
-  const [expanded, setExpanded] = useState(getInitialExpandedState());
+  const [expanded, setExpanded] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [focusedDirectoryPath, setFocusedDirectoryPath] = useState(null);
+  const [touchPreviewPath, setTouchPreviewPath] = useState(null);
+  const [longPressFeedbackPath, setLongPressFeedbackPath] = useState(null);
+  const [toggleFeedbackPath, setToggleFeedbackPath] = useState(null);
   const debouncedQuery = useDebounce(searchQuery, 300);
+  const pendingExpandPathsRef = useRef(new Set());
+  const activeTabHydratedRef = useRef(false);
+  const expandedHydratedRef = useRef(false);
+  const expandedSaveTimerRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const longPressFeedbackTimerRef = useRef(null);
+  const toggleFeedbackTimerRef = useRef(null);
+  const longPressStateRef = useRef({
+    pointerId: null,
+    nodePath: null,
+    startX: 0,
+    startY: 0,
+    fired: false
+  });
+  const suppressClickPathRef = useRef(null);
+
+  const handleSearchQueryChange = (nextQuery) => {
+    setSearchQuery(nextQuery);
+  };
   
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
 
-  // 保存展开状态到 localStorage
   useEffect(() => {
-    try {
-      const expandedArray = Array.from(expanded);
-      localStorage.setItem('md-editor-expanded-folders', JSON.stringify(expandedArray));
-      console.log('[FileTree] Saved expanded folders:', expandedArray);
-    } catch (error) {
-      console.error('Failed to save expanded folders:', error);
+    const loadActiveTab = async () => {
+      try {
+        const savedTab = await loadSetting('fileTreeActiveTab', 'files');
+        if (FILE_TREE_TABS.includes(savedTab)) {
+          setActiveTab(savedTab);
+        }
+      } catch (error) {
+        console.error('[FileTree] Failed to load active tab:', error);
+      } finally {
+        activeTabHydratedRef.current = true;
+      }
+    };
+
+    loadActiveTab();
+  }, []);
+
+  useEffect(() => {
+    if (!activeTabHydratedRef.current || !FILE_TREE_TABS.includes(activeTab)) {
+      return;
     }
+
+    persistSetting('fileTreeActiveTab', activeTab).catch((error) => {
+      console.error('[FileTree] Failed to save active tab:', error);
+    });
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!expandedHydratedRef.current) {
+      return undefined;
+    }
+
+    if (expandedSaveTimerRef.current) {
+      clearTimeout(expandedSaveTimerRef.current);
+    }
+
+    expandedSaveTimerRef.current = setTimeout(() => {
+      persistSetting('fileTreeExpandedPaths', Array.from(expanded)).catch((error) => {
+        console.error('Failed to save expanded folders:', error);
+      });
+    }, 300);
+
+    return () => {
+      if (expandedSaveTimerRef.current) {
+        clearTimeout(expandedSaveTimerRef.current);
+      }
+    };
   }, [expanded]);
   // 重命名对话框状态
   const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -77,6 +125,76 @@ const FileTree = forwardRef(({
   // 文件属性对话框状态
   const [showPropertiesDialog, setShowPropertiesDialog] = useState(false);
   const [propertiesNode, setPropertiesNode] = useState(null);
+
+  const openContextMenuAt = (x, y, node = null, type = undefined) => {
+    setSelectedNode(node || null);
+    setContextMenu({
+      x,
+      y,
+      node: node
+        ? {
+            ...node,
+            isFavorite: (favorites || []).some(item => item.path === node.path)
+          }
+        : null,
+      type
+    });
+  };
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const clearLongPressFeedbackTimer = () => {
+    if (longPressFeedbackTimerRef.current) {
+      clearTimeout(longPressFeedbackTimerRef.current);
+      longPressFeedbackTimerRef.current = null;
+    }
+  };
+
+  const clearToggleFeedbackTimer = () => {
+    if (toggleFeedbackTimerRef.current) {
+      clearTimeout(toggleFeedbackTimerRef.current);
+      toggleFeedbackTimerRef.current = null;
+    }
+  };
+
+  const triggerLongPressFeedback = (path) => {
+    clearLongPressFeedbackTimer();
+    setLongPressFeedbackPath(path);
+    longPressFeedbackTimerRef.current = setTimeout(() => {
+      setLongPressFeedbackPath(null);
+      longPressFeedbackTimerRef.current = null;
+    }, 360);
+
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(12);
+    }
+  };
+
+  const triggerToggleFeedback = (path) => {
+    clearToggleFeedbackTimer();
+    setToggleFeedbackPath(path);
+    toggleFeedbackTimerRef.current = setTimeout(() => {
+      setToggleFeedbackPath(null);
+      toggleFeedbackTimerRef.current = null;
+    }, 260);
+  };
+
+  const resetLongPressState = () => {
+    clearLongPressTimer();
+    setTouchPreviewPath(null);
+    longPressStateRef.current = {
+      pointerId: null,
+      nodePath: null,
+      startX: 0,
+      startY: 0,
+      fired: false
+    };
+  };
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -149,11 +267,25 @@ const FileTree = forwardRef(({
   // 加载根目录并恢复展开状态
   useEffect(() => {
     const initializeTree = async () => {
+      let restoredExpanded = new Set();
+
+      try {
+        const savedExpanded = await loadSetting('fileTreeExpandedPaths', []);
+        restoredExpanded = new Set(
+          parseStoredArray(savedExpanded, []).filter((path) => typeof path === 'string' && path)
+        );
+        setExpanded(restoredExpanded);
+      } catch (error) {
+        console.error('[FileTree] Failed to load expanded folders:', error);
+      } finally {
+        expandedHydratedRef.current = true;
+      }
+
       // 先加载根目录
       await loadDirectory('/');
       
       // 如果有持久化的展开状态，逐级加载这些文件夹
-      if (expanded.size > 0) {
+      if (restoredExpanded.size > 0) {
         // 获取当前合法的根目录列表
         let validRoots = [];
         try {
@@ -163,14 +295,13 @@ const FileTree = forwardRef(({
         } catch (e) {}
 
         // 过滤掉不在任何合法根目录下的路径
-        const filteredPaths = Array.from(expanded).filter(p =>
+        const filteredPaths = Array.from(restoredExpanded).filter(p =>
           validRoots.some(root => p === root || p.startsWith(root + '/'))
         );
 
-        // 如果有路径被过滤掉，更新 localStorage
-        if (filteredPaths.length !== expanded.size) {
+        if (filteredPaths.length !== restoredExpanded.size) {
           setExpanded(new Set(filteredPaths));
-          return; // setExpanded 会触发保存，重新走一遍 useEffect
+          restoredExpanded = new Set(filteredPaths);
         }
 
         console.log('[FileTree] Restoring expanded folders:', filteredPaths);
@@ -203,6 +334,18 @@ const FileTree = forwardRef(({
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, []);
+
+  useEffect(() => () => {
+    clearLongPressTimer();
+    clearLongPressFeedbackTimer();
+    clearToggleFeedbackTimer();
+  }, []);
+
+  useEffect(() => {
+    if (!compactInteractionMode) {
+      setFocusedDirectoryPath(null);
+    }
+  }, [compactInteractionMode]);
 
   // 加载目录内容
   const loadDirectory = async (dirPath) => {
@@ -251,58 +394,82 @@ const FileTree = forwardRef(({
 
   // 切换目录展开/折叠
   const toggleDirectory = async (node) => {
-    const newExpanded = new Set(expanded);
-    
-    if (expanded.has(node.path)) {
-      // 折叠：直接更新状态
-      newExpanded.delete(node.path);
-      setExpanded(newExpanded);
-    } else {
+    const { path } = node;
+
+    if (pendingExpandPathsRef.current.has(path)) {
+      return;
+    }
+
+    if (expanded.has(path)) {
+      // 折叠：使用函数式更新，避免和异步展开竞争
+      setExpanded(prevExpanded => {
+        const nextExpanded = new Set(prevExpanded);
+        nextExpanded.delete(path);
+        return nextExpanded;
+      });
+      return;
+    }
+
+    pendingExpandPathsRef.current.add(path);
+
+    try {
       // 展开：如果需要加载数据，先加载再更新状态
       if (!node.children) {
-        // 先加载数据
-        await loadDirectory(node.path);
+        const loaded = await loadDirectory(path);
+        if (!loaded) {
+          return;
+        }
       }
-      // 数据加载完成后再更新展开状态
-      newExpanded.add(node.path);
-      setExpanded(newExpanded);
+
+      setExpanded(prevExpanded => {
+        const nextExpanded = new Set(prevExpanded);
+        nextExpanded.add(path);
+        return nextExpanded;
+      });
+    } finally {
+      pendingExpandPathsRef.current.delete(path);
+    }
+  };
+
+  const doOpenNode = (node) => {
+    if (node.type === 'file') {
+      setFocusedDirectoryPath(null);
+      onFileSelect(node.path);
+    } else {
+      if (compactInteractionMode) {
+        setFocusedDirectoryPath(node.path);
+        return;
+      }
+      toggleDirectory(node);
     }
   };
 
   // 处理文件点击
-  const handleFileClick = (node) => {
-    if (node.type === 'file') {
-      onFileSelect(node.path);
-    } else {
-      toggleDirectory(node);
+  const handleFileClick = (e, node) => {
+    if (suppressClickPathRef.current === node.path) {
+      suppressClickPathRef.current = null;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
     }
+
+    doOpenNode(node);
   };
 
   // 处理右键菜单
   const handleContextMenu = (e, node) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    setSelectedNode(node);
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      node
-    });
+
+    openContextMenuAt(e.clientX, e.clientY, node);
   };
 
   // 处理文件树头部右键菜单
   const handleHeaderContextMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // 显示刷新菜单
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      node: null,
-      type: 'header'
-    });
+
+    openContextMenuAt(e.clientX, e.clientY, null, 'header');
   };
 
   // 处理空白区域右键菜单（显示根目录菜单）
@@ -312,12 +479,157 @@ const FileTree = forwardRef(({
     
     // 如果有根目录，使用第一个根目录
     if (tree.length > 0 && tree[0].type === 'directory') {
-      setSelectedNode(tree[0]);
-      setContextMenu({
-        x: e.clientX,
-        y: e.clientY,
-        node: tree[0]
-      });
+      openContextMenuAt(e.clientX, e.clientY, tree[0]);
+    }
+  };
+
+  const handleHeaderMenuButtonClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    openContextMenuAt(rect.right - 4, rect.bottom + 6, null, 'header');
+  };
+
+  const handleNodeMenuButtonClick = (e, node) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resetLongPressState();
+    if (node.type === 'directory') {
+      setFocusedDirectoryPath(node.path);
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    openContextMenuAt(rect.right - 4, rect.bottom + 6, node);
+  };
+
+  const handleDirectoryTogglePointerDown = (e) => {
+    e.stopPropagation();
+    resetLongPressState();
+  };
+
+  const handleDirectoryToggleClick = (e, node) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resetLongPressState();
+    setFocusedDirectoryPath(node.path);
+    triggerToggleFeedback(node.path);
+    toggleDirectory(node);
+  };
+
+  const handleNodePointerDown = (e, node) => {
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') {
+      return;
+    }
+
+    if (e.button !== 0) {
+      return;
+    }
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (error) {
+      // 忽略不支持 pointer capture 的情况
+    }
+
+    resetLongPressState();
+    const pressX = e.clientX;
+    const pressY = e.clientY;
+    setTouchPreviewPath(node.path);
+    longPressStateRef.current = {
+      pointerId: e.pointerId,
+      nodePath: node.path,
+      startX: pressX,
+      startY: pressY,
+      fired: false
+    };
+
+    longPressTimerRef.current = setTimeout(() => {
+      const state = longPressStateRef.current;
+      if (state.pointerId !== e.pointerId || state.nodePath !== node.path) {
+        return;
+      }
+
+      longPressStateRef.current = { ...state, fired: true };
+      suppressClickPathRef.current = node.path;
+      setTouchPreviewPath(null);
+      if (node.type === 'directory') {
+        setFocusedDirectoryPath(node.path);
+      }
+      triggerLongPressFeedback(node.path);
+      openContextMenuAt(pressX, pressY, node);
+    }, 520);
+  };
+
+  const handleNodePointerMove = (e) => {
+    const state = longPressStateRef.current;
+    if (state.pointerId !== e.pointerId || state.fired) {
+      return;
+    }
+
+    const deltaX = Math.abs(e.clientX - state.startX);
+    const deltaY = Math.abs(e.clientY - state.startY);
+    if (deltaX > 10 || deltaY > 10) {
+      resetLongPressState();
+    }
+  };
+
+  const handleNodePointerEnd = (e) => {
+    const state = longPressStateRef.current;
+    if (state.pointerId !== e.pointerId) {
+      return;
+    }
+
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (error) {
+      // 忽略未捕获时的释放异常
+    }
+
+    resetLongPressState();
+  };
+
+  const doOpenRenameDialog = (node) => {
+    setRenameNode(node);
+    setShowRenameDialog(true);
+  };
+
+  const doOpenNewFolderDialog = (node) => {
+    setNewFolderParent(node);
+    setShowNewFolderDialog(true);
+  };
+
+  const doShowPropertiesDialog = (node) => {
+    setPropertiesNode(node);
+    setShowPropertiesDialog(true);
+  };
+
+  const doCloseRenameDialog = () => {
+    setShowRenameDialog(false);
+    setRenameNode(null);
+  };
+
+  const doCloseNewFolderDialog = () => {
+    setShowNewFolderDialog(false);
+    setNewFolderParent(null);
+  };
+
+  const doClosePropertiesDialog = () => {
+    setShowPropertiesDialog(false);
+    setPropertiesNode(null);
+  };
+
+  const doRefreshRootDirectory = async () => {
+    await loadDirectory('/');
+  };
+
+  const doRefreshDirectory = async (node) => {
+    await loadDirectory(node.path);
+  };
+
+  const doToggleFavoriteNode = async (node) => {
+    await toggleFavorite(node.path, node.type);
+    if (onReorderFavorites) {
+      const latestFavorites = await getFavorites();
+      onReorderFavorites(latestFavorites, { skipPersist: true });
     }
   };
 
@@ -328,7 +640,7 @@ const FileTree = forwardRef(({
     // 处理头部菜单操作
     if (contextMenu?.type === 'header') {
       if (action === 'refresh') {
-        await loadDirectory('/');
+        await doRefreshRootDirectory();
       }
       return;
     }
@@ -337,60 +649,49 @@ const FileTree = forwardRef(({
     
     switch (action) {
       case 'open':
-        if (selectedNode.type === 'file') {
-          onFileSelect(selectedNode.path);
-        } else {
-          toggleDirectory(selectedNode);
-        }
+        doOpenNode(selectedNode);
         break;
         
       case 'rename':
-        setRenameNode(selectedNode);
-        setShowRenameDialog(true);
+        doOpenRenameDialog(selectedNode);
         break;
         
       case 'delete':
-        await handleDelete(selectedNode);
+        await doDeleteNode(selectedNode);
         break;
         
       case 'copy':
-        await handleCopy(selectedNode);
+        await doCopyNode(selectedNode);
         break;
         
       case 'cut':
-        await handleCut(selectedNode);
+        await doCutNode(selectedNode);
         break;
         
       case 'favorite':
-        toggleFavorite(selectedNode.path, selectedNode.type);
-        // 刷新收藏夹显示
-        if (onReorderFavorites) {
-          const { getFavorites } = await import('../utils/favoritesManager');
-          onReorderFavorites(getFavorites());
-        }
+        await doToggleFavoriteNode(selectedNode);
         break;
         
       case 'paste':
         if (selectedNode.type === 'directory') {
-          await handlePaste(selectedNode);
+          await doPasteNode(selectedNode);
         }
         break;
         
       case 'newfolder':
         if (selectedNode.type === 'directory') {
-          setNewFolderParent(selectedNode);
-          setShowNewFolderDialog(true);
+          doOpenNewFolderDialog(selectedNode);
         }
         break;
         
       case 'refresh':
         if (selectedNode.type === 'directory') {
-          await loadDirectory(selectedNode.path);
+          await doRefreshDirectory(selectedNode);
         }
         break;
         
       case 'properties':
-        handleShowProperties(selectedNode);
+        doShowPropertiesDialog(selectedNode);
         break;
         
       default:
@@ -401,7 +702,7 @@ const FileTree = forwardRef(({
   };
 
   // 重命名文件/文件夹
-  const handleRename = async (newName) => {
+  const doRenameNode = async (newName) => {
     if (!renameNode) return;
     
     try {
@@ -420,10 +721,10 @@ const FileTree = forwardRef(({
       
       if (data.ok) {
         // 更新收藏夹中的路径
-        updateFavoritePath(oldPath, newPath);
+        await updateFavoritePath(oldPath, newPath);
         if (onReorderFavorites) {
-          const { getFavorites } = await import('../utils/favoritesManager');
-          onReorderFavorites(getFavorites());
+          const latestFavorites = await getFavorites();
+          onReorderFavorites(latestFavorites, { skipPersist: true });
         }
         
         // 刷新父目录
@@ -442,12 +743,11 @@ const FileTree = forwardRef(({
       alert('重命名失败: 网络错误');
     }
     
-    setShowRenameDialog(false);
-    setRenameNode(null);
+    doCloseRenameDialog();
   };
 
   // 新建文件夹
-  const handleNewFolder = async (folderName) => {
+  const doCreateFolder = async (folderName) => {
     if (!newFolderParent) return;
     
     try {
@@ -472,12 +772,11 @@ const FileTree = forwardRef(({
       alert('创建文件夹失败: 网络错误');
     }
     
-    setShowNewFolderDialog(false);
-    setNewFolderParent(null);
+    doCloseNewFolderDialog();
   };
 
   // 删除文件/文件夹
-  const handleDelete = async (node) => {
+  const doDeleteNode = async (node) => {
     const confirmMsg = node.type === 'directory' 
       ? `确定要删除文件夹 "${node.name}" 及其所有内容吗？`
       : `确定要删除文件 "${node.name}" 吗？`;
@@ -515,7 +814,7 @@ const FileTree = forwardRef(({
   };
 
   // 复制文件/文件夹
-  const handleCopy = async (node) => {
+  const doCopyNode = async (node) => {
     try {
       // 将路径存储到剪贴板（使用 localStorage 模拟）
       localStorage.setItem('clipboard', JSON.stringify({
@@ -533,7 +832,7 @@ const FileTree = forwardRef(({
   };
 
   // 剪切文件/文件夹
-  const handleCut = async (node) => {
+  const doCutNode = async (node) => {
     try {
       // 将路径存储到剪贴板（使用 localStorage 模拟）
       localStorage.setItem('clipboard', JSON.stringify({
@@ -551,7 +850,7 @@ const FileTree = forwardRef(({
   };
 
   // 粘贴文件/文件夹
-  const handlePaste = async (targetNode) => {
+  const doPasteNode = async (targetNode) => {
     try {
       const clipboardData = localStorage.getItem('clipboard');
       if (!clipboardData) {
@@ -621,12 +920,6 @@ const FileTree = forwardRef(({
     }
   };
 
-  // 显示属性
-  const handleShowProperties = (node) => {
-    setPropertiesNode(node);
-    setShowPropertiesDialog(true);
-  };
-
   // 格式化文件大小
   const formatFileSize = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -669,21 +962,36 @@ const FileTree = forwardRef(({
     const isActive = currentPath === node.path;
     const hasChildren = node.type === 'directory';
     const children = node.children || [];
-    const isFav = isFavorite(node.path);
+    const isFav = (favorites || []).some(item => item.path === node.path);
+    const isFocusedDirectory = compactInteractionMode && hasChildren && focusedDirectoryPath === node.path;
+    const isTouchPreview = touchPreviewPath === node.path;
+    const hasLongPressFeedback = longPressFeedbackPath === node.path;
+    const hasToggleFeedback = toggleFeedbackPath === node.path;
+    const isMenuOpen = contextMenu?.node?.path === node.path;
 
     return (
       <div key={node.path} className="tree-node" data-path={node.path}>
         <div
-          className={`tree-node-content ${isActive ? 'active' : ''}`}
-          style={{ paddingLeft: `${level * 16 + 8}px` }}
-          onClick={() => handleFileClick(node)}
+          className={`tree-node-content ${isActive ? 'active' : ''} ${isFocusedDirectory ? 'focused-directory' : ''} ${isTouchPreview ? 'touch-preview' : ''} ${hasLongPressFeedback ? 'long-press-feedback' : ''} ${isMenuOpen ? 'menu-open' : ''}`}
+          style={{ paddingLeft: `${level * 16 + (hasChildren ? 4 : 8)}px` }}
+          onClick={(e) => handleFileClick(e, node)}
           onContextMenu={(e) => handleContextMenu(e, node)}
+          onPointerDown={(e) => handleNodePointerDown(e, node)}
+          onPointerMove={handleNodePointerMove}
+          onPointerUp={handleNodePointerEnd}
+          onPointerCancel={handleNodePointerEnd}
         >
           {hasChildren && (
             <>
-              <span className={`tree-node-icon ${isExpanded ? 'expanded' : ''}`}>
+              <button
+                className={`tree-node-toggle-btn ${isExpanded ? 'expanded' : ''} ${hasToggleFeedback ? 'toggle-feedback' : ''}`}
+                onPointerDown={handleDirectoryTogglePointerDown}
+                onClick={(e) => handleDirectoryToggleClick(e, node)}
+                title={isExpanded ? `折叠 ${node.name}` : `展开 ${node.name}`}
+                aria-label={isExpanded ? `折叠 ${node.name}` : `展开 ${node.name}`}
+              >
                 <ChevronRight size={16} />
-              </span>
+              </button>
               <span className="tree-node-icon">
                 <Folder size={16} />
               </span>
@@ -694,18 +1002,33 @@ const FileTree = forwardRef(({
               {getFileIcon(node.path)}
             </span>
           )}
-          <span className="tree-node-name" title={node.path}>
-            {debouncedQuery ? renderHighlightedName(node.name, debouncedQuery) : node.name}
-          </span>
+          <div className="tree-node-text">
+            <span className="tree-node-name" title={node.path}>
+              {debouncedQuery ? renderHighlightedName(node.name, debouncedQuery) : node.name}
+            </span>
+            {isFocusedDirectory && (
+              <span className="tree-node-focus-hint">
+                点左侧箭头展开，长按或右侧更多操作
+              </span>
+            )}
+          </div>
           {isFav && (
             <span className="tree-node-favorite" title="已收藏">
               <Star size={14} fill="currentColor" />
             </span>
           )}
+          <button
+            className="tree-node-more-btn"
+            onClick={(e) => handleNodeMenuButtonClick(e, node)}
+            title={`${node.name} 更多操作`}
+            aria-label={`${node.name} 更多操作`}
+          >
+            <MoreHorizontal size={14} />
+          </button>
         </div>
         
         {hasChildren && isExpanded && children.length > 0 && (
-          <div className="tree-node-children">
+          <div className={`tree-node-children ${hasToggleFeedback ? 'toggle-feedback' : ''}`}>
             {children.map(child => renderNode(child, level + 1))}
           </div>
         )}
@@ -716,7 +1039,7 @@ const FileTree = forwardRef(({
   const filteredTree = filterTree([...tree], debouncedQuery);
 
   return (
-    <div className="file-tree" style={style}>
+    <div className={`file-tree ${compactInteractionMode ? 'compact-interaction-mode' : ''}`} style={style}>
       {/* 标签页导航 */}
       <div className="file-tree-tabs">
         <button 
@@ -743,11 +1066,21 @@ const FileTree = forwardRef(({
       {activeTab === 'files' && (
         <>
           <div className="file-tree-header" onContextMenu={handleHeaderContextMenu}>
-            <FileSearchBox
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onSearch={setSearchQuery}
-            />
+            <div className="file-tree-header-main">
+              <FileSearchBox
+                value={searchQuery}
+                onChange={handleSearchQueryChange}
+                onSearch={handleSearchQueryChange}
+              />
+              <button
+                className="file-tree-menu-btn"
+                onClick={handleHeaderMenuButtonClick}
+                title="文件树更多操作"
+                aria-label="文件树更多操作"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            </div>
           </div>
           
           <FavoritesPanel
@@ -814,11 +1147,8 @@ const FileTree = forwardRef(({
       {showRenameDialog && renameNode && (
         <RenameDialog
           node={renameNode}
-          onConfirm={handleRename}
-          onCancel={() => {
-            setShowRenameDialog(false);
-            setRenameNode(null);
-          }}
+          onConfirm={doRenameNode}
+          onCancel={doCloseRenameDialog}
           theme={theme}
         />
       )}
@@ -827,11 +1157,8 @@ const FileTree = forwardRef(({
       {showNewFolderDialog && newFolderParent && (
         <NewFolderDialog
           parentPath={newFolderParent.path}
-          onConfirm={handleNewFolder}
-          onCancel={() => {
-            setShowNewFolderDialog(false);
-            setNewFolderParent(null);
-          }}
+          onConfirm={doCreateFolder}
+          onCancel={doCloseNewFolderDialog}
         />
       )}
 
@@ -839,10 +1166,7 @@ const FileTree = forwardRef(({
       {showPropertiesDialog && propertiesNode && (
         <FilePropertiesDialog
           node={propertiesNode}
-          onClose={() => {
-            setShowPropertiesDialog(false);
-            setPropertiesNode(null);
-          }}
+          onClose={doClosePropertiesDialog}
         />
       )}
     </div>

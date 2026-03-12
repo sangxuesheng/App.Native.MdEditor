@@ -3,6 +3,9 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 4px 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .outline-empty {
@@ -23,6 +26,18 @@
   line-height: 1.4;
   border-left: 2px solid transparent;
   gap: 6px;
+}
+
+@media (pointer: coarse) {
+  .outline-item {
+    min-height: 40px;
+    padding: 8px 10px;
+  }
+
+  .outline-item-icon,
+  .outline-item-line {
+    opacity: 1;
+  }
 }
 
 .outline-item:hover {

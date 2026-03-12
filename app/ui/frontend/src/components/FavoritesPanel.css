@@ -67,6 +67,9 @@
 .favorites-list {
   max-height: 300px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .favorite-item {
@@ -111,6 +114,39 @@
   white-space: nowrap;
 }
 
+.favorite-reorder-controls {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+}
+
+.favorite-reorder-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s;
+}
+
+.favorite-reorder-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.favorite-reorder-btn:not(:disabled):hover {
+  background: var(--hover-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
 .favorite-remove {
   display: none;
   background: transparent;
@@ -127,6 +163,10 @@
 
 .favorite-item:hover .favorite-remove {
   display: block;
+}
+
+.favorite-item:hover .favorite-reorder-controls {
+  display: inline-flex;
 }
 
 .favorite-remove:hover {
@@ -222,6 +262,49 @@
   cursor: grab;
   user-select: none;
   flex-shrink: 0;
+}
+
+@media (pointer: coarse) {
+  .favorites-header {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .favorite-item {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .favorite-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    padding: 0;
+    opacity: 0.8;
+  }
+
+  .favorite-reorder-controls {
+    display: inline-flex;
+  }
+
+  .favorite-reorder-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .favorite-drag-handle {
+    width: 24px;
+    height: 24px;
+    opacity: 0.45;
+  }
+
+  .favorites-clear-btn {
+    min-height: 40px;
+    padding: 10px 12px;
+  }
 }
 
 .favorite-item:hover .favorite-drag-handle {

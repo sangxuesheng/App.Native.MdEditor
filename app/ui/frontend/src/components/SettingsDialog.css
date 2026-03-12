@@ -1,25 +1,7 @@
-/* 设置对话框 - 固定尺寸 */
-.dialog-overlay .dialog-content.settings-dialog {
-  width: 600px !important;
-  min-width: 600px !important;
-  max-width: 600px !important;
-  height: 500px !important;
-  max-height: 85vh !important;
-  box-sizing: border-box !important;
-  display: flex;
-  flex-direction: column;
-}
-
-/* 确保所有子元素不超出宽度 */
-.dialog-overlay .dialog-content.settings-dialog > * {
-  max-width: 600px !important;
-  box-sizing: border-box !important;
-}
-
 .settings-dialog {
-  width: 600px !important;
-  height: 500px !important;
-  max-width: 90vw !important;
+  width: min(600px, 92vw) !important;
+  height: min(500px, 88vh) !important;
+  max-width: 92vw !important;
   max-height: 90vh !important;
   display: flex;
   flex-direction: column;
@@ -29,6 +11,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  padding: 20px 24px;
 }
 
 .settings-form {
@@ -74,7 +57,6 @@
   margin-bottom: 3px;
   white-space: normal;
   word-wrap: break-word;
-}
 }
 
 .setting-description {
@@ -168,15 +150,26 @@
 }
 
 /* Footer */
-.dialog-footer {
+.settings-dialog .dialog-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
-.footer-right {
+.settings-dialog .footer-right {
   display: flex;
-  gap: 8px;
+  gap: 12px;
+}
+
+.settings-dialog .dialog-footer > .btn-secondary,
+.settings-dialog .footer-right > .btn-secondary,
+.settings-dialog .footer-right > .btn-primary {
+  min-height: 38px;
+  min-width: 90px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 浅色主题 */
@@ -194,11 +187,40 @@
 .theme-dark .settings-dialog {
   --bg-secondary: #161b22;
   --border-color: #30363d;
-  --text-primary: #c9d1d9;
-  --text-secondary: #8b949e;
+  --text-primary: #e6edf3;
+  --text-secondary: #b1bac4;
   --primary-color: #58a6ff;
   --toggle-bg: #30363d;
   --focus-ring: rgba(88, 166, 255, 0.3);
+}
+
+.theme-dark .settings-dialog .setting-label label {
+  color: #f0f6fc;
+}
+
+.theme-dark .settings-dialog .setting-description {
+  color: #b8c0c9;
+}
+
+.theme-dark .settings-dialog .form-select,
+.theme-dark .settings-dialog .form-input {
+  background: #0d1117;
+  border-color: #3d444d;
+  color: #f0f6fc;
+}
+
+.theme-dark .settings-dialog .form-select {
+  color-scheme: dark;
+}
+
+.theme-dark .settings-dialog .form-select option {
+  background: #0d1117;
+  color: #f0f6fc;
+}
+
+.theme-dark .settings-dialog .form-select:hover,
+.theme-dark .settings-dialog .form-input:hover {
+  border-color: #4f5863;
 }
 
 /* 滚动条样式 */
@@ -219,30 +241,59 @@
   background: var(--text-secondary);
 }
 
+@media (max-width: 1024px) {
+  .settings-dialog {
+    width: min(720px, 100%) !important;
+    height: calc(100vh - 24px) !important;
+    max-height: none !important;
+  }
+
+  .settings-dialog .dialog-body {
+    padding: 18px 20px;
+  }
+
+  .settings-form {
+    gap: 20px;
+  }
+}
+
 @media (max-width: 768px) {
   .settings-dialog {
-    width: 95vw;
+    width: 100% !important;
+    height: calc(100vh - 16px) !important;
   }
 
   .setting-item {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
   }
 
-  .form-select {
+  .form-select,
+  .form-input {
     width: 100%;
+    max-width: none;
   }
 
-  .dialog-footer {
+  .settings-dialog .dialog-footer {
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    align-items: stretch;
   }
 
-  .footer-right {
+  .settings-dialog .dialog-footer > .btn-secondary {
     width: 100%;
   }
 
-  .footer-right button {
+  .settings-dialog .footer-right {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .settings-dialog .footer-right button {
     flex: 1;
   }
 }

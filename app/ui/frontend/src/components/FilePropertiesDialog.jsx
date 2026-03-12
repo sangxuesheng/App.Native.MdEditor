@@ -8,14 +8,26 @@ function FilePropertiesDialog({
   node,
   onClose
 }) {
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
+  const handleConfirmClick = () => {
+    onClose()
+  }
+
   if (!node) return null
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className="dialog-content properties-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className="dialog-overlay compact-panel-overlay" onClick={handleOverlayClick}>
+      <div className="dialog-container compact-panel-dialog properties-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>文件属性</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
         
         <div className="dialog-body">
@@ -46,7 +58,7 @@ function FilePropertiesDialog({
         </div>
         
         <div className="dialog-footer">
-          <button type="button" className="btn-primary" onClick={onClose}>
+          <button type="button" className="btn-primary" onClick={handleConfirmClick}>
             确定
           </button>
         </div>

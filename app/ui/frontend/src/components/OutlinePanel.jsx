@@ -29,10 +29,11 @@ const OutlinePanel = ({ content, onHeadingClick }) => {
     return result;
   }, [content]);
 
-  // 处理标题点击，跳转到对应行
+  // 处理标题点击
   const handleHeadingClick = (heading) => {
     if (onHeadingClick) {
-      onHeadingClick(heading.line);
+      // 直接把完整 heading 对象传给上层，方便联动预览
+      onHeadingClick(heading);
     }
   };
 

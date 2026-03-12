@@ -4,6 +4,11 @@ import './ImageManagerDialog.css'
 import { compressImage } from '../utils/imageCompressor'
 import ImagePreviewDialog from './ImagePreviewDialog'
 import ElasticSlider from './ElasticSlider'
+import {
+  DEFAULT_IMAGE_MANAGER_SETTINGS,
+  loadImageManagerSettings,
+  saveImageManagerSettings,
+} from '../utils/settingsApi'
 
 function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify }) {
   const [activeTab, setActiveTab] = useState('upload') // upload, link, library, settings, compression
@@ -24,35 +29,21 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   
   // 图片压缩设置
   const [imageSettings, setImageSettings] = useState({
-    imageCompression: true,
-    imageCompressionMode: 'quality', // 'quality' 或 'size'
-    imageQuality: 80,
-    imageTargetSizePercent: 30, // 目标文件大小百分比
-    imageMaxWidth: 1920,
-    imageMaxHeight: 1080,
-    maxFileSize: 10 // 最大文件大小（MB）
+    ...DEFAULT_IMAGE_MANAGER_SETTINGS,
   })
   const [hasSettingsChanges, setHasSettingsChanges] = useState(false)
 
   // 加载图片设置
   useEffect(() => {
-    const savedSettings = localStorage.getItem('md-editor-settings')
-    if (savedSettings) {
+    const loadSettings = async () => {
       try {
-        const parsed = JSON.parse(savedSettings)
-        setImageSettings({
-          imageCompression: parsed.imageCompression ?? true,
-          imageCompressionMode: parsed.imageCompressionMode || 'quality',
-          imageQuality: parsed.imageQuality ?? 80,
-          imageTargetSizePercent: parsed.imageTargetSizePercent ?? 30,
-          imageMaxWidth: parsed.imageMaxWidth ?? 1920,
-          imageMaxHeight: parsed.imageMaxHeight ?? 1080,
-          maxFileSize: parsed.maxFileSize ?? 10
-        })
+        setImageSettings(await loadImageManagerSettings())
       } catch (err) {
         console.error('Failed to load image settings:', err)
       }
     }
+
+    loadSettings()
   }, [])
 
   // 处理图片设置变更
@@ -62,22 +53,15 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }
 
   // 保存图片设置
-  const handleSaveImageSettings = () => {
-    const savedSettings = localStorage.getItem('md-editor-settings')
-    let allSettings = {}
-    
-    if (savedSettings) {
-      try {
-        allSettings = JSON.parse(savedSettings)
-      } catch (err) {
-        console.error('Failed to parse settings:', err)
-      }
+  const doSaveImageSettings = async () => {
+    try {
+      await saveImageManagerSettings(imageSettings)
+      setHasSettingsChanges(false)
+      onNotify?.('图片设置已保存', 'success')
+    } catch (err) {
+      console.error('Failed to save image settings:', err)
+      onNotify?.('图片设置保存失败', 'error')
     }
-    
-    const updatedSettings = { ...allSettings, ...imageSettings }
-    localStorage.setItem('md-editor-settings', JSON.stringify(updatedSettings))
-    setHasSettingsChanges(false)
-    onNotify?.('图片设置已保存', 'success')
   }
 
   // 加载图片库
@@ -266,8 +250,12 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }, [handleFileUpload])
 
   // 点击选择文件
-  const handleSelectClick = () => {
+  const doOpenFilePicker = () => {
     fileInputRef.current?.click()
+  }
+
+  const handleSelectClick = () => {
+    doOpenFilePicker()
   }
 
   const handleFileInputChange = (e) => {
@@ -325,7 +313,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }, [isOpen, activeTab, handlePaste])
 
   // 插入图片链接
-  const handleInsertLink = async () => {
+  const doInsertImageLink = async () => {
     if (!imageUrl.trim()) {
       onNotify?.('请输入图片链接', 'error')
       return
@@ -366,7 +354,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }
 
   // 删除图片
-  const handleDeleteImage = useCallback(async (image) => {
+  const doDeleteImage = useCallback(async (image) => {
     // 直接删除，不再显示系统确认框
     
     try {
@@ -394,7 +382,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }, [loadLibraryImages])
 
   // 批量删除图片
-  const handleBatchDelete = useCallback(async () => {
+  const doBatchDeleteImages = useCallback(async () => {
     if (selectedImages.length === 0) {
       onNotify?.('请先选择要删除的图片', 'error')
       return
@@ -443,7 +431,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }, [selectedImages, loadLibraryImages])
 
   // 切换图片选择
-  const toggleImageSelection = useCallback((image) => {
+  const doToggleImageSelection = useCallback((image) => {
     setSelectedImages(prev => {
       const isSelected = prev.some(img => img.url === image.url)
       if (isSelected) {
@@ -455,7 +443,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }, [])
 
   // 全选/取消全选
-  const toggleSelectAll = useCallback(() => {
+  const doToggleSelectAll = useCallback(() => {
     if (selectedImages.length === libraryImages.length) {
       setSelectedImages([])
     } else {
@@ -464,17 +452,108 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   }, [selectedImages, libraryImages])
 
   // 插入已上传的图片
-  const handleInsertUploaded = (image) => {
+  const doInsertUploadedImage = (image) => {
     const alt = image.alt || '图片'
     onInsertImage(`![${alt}](${image.url})`)
     onClose()
+  }
+
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
+  const handleCancelClick = () => {
+    onClose()
+  }
+
+  const handleConfirmClick = () => {
+    if (activeTab === 'link') {
+      doInsertImageLink()
+      return
+    }
+
+    if (activeTab === 'compression') {
+      doSaveImageSettings()
+    }
+  }
+
+  const handleBatchDeleteClick = async () => {
+    await doBatchDeleteImages()
+  }
+
+  const doOpenPreviewImage = (image) => {
+    setPreviewImage(image)
+  }
+
+  const doClosePreviewImage = () => {
+    setPreviewImage(null)
+  }
+
+  const doEnterSelectionMode = () => {
+    setSelectionMode(true)
+  }
+
+  const doExitSelectionMode = () => {
+    setSelectionMode(false)
+    setSelectedImages([])
+  }
+
+  const handleRefreshLibraryClick = () => {
+    loadLibraryImages()
+  }
+
+  const handlePreviewOpenClick = (e, image) => {
+    e.stopPropagation()
+    doOpenPreviewImage(image)
+  }
+
+  const handleImageSelectToggleClick = (image) => {
+    doToggleImageSelection(image)
+  }
+
+  const handleLibraryImageClick = (image) => {
+    if (selectionMode) {
+      doToggleImageSelection(image)
+      return
+    }
+
+    doOpenPreviewImage(image)
+  }
+
+  const handleImageDeleteClick = async (e, image) => {
+    e.stopPropagation()
+    await doDeleteImage(image)
+  }
+
+  const handleInsertUploadedClick = (image) => {
+    doInsertUploadedImage(image)
+  }
+
+  const handleEnterSelectionModeClick = () => {
+    doEnterSelectionMode()
+  }
+
+  const handleSelectAllClick = () => {
+    doToggleSelectAll()
+  }
+
+  const handleCancelSelectionClick = () => {
+    doExitSelectionMode()
+  }
+
+  const handlePreviewMaskClick = () => {
+    doClosePreviewImage()
   }
 
   if (!isOpen) return null
 
   return (
     <>
-    <div className="image-manager-overlay" onClick={onClose}>
+    <div className="image-manager-overlay" onClick={handleOverlayClick}>
       <div 
         className={`image-manager-dialog ${theme}`} 
         onClick={(e) => e.stopPropagation()}
@@ -482,7 +561,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
         {/* 标题栏 */}
         <div className="image-manager-header">
           <h2>图片管理</h2>
-          <button className="close-button" onClick={onClose}>
+          <button className="close-button" onClick={handleCloseClick}>
             <X size={20} />
           </button>
         </div>
@@ -583,9 +662,9 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                     {uploadedImages.map((image, index) => (
                       <div key={index} className="image-item">
                         <img src={image.url} alt={image.alt || '图片'} />
-                        <button className="img-preview-icon-btn" onClick={(e) => { e.stopPropagation(); setPreviewImage(image) }} title="预览"><Eye size={14} /></button>
+                        <button className="img-preview-icon-btn" onClick={(e) => handlePreviewOpenClick(e, image)} title="预览"><Eye size={14} /></button>
                         <div className="image-overlay">
-                          <button onClick={() => handleInsertUploaded(image)}>
+                          <button onClick={() => handleInsertUploadedClick(image)}>
                             插入
                           </button>
                         </div>
@@ -607,7 +686,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                   placeholder="https://example.com/image.jpg"
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleInsertLink()}
+                  onKeyPress={(e) => e.key === 'Enter' && handleConfirmClick()}
                 />
               </div>
               <div className="form-group">
@@ -617,7 +696,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                   placeholder="图片描述"
                   value={imageAlt}
                   onChange={(e) => setImageAlt(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleInsertLink()}
+                  onKeyPress={(e) => e.key === 'Enter' && handleConfirmClick()}
                 />
               </div>
               <div className="form-group">
@@ -627,7 +706,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                   placeholder="图片标题"
                   value={imageTitle}
                   onChange={(e) => setImageTitle(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleInsertLink()}
+                  onKeyPress={(e) => e.key === 'Enter' && handleConfirmClick()}
                 />
               </div>
             </div>
@@ -640,7 +719,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                 <h4>图片库 ({libraryImages.length})</h4>
                 <button 
                   className="refresh-button"
-                  onClick={loadLibraryImages}
+                  onClick={handleRefreshLibraryClick}
                   disabled={loadingLibrary}
                   title="刷新图片库"
                 >
@@ -672,7 +751,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                         {selectionMode && (
                           <div 
                             className="image-checkbox"
-                            onClick={() => toggleImageSelection(image)}
+                            onClick={() => handleImageSelectToggleClick(image)}
                           >
                             {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
                           </div>
@@ -680,22 +759,13 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                         <img 
                           src={image.url} 
                           alt={image.alt || '图片'} 
-                          onClick={() => {
-                            if (selectionMode) {
-                              toggleImageSelection(image)
-                            } else {
-                              setPreviewImage(image)
-                            }
-                          }}
+                          onClick={() => handleLibraryImageClick(image)}
                           style={{ cursor: 'pointer' }}
                         />
                         {!selectionMode && (
                           <button 
                             className="delete-image-btn"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteImage(image)
-                            }}
+                            onClick={(e) => handleImageDeleteClick(e, image)}
                             title="删除图片"
                           >
                             <Trash2 size={16} />
@@ -711,9 +781,9 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                         </div>
                         {!selectionMode && (
                           <>
-                          <button className="img-preview-icon-btn" onClick={(e) => { e.stopPropagation(); setPreviewImage(image) }} title="预览"><Eye size={14} /></button>
+                          <button className="img-preview-icon-btn" onClick={(e) => handlePreviewOpenClick(e, image)} title="预览"><Eye size={14} /></button>
                           <div className="image-overlay">
-                            <button onClick={() => handleInsertUploaded(image)}>
+                            <button onClick={() => handleInsertUploadedClick(image)}>
                               插入
                             </button>
                           </div>
@@ -888,7 +958,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
               {!selectionMode ? (
                 <button 
                   className="selection-mode-button"
-                  onClick={() => setSelectionMode(true)}
+                  onClick={handleEnterSelectionModeClick}
                   title="批量管理"
                 >
                   <CheckSquare size={18} />
@@ -898,7 +968,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                 <>
                   <button 
                     className="select-all-button"
-                    onClick={toggleSelectAll}
+                    onClick={handleSelectAllClick}
                     title={selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
                   >
                     {selectedImages.length === libraryImages.length ? <CheckSquare size={18} /> : <Square size={18} />}
@@ -906,7 +976,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                   </button>
                   <button 
                     className="batch-delete-button"
-                    onClick={handleBatchDelete}
+                    onClick={handleBatchDeleteClick}
                     disabled={selectedImages.length === 0}
                     title="删除选中"
                   >
@@ -915,10 +985,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                   </button>
                   <button 
                     className="cancel-selection-button"
-                    onClick={() => {
-                      setSelectionMode(false)
-                      setSelectedImages([])
-                    }}
+                    onClick={handleCancelSelectionClick}
                     title="取消选择"
                   >
                     取消
@@ -930,22 +997,22 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
           <div className="footer-right-actions">
             {activeTab === 'link' ? (
               <>
-                <button className="cancel-button" onClick={onClose}>
+                <button className="cancel-button" onClick={handleCancelClick}>
                   取消
                 </button>
-                <button className="insert-button" onClick={handleInsertLink}>
+                <button className="insert-button" onClick={handleConfirmClick}>
                   插入图片
                 </button>
               </>
             ) : (
               <>
-                <button className="close-footer-button" onClick={onClose}>
+                <button className="close-footer-button" onClick={handleCloseClick}>
                   关闭
                 </button>
                 {activeTab === 'compression' && (
                   <button 
                     className="save-settings-button"
-                    onClick={handleSaveImageSettings}
+                    onClick={handleConfirmClick}
                     disabled={!hasSettingsChanges}
                   >
                     保存设置
@@ -960,7 +1027,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
 
     {/* 图片预览浮窗 */}
     {previewImage && (
-      <div className="img-preview-mask" onClick={() => setPreviewImage(null)}>
+      <div className="img-preview-mask" onClick={handlePreviewMaskClick}>
         <div className="img-preview-card" onClick={(e) => e.stopPropagation()}>
           <div className="img-preview-body">
             <img src={previewImage.url} alt={previewImage.name || '预览'} />

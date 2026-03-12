@@ -164,6 +164,10 @@ html, body {
   padding: 8px;
 }
 
+.main-content.is-compact-viewport {
+  padding: 6px;
+}
+
 /* 编辑器和预览区的容器 */
 .editor-preview-container {
   flex: 1;
@@ -173,6 +177,108 @@ html, body {
   overflow: hidden;
   gap: 8px;
   padding: 0;
+}
+
+@keyframes slideInLeftPanel {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.editor-preview-container > .file-tree {
+  flex-shrink: 0;
+  align-self: stretch;
+  animation: slideInLeftPanel 0.28s ease-out;
+}
+
+.filetree-side-panel {
+  display: flex;
+  align-self: stretch;
+  flex-shrink: 0;
+  min-width: 0;
+  gap: 0;
+}
+
+.filetree-side-panel > .file-tree {
+  flex-shrink: 0;
+  align-self: stretch;
+  animation: slideInLeftPanel 0.28s ease-out;
+}
+
+.filetree-side-panel > .resizer-vertical {
+  align-self: stretch;
+}
+
+.export-config-side-panel {
+  display: flex;
+  align-self: stretch;
+  flex-shrink: 0;
+  min-width: 0;
+  gap: 0;
+}
+
+.export-config-side-panel > .resizer-vertical {
+  align-self: stretch;
+}
+
+.export-config-side-panel > .export-config-panel {
+  flex-shrink: 0;
+}
+
+.editor-preview-container > .resizer-vertical {
+  align-self: stretch;
+}
+
+.filetree-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32);
+  z-index: 40;
+}
+
+.filetree-overlay-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 50;
+  width: min(360px, calc(100vw - 24px));
+  max-width: 100%;
+  display: flex;
+  pointer-events: auto;
+}
+
+.filetree-overlay-panel > .file-tree {
+  height: 100%;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+}
+
+.export-config-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.36);
+  z-index: 60;
+}
+
+.export-config-overlay-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 70;
+  width: min(420px, calc(100vw - 24px));
+  max-width: 100%;
+  display: flex;
+}
+
+.export-config-overlay-panel > .export-config-panel {
+  height: 100%;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.32);
 }
 
 /* 编辑器和预览区的包装器（包含工具栏） */
@@ -714,20 +820,95 @@ img[style*="width"] {
 }
 
 /* 响应式 */
+@media (max-width: 1024px) {
+  .toolbar {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    min-width: 0;
+  }
+
+  .toolbar-left {
+    flex: 1 1 auto;
+    gap: 8px;
+  }
+
+  .toolbar-right {
+    gap: 8px;
+  }
+
+  .toolbar-action-btn {
+    min-width: 0;
+    padding: 0 12px !important;
+    white-space: nowrap;
+  }
+
+  .editor-preview-wrapper {
+    padding: 4px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .editor-preview-content {
+    gap: 6px;
+  }
+
+  .preview-pane {
+    padding: 18px;
+  }
+
+  .statusbar {
+    padding: 0 8px;
+  }
+
+  .status-info {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
   .toolbar {
     flex-wrap: wrap;
     height: auto;
     padding: 8px;
   }
+
+  .app-logo {
+    display: none;
+  }
   
   .file-path {
     max-width: 150px;
   }
   
-  .main-content.layout-vertical {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr;
+  .toolbar-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .toolbar-action-btn {
+    flex: 0 0 auto;
+  }
+
+  .main-content {
+    padding: 4px;
+  }
+
+  .main-content.layout-vertical .editor-preview-content {
+    flex-direction: column;
+  }
+
+  .main-content.layout-vertical .editor-pane,
+  .main-content.layout-vertical .preview-pane {
+    width: 100% !important;
+    flex: 1 1 0;
+  }
+
+  .main-content.layout-vertical .editor-preview-content > .resizer {
+    display: none;
   }
   
   .preview-pane {
@@ -736,6 +917,14 @@ img[style*="width"] {
   
   .markdown-body {
     font-size: 14px;
+  }
+
+  .export-config-overlay-panel {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
   }
 }
 

@@ -751,7 +751,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
     URL.revokeObjectURL(url);
   };
 
-  const handleExport = async () => {
+  const exportDocument = async () => {
     setLoading(true);
     setError('');
 
@@ -801,12 +801,28 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
     }
   };
 
+  const handleOverlayClick = () => {
+    onClose();
+  };
+
+  const handleCloseClick = () => {
+    onClose();
+  };
+
+  const handleCancelClick = () => {
+    onClose();
+  };
+
+  const handleConfirmClick = () => {
+    exportDocument();
+  };
+
   return (
-    <div className="dialog-overlay theme-light" onClick={onClose}>
+    <div className="dialog-overlay theme-light" onClick={handleOverlayClick}>
       <div className="dialog-content export-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>导出文档</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
 
         <div className="dialog-body">
@@ -974,10 +990,10 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
         </div>
 
         <div className="dialog-footer">
-          <button className="btn-secondary" onClick={onClose}>取消</button>
+          <button className="btn-secondary" onClick={handleCancelClick}>取消</button>
           <button 
             className="btn-primary" 
-            onClick={handleExport}
+            onClick={handleConfirmClick}
             disabled={loading}
           >
             {loading ? '导出中...' : '导出'}

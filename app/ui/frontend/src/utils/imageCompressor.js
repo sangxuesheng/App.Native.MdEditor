@@ -1,19 +1,18 @@
 /**
  * 获取图片压缩设置
  */
-const getCompressionSettings = () => {
+import { loadImageManagerSettings } from './settingsApi'
+
+const getCompressionSettings = async () => {
   try {
-    const savedSettings = localStorage.getItem('md-editor-settings')
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings)
-      return {
-        enabled: settings.imageCompression !== false,
-        mode: settings.imageCompressionMode || 'quality', // 'quality' 或 'size'
-        quality: (settings.imageQuality || 80) / 100,
-        targetSizePercent: settings.imageTargetSizePercent || 30, // 百分比
-        maxWidth: settings.imageMaxWidth || 1920,
-        maxHeight: settings.imageMaxHeight || 1080
-      }
+    const settings = await loadImageManagerSettings()
+    return {
+      enabled: settings.imageCompression !== false,
+      mode: settings.imageCompressionMode || 'quality',
+      quality: (settings.imageQuality || 80) / 100,
+      targetSizePercent: settings.imageTargetSizePercent || 30,
+      maxWidth: settings.imageMaxWidth || 1920,
+      maxHeight: settings.imageMaxHeight || 1080,
     }
   } catch (error) {
     console.error('读取压缩设置失败:', error)
@@ -100,7 +99,7 @@ const compressBySize = async (canvas, file, targetSizeKB) => {
 export const compressImage = (file, options = {}) => {
   return new Promise(async (resolve, reject) => {
     // 获取压缩设置
-    const settings = getCompressionSettings()
+    const settings = await getCompressionSettings()
     
     // 合并选项
     const finalOptions = {

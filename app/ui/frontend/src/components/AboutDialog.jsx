@@ -10,12 +10,20 @@ function AboutDialog({ onClose, theme }) {
     return 'theme-dark'
   }
 
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className={`dialog-container about-dialog ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
+    <div className="dialog-overlay compact-panel-overlay" onClick={handleOverlayClick}>
+      <div className={`dialog-container compact-panel-dialog about-dialog ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>关于</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
+          <button className="dialog-close" onClick={handleCloseClick}>×</button>
         </div>
         
         <div className="dialog-content about-content">
@@ -39,7 +47,7 @@ function AboutDialog({ onClose, theme }) {
 
           <div className="about-info">
             <h3 className="app-name">Markdown 编辑器</h3>
-            <p className="app-version">版本 v1.7.0</p>
+            <p className="app-version">版本 v1.27.31</p>
             <p className="app-description">
               专为飞牛 NAS 设计的专业 Markdown 编辑器
             </p>
@@ -78,7 +86,7 @@ function AboutDialog({ onClose, theme }) {
         </div>
 
         <div className="dialog-footer">
-          <button className="btn-primary" onClick={onClose}>关闭</button>
+          <button className="btn-primary" onClick={handleCloseClick}>关闭</button>
         </div>
       </div>
     </div>

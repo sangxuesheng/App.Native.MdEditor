@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react'
 import { File, Folder, Edit, Trash2, Copy, Scissors, Clipboard, Star, FolderPlus, RefreshCw, Info } from 'lucide-react'
-import { isFavorite } from '../utils/favoritesManager'
 import './ContextMenu.css'
 
 /**
@@ -33,7 +32,7 @@ function ContextMenu({
     
     const isFile = node.type === 'file'
     const isDirectory = node.type === 'directory'
-    const isFav = isFavorite(node.path)
+    const isFav = !!node.isFavorite
     
     const items = []
     
@@ -147,11 +146,11 @@ function ContextMenu({
       onClose()
     }
 
-    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('pointerdown', handleClick)
     document.addEventListener('scroll', handleScroll, true)
     
     return () => {
-      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('pointerdown', handleClick)
       document.removeEventListener('scroll', handleScroll, true)
     }
   }, [onClose])

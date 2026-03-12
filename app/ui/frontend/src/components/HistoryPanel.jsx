@@ -61,9 +61,7 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
   }
 
   // 删除单个版本
-  const handleDeleteVersion = async (versionNumber, event) => {
-    event.stopPropagation()
-    
+  const doDeleteVersion = async (versionNumber) => {
     try {
       await deleteVersion(currentPath, versionNumber)
       await loadVersions() // 重新加载列表
@@ -74,13 +72,13 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
   }
 
   // 显示清空确认对话框
-  const handleClearAll = () => {
+  const doOpenClearAllConfirm = () => {
     if (versions.length === 0) return
     setShowClearConfirm(true)
   }
 
   // 确认清空所有版本
-  const confirmClearAll = async () => {
+  const doClearAllVersions = async () => {
     try {
       await clearAllVersions(currentPath)
       setVersions([])
@@ -92,20 +90,37 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
   }
 
   // 预览版本（点击版本项）
-  const handleVersionClick = (version) => {
+  const doOpenVersionPreview = (version) => {
     setSelectedVersion(version)
   }
 
   // 关闭预览对话框
-  const handleClosePreview = () => {
+  const doCloseVersionPreview = () => {
     setSelectedVersion(null)
   }
 
   // 恢复版本
-  const handleRestoreVersion = (version, content) => {
+  const doRestoreVersion = (version, content) => {
     if (onVersionRestore) {
       onVersionRestore(content, version)
     }
+  }
+
+  const handleDeleteVersionClick = async (versionNumber, event) => {
+    event.stopPropagation()
+    await doDeleteVersion(versionNumber)
+  }
+
+  const handleClearAllClick = () => {
+    doOpenClearAllConfirm()
+  }
+
+  const handleVersionClick = (version) => {
+    doOpenVersionPreview(version)
+  }
+
+  const handleClosePreviewClick = () => {
+    doCloseVersionPreview()
   }
 
   if (!currentPath) {
@@ -138,7 +153,7 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
             <span className="history-count">共 {versions.length} 个版本</span>
             <button 
               className="btn-clear-all" 
-              onClick={handleClearAll}
+              onClick={handleClearAllClick}
               title="清空所有历史版本"
             >
               清空所有
@@ -155,7 +170,7 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
                 >
                   <button 
                     className="btn-delete-icon"
-                    onClick={(e) => handleDeleteVersion(v.versionNumber, e)}
+                    onClick={(e) => handleDeleteVersionClick(v.versionNumber, e)}
                     title="删除此版本"
                   >
                     <Trash2 size={16} />
@@ -198,7 +213,7 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
           message={`确定要删除 "${currentPath}" 的所有 ${versions.length} 个历史版本吗？\n\n此操作不可恢复。`}
           confirmText="确定删除"
           cancelText="取消"
-          onConfirm={confirmClearAll}
+          onConfirm={doClearAllVersions}
           onCancel={() => setShowClearConfirm(false)}
           theme={theme}
         />
@@ -210,8 +225,8 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
           version={selectedVersion}
           filePath={currentPath}
           theme={theme}
-          onClose={handleClosePreview}
-          onRestore={handleRestoreVersion}
+          onClose={handleClosePreviewClick}
+          onRestore={doRestoreVersion}
         />
       )}
     </div>

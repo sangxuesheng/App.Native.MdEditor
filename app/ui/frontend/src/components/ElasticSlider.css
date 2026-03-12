@@ -6,6 +6,7 @@
   align-items: center;
   cursor: pointer;
   user-select: none;
+  touch-action: none;
 }
 
 .elastic-slider-track {

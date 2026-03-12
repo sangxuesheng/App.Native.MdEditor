@@ -1,5 +1,5 @@
 appname=App.Native.MdEditor2
-version=1.27.24
+version=1.27.31
 display_name=Markdown 编辑器 v2
 desc=飞牛 NAS 专用 Markdown 编辑器。v1.27.8 更新：修复 Mermaid 图表背景色问题，使用 neutral 主题确保浅色背景。
 platform=x86

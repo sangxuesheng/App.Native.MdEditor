@@ -30,7 +30,7 @@ function VersionPreviewDialog({ version, filePath, theme = 'light', onClose, onR
     }
   }
 
-  const handleRestore = () => {
+  const doRestoreVersion = () => {
     if (onRestore) {
       onRestore(version, content)
     }
@@ -49,8 +49,20 @@ function VersionPreviewDialog({ version, filePath, theme = 'light', onClose, onR
     })
   }
 
+  const handleOverlayClick = () => {
+    onClose()
+  }
+
+  const handleCloseClick = () => {
+    onClose()
+  }
+
+  const handleConfirmClick = () => {
+    doRestoreVersion()
+  }
+
   return (
-    <div className={`dialog-overlay theme-${theme}`} onClick={onClose}>
+    <div className={`dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
       <div className="dialog-content version-preview-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <div className="version-title">
@@ -58,7 +70,7 @@ function VersionPreviewDialog({ version, filePath, theme = 'light', onClose, onR
             <h2>版本 {version.versionNumber}</h2>
             {version.label && <span className="version-badge">{version.label}</span>}
           </div>
-          <button className="dialog-close" onClick={onClose}>
+          <button className="dialog-close" onClick={handleCloseClick}>
             <X size={20} />
           </button>
         </div>
@@ -103,12 +115,12 @@ function VersionPreviewDialog({ version, filePath, theme = 'light', onClose, onR
             </div>
           </div>
           <div className="footer-actions">
-            <button className="btn-secondary" onClick={onClose}>
+            <button className="btn-secondary" onClick={handleCloseClick}>
               关闭
             </button>
             <button 
               className="btn-primary" 
-              onClick={handleRestore}
+              onClick={handleConfirmClick}
               disabled={loading || error}
             >
               <RotateCcw size={16} />

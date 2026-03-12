@@ -1,8 +1,18 @@
 .history-dialog {
-  width: 90%;
+  width: min(90vw, 1000px);
   max-width: 1000px;
-  height: 80vh;
+  height: min(80vh, 700px);
   max-height: 700px;
+}
+
+.history-dialog .dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 20px 24px;
 }
 
 .history-file-path {
@@ -122,6 +132,13 @@
   transition: opacity 0.15s;
 }
 
+.history-list,
+.preview-content {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
 .history-item:hover .history-delete-btn {
   opacity: 0.6;
 }
@@ -156,13 +173,17 @@
 
 .preview-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .preview-actions .btn-secondary,
 .preview-actions .btn-primary {
-  padding: 6px 12px;
-  font-size: 12px;
+  min-height: 34px;
+  min-width: 84px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .history-diff {
@@ -303,5 +324,94 @@
   --preview-bg: #0d1117;
   --scrollbar-thumb: #30363d;
   --scrollbar-thumb-hover: #484f58;
+}
+
+@media (max-width: 1024px) {
+  .history-dialog {
+    width: min(100%, 920px);
+    height: calc(100vh - 24px);
+    max-height: none;
+  }
+
+  .history-dialog .dialog-body {
+    padding: 16px 18px;
+  }
+
+  .history-container {
+    flex-direction: column;
+    height: 100%;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .history-list {
+    flex: 0 0 auto;
+    max-height: 220px;
+  }
+
+  .history-preview {
+    min-height: 0;
+  }
+
+  .preview-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .preview-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 768px) {
+  .history-dialog .dialog-body {
+    padding: 14px 16px;
+  }
+
+  .history-file-path {
+    white-space: normal;
+    word-break: break-all;
+  }
+
+  .history-item-info,
+  .diff-stats {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .preview-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .preview-actions .btn-secondary,
+  .preview-actions .btn-primary {
+    flex: 1 1 calc(50% - 4px);
+  }
+}
+
+@media (pointer: coarse) {
+  .history-item {
+    min-height: 56px;
+    padding-right: 44px;
+  }
+
+  .history-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    opacity: 0.72;
+  }
+
+  .preview-actions .btn-secondary,
+  .preview-actions .btn-primary {
+    min-height: 38px;
+    padding: 0 14px;
+  }
 }
 

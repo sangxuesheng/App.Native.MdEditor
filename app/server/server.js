@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const historyManager = require('./historyManager');
 const imageConverter = require('./imageConverter');
+const { getDb } = require('./db');
 
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
 const STATIC_DIR = path.join(__dirname, '../ui/frontend/dist');
@@ -64,6 +65,33 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
+function readJsonBody(req, res, maxBytes = 1024 * 64) {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > maxBytes) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+        reject(new Error('PAYLOAD_TOO_LARGE'));
+      }
+    });
+
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(raw || '{}'));
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        reject(new Error('INVALID_JSON'));
+      }
+    });
+
+    req.on('error', reject);
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
 
@@ -112,6 +140,501 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
+
+  // 应用设置：GET /api/settings
+  if (parsed.pathname === '/api/settings' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const rows = db.prepare('SELECT key, value FROM settings').all();
+      const settings = {};
+      for (const row of rows) {
+        try {
+          settings[row.key] = JSON.parse(row.value);
+        } catch {
+          settings[row.key] = row.value;
+        }
+      }
+      sendJson(res, 200, { ok: true, settings });
+    } catch (e) {
+      console.error('[api/settings][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取设置失败' });
+    }
+    return;
+  }
+
+  // 应用设置：POST /api/settings  { key, value }
+  if (parsed.pathname === '/api/settings' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 64) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const key = body && body.key;
+      const value = body && Object.prototype.hasOwnProperty.call(body, 'value') ? body.value : undefined;
+      if (!key) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_KEY', message: '缺少 key 字段' });
+        return;
+      }
+      try {
+        const db = getDb();
+        const stmt = db.prepare(`
+          INSERT INTO settings (key, value)
+          VALUES (@key, @value)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        `);
+        const stored = JSON.stringify(value ?? null);
+        stmt.run({ key, value: stored });
+        sendJson(res, 200, { ok: true });
+      } catch (e) {
+        console.error('[api/settings][POST] error:', e);
+        sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '保存设置失败' });
+      }
+    });
+    return;
+  }
+
+  // 应用编辑状态：GET /api/app-state
+  if (parsed.pathname === '/api/app-state' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('appState');
+      let state = {};
+
+      if (row?.value) {
+        try {
+          state = JSON.parse(row.value);
+        } catch {
+          state = {};
+        }
+      }
+
+      sendJson(res, 200, { ok: true, state });
+    } catch (e) {
+      console.error('[api/app-state][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取编辑状态失败' });
+    }
+    return;
+  }
+
+  // 应用编辑状态：POST /api/app-state  { state, replace }
+  if (parsed.pathname === '/api/app-state' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req, res, 1024 * 1024 * 2);
+      const nextState = body && typeof body.state === 'object' && body.state !== null ? body.state : null;
+      const replace = !!body?.replace;
+
+      if (!nextState) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_STATE', message: '缺少 state 字段' });
+        return;
+      }
+
+      const db = getDb();
+      let mergedState = nextState;
+
+      if (!replace) {
+        const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('appState');
+        let currentState = {};
+        if (row?.value) {
+          try {
+            currentState = JSON.parse(row.value);
+          } catch {
+            currentState = {};
+          }
+        }
+        mergedState = { ...currentState, ...nextState };
+      }
+
+      const stmt = db.prepare(`
+        INSERT INTO settings (key, value)
+        VALUES (@key, @value)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `);
+      stmt.run({ key: 'appState', value: JSON.stringify(mergedState) });
+
+      sendJson(res, 200, { ok: true, state: mergedState });
+    } catch (e) {
+      if (e.message === 'PAYLOAD_TOO_LARGE' || e.message === 'INVALID_JSON') {
+        return;
+      }
+      console.error('[api/app-state][POST] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '保存编辑状态失败' });
+    }
+    return;
+  }
+
+  // 导出配置预设：GET /api/export-presets
+  if (parsed.pathname === '/api/export-presets' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const rows = db.prepare('SELECT id, name, is_default, config_json, created_at, updated_at, last_used_at FROM export_presets ORDER BY is_default DESC, last_used_at DESC, updated_at DESC').all();
+      const presets = rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        isDefault: !!row.is_default,
+        config: JSON.parse(row.config_json),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        lastUsedAt: row.last_used_at,
+      }));
+      sendJson(res, 200, { ok: true, presets });
+    } catch (e) {
+      console.error('[api/export-presets][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取导出配置失败' });
+    }
+    return;
+  }
+
+  // 导出配置预设：GET /api/export-presets/active
+  if (parsed.pathname === '/api/export-presets/active' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const row = db.prepare(`
+        SELECT id, name, is_default, config_json, created_at, updated_at, last_used_at
+        FROM export_presets
+        ORDER BY is_default DESC, last_used_at DESC, updated_at DESC
+        LIMIT 1
+      `).get();
+      if (!row) {
+        sendJson(res, 200, { ok: true, preset: null });
+        return;
+      }
+      const preset = {
+        id: row.id,
+        name: row.name,
+        isDefault: !!row.is_default,
+        config: JSON.parse(row.config_json),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        lastUsedAt: row.last_used_at,
+      };
+      sendJson(res, 200, { ok: true, preset });
+    } catch (e) {
+      console.error('[api/export-presets/active][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取当前导出配置失败' });
+    }
+    return;
+  }
+
+  // 导出配置预设：POST /api/export-presets  { name, config }
+  if (parsed.pathname === '/api/export-presets' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 256) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const name = body && body.name;
+      const config = body && body.config;
+      const isDefault = body && body.isDefault ? 1 : 0;
+      if (!name || !config) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_FIELDS', message: '缺少 name 或 config 字段' });
+        return;
+      }
+      try {
+        const db = getDb();
+        const now = Date.now();
+        const insert = db.prepare(`
+          INSERT INTO export_presets (name, is_default, config_json, created_at, updated_at, last_used_at)
+          VALUES (@name, @is_default, @config_json, @ts, @ts, @ts)
+        `);
+        const info = insert.run({
+          name,
+          is_default: isDefault,
+          config_json: JSON.stringify(config),
+          ts: now,
+        });
+        sendJson(res, 200, { ok: true, id: info.lastInsertRowid });
+      } catch (e) {
+        console.error('[api/export-presets][POST] error:', e);
+        sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '保存导出配置失败' });
+      }
+    });
+    return;
+  }
+
+  // 导出配置自定义主题：GET /api/export-themes
+  if (parsed.pathname === '/api/export-themes' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const rows = db.prepare('SELECT name, css FROM export_custom_themes ORDER BY name ASC').all();
+      const themes = {};
+      for (const row of rows) {
+        themes[row.name] = row.css;
+      }
+      sendJson(res, 200, { ok: true, themes });
+    } catch (e) {
+      console.error('[api/export-themes][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取自定义主题失败' });
+    }
+    return;
+  }
+
+  // 导出配置自定义主题：POST /api/export-themes/save  { name, css }
+  if (parsed.pathname === '/api/export-themes/save' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 64) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const name = body && body.name;
+      const css = body && body.css;
+      if (!name || typeof css !== 'string') {
+        sendJson(res, 400, { ok: false, code: 'MISSING_FIELDS', message: '缺少 name 或 css 字段' });
+        return;
+      }
+      try {
+        const db = getDb();
+        const now = Date.now();
+        const stmt = db.prepare(`
+          INSERT INTO export_custom_themes (name, css, created_at, updated_at)
+          VALUES (@name, @css, @ts, @ts)
+          ON CONFLICT(name) DO UPDATE SET css = excluded.css, updated_at = excluded.updated_at
+        `);
+        stmt.run({ name, css, ts: now });
+        sendJson(res, 200, { ok: true });
+      } catch (e) {
+        console.error('[api/export-themes/save][POST] error:', e);
+        sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '保存自定义主题失败' });
+      }
+    });
+    return;
+  }
+
+  // 导出配置自定义主题：POST /api/export-themes/delete  { name }
+  if (parsed.pathname === '/api/export-themes/delete' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 16) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+      const name = body && body.name;
+      if (!name) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_NAME', message: '缺少 name 字段' });
+        return;
+      }
+      try {
+        const db = getDb();
+        const stmt = db.prepare('DELETE FROM export_custom_themes WHERE name = ?');
+        stmt.run(name);
+        sendJson(res, 200, { ok: true });
+      } catch (e) {
+        console.error('[api/export-themes/delete][POST] error:', e);
+        sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '删除自定义主题失败' });
+      }
+    });
+    return;
+  }
+
+  // ==================== 最近文件 / 收藏夹 ====================
+
+  // 最近文件：GET /api/recent-files
+  if (parsed.pathname === '/api/recent-files' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const rows = db.prepare(`
+        SELECT path, name, last_opened, open_count
+        FROM recent_files
+        ORDER BY last_opened DESC
+        LIMIT 100
+      `).all();
+      sendJson(res, 200, { ok: true, items: rows });
+    } catch (e) {
+      console.error('[api/recent-files][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取最近文件失败' });
+    }
+    return;
+  }
+
+  // 最近文件：记录打开 /api/recent-files/open
+  if (parsed.pathname === '/api/recent-files/open' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => { raw += chunk.toString('utf8'); });
+    req.on('end', () => {
+      try {
+        const { path: filePath, name } = JSON.parse(raw || '{}');
+        if (!filePath) {
+          sendJson(res, 400, { ok: false, code: 'MISSING_PATH', message: '缺少文件路径' });
+          return;
+        }
+        const db = getDb();
+        const now = Date.now();
+        const stmt = db.prepare(`
+          INSERT INTO recent_files (path, name, last_opened, open_count)
+          VALUES (@path, @name, @ts, 1)
+          ON CONFLICT(path) DO UPDATE SET
+            name = excluded.name,
+            last_opened = excluded.last_opened,
+            open_count = recent_files.open_count + 1
+        `);
+        stmt.run({
+          path: filePath,
+          name: name || require('path').basename(filePath),
+          ts: now,
+        });
+        sendJson(res, 200, { ok: true });
+      } catch (e) {
+        console.error('[api/recent-files/open][POST] error:', e);
+        sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '更新最近文件失败' });
+      }
+    });
+    return;
+  }
+
+  // 最近文件：清空 /api/recent-files/clear
+  if (parsed.pathname === '/api/recent-files/clear' && req.method === 'POST') {
+    try {
+      const db = getDb();
+      db.prepare('DELETE FROM recent_files').run();
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      console.error('[api/recent-files/clear][POST] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '清空最近文件失败' });
+    }
+    return;
+  }
+
+  // 收藏夹：GET /api/favorites
+  if (parsed.pathname === '/api/favorites' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const rows = db.prepare(`
+        SELECT id, path, name, type, added_at, order_index
+        FROM favorites
+        ORDER BY order_index ASC, added_at DESC
+      `).all();
+      sendJson(res, 200, { ok: true, items: rows });
+    } catch (e) {
+      console.error('[api/favorites][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取收藏夹失败' });
+    }
+    return;
+  }
+
+  // 收藏夹：切换收藏 /api/favorites/toggle
+  if (parsed.pathname === '/api/favorites/toggle' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => { raw += chunk.toString('utf8'); });
+    req.on('end', () => {
+      try {
+        const { path: filePath, name, type } = JSON.parse(raw || '{}');
+        if (!filePath) {
+          sendJson(res, 400, { ok: false, code: 'MISSING_PATH', message: '缺少路径' });
+          return;
+        }
+        const db = getDb();
+        const existing = db.prepare('SELECT id FROM favorites WHERE path = ?').get(filePath);
+        if (existing) {
+          db.prepare('DELETE FROM favorites WHERE path = ?').run(filePath);
+          sendJson(res, 200, { ok: true, favorited: false });
+        } else {
+          const count = db.prepare('SELECT COUNT(*) AS c FROM favorites').get().c || 0;
+          const stmt = db.prepare(`
+            INSERT INTO favorites (path, name, type, added_at, order_index)
+            VALUES (@path, @name, @type, @ts, @order_index)
+          `);
+          stmt.run({
+            path: filePath,
+            name: name || require('path').basename(filePath),
+            type: type || 'file',
+            ts: Date.now(),
+            order_index: count,
+          });
+          sendJson(res, 200, { ok: true, favorited: true });
+        }
+      } catch (e) {
+        console.error('[api/favorites/toggle][POST] error:', e);
+        sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '更新收藏夹失败' });
+      }
+    });
+    return;
+  }
+
+  // 收藏夹：重排顺序 /api/favorites/reorder  { items: [{ id, order_index }] }
+  if (parsed.pathname === '/api/favorites/reorder' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => { raw += chunk.toString('utf8'); });
+    req.on('end', () => {
+      try {
+        const { items } = JSON.parse(raw || '{}');
+        if (!Array.isArray(items)) {
+          sendJson(res, 400, { ok: false, code: 'INVALID_ITEMS', message: 'items 必须是数组' });
+          return;
+        }
+        const db = getDb();
+        const stmt = db.prepare('UPDATE favorites SET order_index = @order_index WHERE id = @id');
+        const tx = db.transaction((rows) => {
+          rows.forEach(r => stmt.run(r));
+        });
+        tx(items);
+        sendJson(res, 200, { ok: true });
+      } catch (e) {
+        console.error('[api/favorites/reorder][POST] error:', e);
+        sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '更新收藏顺序失败' });
+      }
+    });
+    return;
+  }
+
+  // 收藏夹：清空 /api/favorites/clear
+  if (parsed.pathname === '/api/favorites/clear' && req.method === 'POST') {
+    try {
+      const db = getDb();
+      db.prepare('DELETE FROM favorites').run();
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      console.error('[api/favorites/clear][POST] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '清空收藏夹失败' });
+    }
+    return;
+  }
+
 
   // 文件读取：GET /api/file?path=/abs/path/to/file.md
   if (parsed.pathname === '/api/file' && req.method === 'GET') {

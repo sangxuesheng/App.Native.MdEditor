@@ -3,6 +3,8 @@
  * 提供文件名模糊搜索和内容搜索功能
  */
 
+import { loadSetting, parseStoredArray, persistSetting } from './settingsApi'
+
 /**
  * 模糊匹配算法
  * @param {string} text - 要搜索的文本
@@ -206,12 +208,11 @@ export function getSearchSuggestions(recentSearches, query) {
  * 保存搜索历史
  * @param {string} query - 搜索关键词
  */
-export function saveSearchHistory(query) {
+export async function saveSearchHistory(query) {
   if (!query || query.trim().length === 0) return
   
   try {
-    const key = 'md-editor-search-history'
-    const history = JSON.parse(localStorage.getItem(key) || '[]')
+    const history = parseStoredArray(await loadSetting('searchHistory', []), [])
     
     // 移除重复项
     const filtered = history.filter(item => item !== query)
@@ -222,7 +223,7 @@ export function saveSearchHistory(query) {
     // 限制数量
     const limited = filtered.slice(0, 20)
     
-    localStorage.setItem(key, JSON.stringify(limited))
+    await persistSetting('searchHistory', limited)
   } catch (error) {
     console.error('Failed to save search history:', error)
   }
@@ -232,11 +233,9 @@ export function saveSearchHistory(query) {
  * 获取搜索历史
  * @returns {Array} 搜索历史
  */
-export function getSearchHistory() {
+export async function getSearchHistory() {
   try {
-    const key = 'md-editor-search-history'
-    const history = JSON.parse(localStorage.getItem(key) || '[]')
-    return Array.isArray(history) ? history : []
+    return parseStoredArray(await loadSetting('searchHistory', []), [])
   } catch (error) {
     console.error('Failed to load search history:', error)
     return []
@@ -246,10 +245,9 @@ export function getSearchHistory() {
 /**
  * 清空搜索历史
  */
-export function clearSearchHistory() {
+export async function clearSearchHistory() {
   try {
-    const key = 'md-editor-search-history'
-    localStorage.removeItem(key)
+    await persistSetting('searchHistory', [])
   } catch (error) {
     console.error('Failed to clear search history:', error)
   }

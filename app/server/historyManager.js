@@ -6,6 +6,7 @@
 const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
+const { getDb } = require('./db')
 
 /**
  * 获取历史存储目录（使用环境变量，不硬编码）
@@ -74,14 +75,17 @@ function saveVersion(filePath, content, label = '', autoSaved = true) {
     const versionFilePath = path.join(versionDir, fileName)
     fs.writeFileSync(versionFilePath, content, 'utf8')
     
-    // 更新索引
+    const lines = content.split('\n').length
+    const size = Buffer.byteLength(content, 'utf8')
+
+    // 更新文件本地索引（versions.json）
     index.currentVersion = versionNumber
     index.versions.unshift({
       versionNumber,
       fileName,
       timestamp,
-      size: Buffer.byteLength(content, 'utf8'),
-      lines: content.split('\n').length,
+      size,
+      lines,
       label,
       autoSaved
     })
@@ -91,7 +95,38 @@ function saveVersion(filePath, content, label = '', autoSaved = true) {
     
     // 保存索引
     fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf8')
-    
+
+    // 更新数据库中的历史索引（history_index）
+    try {
+      const db = getDb()
+      db.prepare(`
+        INSERT INTO history_index (
+          file_path, version_num, file_name, timestamp, size, lines, label, auto_saved
+        ) VALUES (
+          @file_path, @version_num, @file_name, @timestamp, @size, @lines, @label, @auto_saved
+        )
+        ON CONFLICT(file_path, version_num) DO UPDATE SET
+          file_name = excluded.file_name,
+          timestamp = excluded.timestamp,
+          size = excluded.size,
+          lines = excluded.lines,
+          label = excluded.label,
+          auto_saved = excluded.auto_saved
+      `).run({
+        file_path: filePath,
+        version_num: versionNumber,
+        file_name: fileName,
+        timestamp,
+        size,
+        lines,
+        label,
+        auto_saved: autoSaved ? 1 : 0,
+      })
+    } catch (e) {
+      console.error('[history_index] saveVersion db error:', e)
+      // 不影响主流程
+    }
+
     return { 
       ok: true,
       versionNumber, 
@@ -110,6 +145,50 @@ function saveVersion(filePath, content, label = '', autoSaved = true) {
  */
 function getVersionList(filePath) {
   try {
+    // 优先从数据库查询索引
+    try {
+      const db = getDb()
+      const rows = db.prepare(`
+        SELECT file_path, version_num, file_name, timestamp, size, lines, label, auto_saved
+        FROM history_index
+        WHERE file_path = ?
+        ORDER BY version_num DESC
+      `).all(filePath)
+
+      if (rows && rows.length > 0) {
+        const versions = rows.map(r => ({
+          versionNumber: r.version_num,
+          fileName: r.file_name,
+          timestamp: r.timestamp,
+          size: r.size,
+          lines: r.lines,
+          label: r.label,
+          autoSaved: !!r.auto_saved,
+        }))
+
+        // 计算行数差异
+        const versionMap = {}
+        versions.forEach(v => {
+          versionMap[v.versionNumber] = v
+        })
+        for (let i = 0; i < versions.length; i++) {
+          const currentVersion = versions[i]
+          const previousVersionNumber = currentVersion.versionNumber - 1
+          if (previousVersionNumber > 0 && versionMap[previousVersionNumber]) {
+            const previousVersion = versionMap[previousVersionNumber]
+            currentVersion.linesDiff = currentVersion.lines - previousVersion.lines
+          } else {
+            currentVersion.linesDiff = 0
+          }
+        }
+
+        return versions
+      }
+    } catch (e) {
+      console.error('[history_index] getVersionList db error, fallback to JSON:', e)
+    }
+
+    // Fallback：使用本地 JSON 索引
     const versionDir = getFileVersionDir(filePath)
     const indexPath = path.join(versionDir, 'versions.json')
     
@@ -223,10 +302,19 @@ function deleteVersion(filePath, versionNumber) {
       fs.unlinkSync(versionFilePath)
     }
     
-    // 更新索引
+    // 更新本地索引
     index.versions = index.versions.filter(v => v.versionNumber !== versionNumber)
     fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf8')
-    
+
+    // 从数据库中删除对应索引
+    try {
+      const db = getDb()
+      db.prepare('DELETE FROM history_index WHERE file_path = ? AND version_num = ?')
+        .run(filePath, versionNumber)
+    } catch (e) {
+      console.error('[history_index] deleteVersion db error:', e)
+    }
+
     return { 
       ok: true,
       deleted: versionNumber 
@@ -273,7 +361,15 @@ function clearAllVersions(filePath) {
     
     // 删除整个目录
     fs.rmSync(versionDir, { recursive: true, force: true })
-    
+
+    // 删除数据库中的索引
+    try {
+      const db = getDb()
+      db.prepare('DELETE FROM history_index WHERE file_path = ?').run(filePath)
+    } catch (e) {
+      console.error('[history_index] clearAllVersions db error:', e)
+    }
+
     return { 
       ok: true,
       cleared: count 

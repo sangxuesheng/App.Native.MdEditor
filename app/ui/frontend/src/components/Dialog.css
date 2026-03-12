@@ -136,6 +136,9 @@
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   /* 隐藏滚动条但保留滚动功能 */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
@@ -181,27 +184,36 @@
 /* 按钮样式 */
 .btn-secondary,
 .btn-primary {
-  padding: 8px 16px;
-  border-radius: 8px;
+  min-height: 38px;
+  min-width: 90px;
+  padding: 0 20px;
+  border-radius: 10px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .btn-secondary {
-  background: transparent;
+  background: #21262d;
   border: 1px solid #30363d;
   color: #c9d1d9;
 }
 
 .theme-light .btn-secondary {
+  background: #ffffff;
   border-color: #d0d7de;
   color: #24292f;
 }
 
 .theme-dark .btn-secondary {
+  background: #21262d;
   border-color: #30363d;
   color: #c9d1d9;
 }
@@ -215,7 +227,7 @@
 }
 
 .theme-dark .btn-secondary:hover {
-  background: #21262d;
+  background: #30363d;
 }
 
 
@@ -224,10 +236,20 @@
   color: #ffffff;
 }
 
+.theme-dark .btn-primary {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
 .btn-primary:hover:not(:disabled) {
   background: #0757b8;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.theme-dark .btn-primary:hover:not(:disabled) {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
 }
 
 .btn-primary:disabled {
@@ -236,11 +258,49 @@
   transform: none;
 }
 
+@media (pointer: coarse) {
+  .dialog-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .btn-secondary,
+  .btn-primary {
+    min-height: 40px;
+    padding: 10px 18px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dialog-overlay.compact-panel-overlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .dialog-overlay.compact-panel-overlay .dialog-container.compact-panel-dialog {
+    width: min(100%, 920px);
+    max-width: 100%;
+    max-height: calc(100vh - 24px);
+    border-radius: 18px;
+  }
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .dialog-container {
     width: 95vw;
     max-height: 90vh;
+  }
+
+  .dialog-overlay.compact-panel-overlay {
+    padding: 8px;
+  }
+
+  .dialog-overlay.compact-panel-overlay .dialog-container.compact-panel-dialog {
+    width: 100%;
+    max-height: calc(100vh - 16px);
+    border-radius: 16px;
   }
 
   .dialog-header {
