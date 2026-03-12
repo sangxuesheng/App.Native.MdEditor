@@ -34,6 +34,17 @@
     height: 90vh;
     border-radius: 12px;
   }
+
+  .compression-tab .setting-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .compression-tab .setting-select-control {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
 }
 
 @media (min-width: 1200px) {
@@ -983,6 +994,29 @@
   flex: 1;
 }
 
+.setting-select-control {
+  width: min(220px, 100%);
+  min-width: 150px;
+  max-width: 220px;
+  flex-shrink: 0;
+  --asel-trigger-height: 38px;
+  --asel-trigger-padding-x: 12px;
+  --asel-trigger-radius: 8px;
+  --asel-trigger-gap: 8px;
+  --asel-font-size: 13px;
+  --asel-arrow-width: 4.5px;
+  --asel-arrow-height: 5.5px;
+  --asel-item-height: 36px;
+  --asel-item-padding-x: 12px;
+  --asel-item-margin-x: 6px;
+  --asel-item-radius: 6px;
+  --asel-selected-font-weight: 600;
+}
+
+.setting-select-control .asel-trigger {
+  line-height: 1;
+}
+
 .setting-label label {
   display: block;
   font-size: 15px;
@@ -1120,34 +1154,6 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.form-select {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #333;
-  background: white;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 150px;
-}
-
-.image-manager-dialog.dark .form-select {
-  background: #161b22;
-  border-color: #30363d;
-  color: #c9d1d9;
-}
-
-.form-select:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.form-select:hover {
-  border-color: #9ca3af;
-}
-
 .setting-actions {
   display: flex;
   justify-content: flex-end;
@@ -1158,6 +1164,34 @@
 
 .image-manager-dialog.dark .setting-actions {
   border-top-color: #30363d;
+}
+
+.image-manager-dialog {
+  --bg-primary: #ffffff;
+  --bg-secondary: #ffffff;
+  --border-color: #d1d5db;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --hover-bg: #f8fafc;
+  --primary-color: #2563eb;
+  --focus-ring: rgba(37, 99, 235, 0.15);
+  --select-item-hover-bg: rgba(37, 99, 235, 0.12);
+  --select-item-active-bg: rgba(37, 99, 235, 0.18);
+  --select-item-active-color: #1f2937;
+}
+
+.image-manager-dialog.dark {
+  --bg-primary: #161b22;
+  --bg-secondary: #0d1117;
+  --border-color: #30363d;
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --hover-bg: #1f2630;
+  --primary-color: #58a6ff;
+  --focus-ring: rgba(88, 166, 255, 0.16);
+  --select-item-hover-bg: rgba(88, 166, 255, 0.12);
+  --select-item-active-bg: rgba(88, 166, 255, 0.18);
+  --select-item-active-color: #f0f6fc;
 }
 
 .image-manager-dialog .save-settings-button {

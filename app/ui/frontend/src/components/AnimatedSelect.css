@@ -1,0 +1,151 @@
+.asel-trigger {
+  width: 100%;
+  min-height: var(--asel-trigger-height, 38px);
+  padding: 0 var(--asel-trigger-padding-x, 12px);
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d0d7de);
+  border-radius: var(--asel-trigger-radius, 8px);
+  color: var(--text-primary, #333333);
+  font-size: var(--asel-font-size, 13px);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--asel-trigger-gap, 10px);
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.asel-trigger.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.asel-trigger:hover:not(.disabled) {
+  background: color-mix(in srgb, var(--hover-bg, #f6f8fa) 88%, var(--border-color, #d0d7de) 12%);
+  border-color: color-mix(in srgb, var(--border-color, #d0d7de) 82%, transparent);
+  color: var(--text-primary, #333333);
+}
+
+.asel-trigger:focus {
+  outline: none;
+}
+
+.asel-trigger:focus-visible {
+  border-color: var(--primary-color, #0078d4);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color, #0078d4) 18%, transparent);
+}
+
+.asel-trigger.open {
+  border-color: var(--border-color, #d0d7de);
+  background: var(--bg-primary, #ffffff);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.asel-value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.asel-arrow {
+  width: 0;
+  height: 0;
+  border-left: var(--asel-arrow-width, 4.5px) solid transparent;
+  border-right: var(--asel-arrow-width, 4.5px) solid transparent;
+  border-top: var(--asel-arrow-height, 5.5px) solid var(--text-secondary, #666666);
+  flex-shrink: 0;
+  margin-left: 0;
+  transition: transform 0.2s ease, border-top-color 0.15s ease;
+}
+
+.asel-arrow.open {
+  transform: rotate(180deg);
+}
+
+.asel-dropdown {
+  position: relative;
+  width: 100%;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, #d0d7de);
+  border-top: none;
+  border-bottom-left-radius: var(--asel-trigger-radius, 8px);
+  border-bottom-right-radius: var(--asel-trigger-radius, 8px);
+  overflow: hidden;
+  z-index: 100;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  animation: asel-open 0.15s ease;
+}
+
+@keyframes asel-open {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.asel-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: var(--asel-list-padding-y, 6px) 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.asel-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.asel-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.asel-list::-webkit-scrollbar-thumb {
+  background: var(--border-color, #d0d7de);
+  border-radius: 2px;
+}
+
+.asel-item {
+  min-height: var(--asel-item-height, 36px);
+  padding: 0 var(--asel-item-padding-x, 12px);
+  margin: var(--asel-item-margin-y, 2px) var(--asel-item-margin-x, 6px);
+  border-radius: var(--asel-item-radius, 6px);
+  font-size: var(--asel-font-size, 13px);
+  color: var(--text-primary, #333333);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  animation: asel-item-in 0.2s ease both;
+  display: flex;
+  align-items: center;
+}
+
+@keyframes asel-item-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.asel-item:hover,
+.asel-item.focused {
+  background: var(--select-item-hover-bg, var(--hover-bg, #f6f8fa));
+}
+
+.asel-item.selected {
+  color: var(--select-item-active-color, var(--text-primary, #333333));
+  font-weight: var(--asel-selected-font-weight, 600);
+  background: var(--select-item-active-bg, var(--primary-color-alpha, rgba(0, 120, 212, 0.2)));
+  box-shadow: none;
+}
+
+@media (pointer: coarse) {
+  .asel-trigger {
+    min-height: max(var(--asel-trigger-height, 38px), 40px);
+  }
+
+  .asel-item {
+    min-height: max(var(--asel-item-height, 36px), 40px);
+  }
+}

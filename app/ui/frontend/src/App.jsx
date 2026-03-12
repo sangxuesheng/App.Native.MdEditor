@@ -47,6 +47,7 @@ import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hoo
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
 import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting } from './utils/settingsApi'
 import { copyToWeChat } from './utils/wechatExporter'
+import { DEFAULT_DOCUMENT_CONTENT } from './constants/defaultDocument'
 
 // 初始化 unified 处理器
 const createMarkdownProcessor = () => {
@@ -1481,9 +1482,11 @@ function App() {
   })
   const [editorInstance, setEditorInstance] = useState(null)
   const syncPreviewWithEditorRef = useRef(syncPreviewWithEditor)
+  const editorThemeRef = useRef(editorTheme)
   // 跟踪上次保存的内容（用于自动保存优化）
   const lastSavedContentRef = useRef('')
   const lastSavedPathRef = useRef('')
+  const pendingSwitchPathRef = useRef(null)
   const initialDocumentHandledRef = useRef(false)
   // 自动保存定时器
   const autoSaveTimerRef = useRef(null)
@@ -1494,6 +1497,8 @@ function App() {
 
   // Toast 通知状态
   const [toasts, setToasts] = useState([])
+
+  editorThemeRef.current = editorTheme
 
   // 从后端加载共享设置与编辑状态
   useEffect(() => {
@@ -2011,7 +2016,7 @@ function App() {
   useEffect(() => {
     if (editorRef.current && window.monaco) {
       try {
-        const monacoTheme = editorTheme === 'dark' ? 'vs-dark' : 'vs'
+        const monacoTheme = editorThemeRef.current === 'dark' ? 'vs-dark' : 'vs'
         window.monaco.editor.setTheme(monacoTheme)
       } catch (error) {
         console.error('Failed to set Monaco theme:', error)
@@ -2372,7 +2377,7 @@ function App() {
 
   // 当文件加载时，更新上次保存的内容
   useEffect(() => {
-    if (currentPath && content) {
+    if (currentPath) {
       lastSavedContentRef.current = content
       lastSavedPathRef.current = currentPath
     }
@@ -2470,248 +2475,14 @@ function App() {
     const params = new URLSearchParams(window.location.search)
     const path = params.get('path')
     if (path) {
-      setCurrentPath(path)
-      loadFile(path)
+      void loadFile(path)
     } else if (!content) {
       // 只在没有保存内容时才显示默认文本
-      setContent(`# Markdown 编辑器功能展示
-这是一个完整的 Markdown 功能展示文档，包含了各种常用的格式和元素，可直观呈现编辑器的核心能力。
-
-## 文本格式
-### 基础文本样式
-- **粗体文本**
-- *斜体文本*
-- ***粗斜体文本***
-- ~~删除线文本~~
-- \`行内代码（单行代码片段）\`
-
-### 标题层级
-# 一级标题
-## 二级标题
-### 三级标题
-#### 四级标题
-##### 五级标题
-###### 六级标题
-
-## 列表
-### 无序列表
-- 第一项
-- 第二项
-  - 嵌套项目 1
-  - 嵌套项目 2
-- 第三项
-
-### 有序列表
-1. 第一步
-2. 第二步
-   1. 子步骤 A
-   2. 子步骤 B
-3. 第三步
-
-### 任务列表
-- [x] 已完成的任务
-- [ ] 待完成的任务
-- [ ] 另一个待完成的任务
-
-## 链接和图片
-### 链接
-[这是一个普通链接](https://example.com)  
-[带标题的链接](https://example.com "示例链接的标题说明")
-
-### 图片
-![示例图片](https://pic1.imgdb.cn/item/69a61149dcdb109d1d43dafd.png "图片描述：Markdown 编辑器示例图")
-
-## 引用
-> 这是一个基础引用块
->
-> 引用块可以包含多行内容，换行需保留换行符
->
-> > 这是嵌套引用（二级引用）
-> >
-> > 嵌套引用常用于补充说明或引用嵌套场景
-
-## 代码块
-### JavaScript 代码
-\`\`\`javascript
-// 简单的问候函数示例
-function greet(name) {
-    console.log(\`Hello, \${name}!\`);
-    return \`Welcome to Markdown Editor\`;
-}
-
-// 调用函数并输出结果
-const message = greet('用户');
-console.log(message);
-\`\`\`
-
-### Python 代码
-\`\`\`python
-# 计算斐波那契数列的递归函数
-def calculate_fibonacci(n):
-    if n <= 1:
-        return n
-    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)
-
-# 计算并打印前10个斐波那契数
-for i in range(10):
-    print(f"F({i}) = {calculate_fibonacci(i)}")
-\`\`\`
-
-### CSS 代码
-\`\`\`css
-/* Markdown 编辑器基础样式 */
-.markdown-editor {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    line-height: 1.6;
-    color: #333;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-/* 代码块样式优化 */
-.code-block {
-    background-color: #f4f4f4;
-    border-radius: 4px;
-    padding: 1rem;
-    overflow-x: auto;
-    font-family: 'Consolas', 'Monaco', monospace;
-}
-\`\`\`
-
-## 表格
-| 功能       | 描述                 | 状态      |
-|------------|----------------------|-----------|
-| 实时预览   | 编辑内容实时渲染预览 | ✅ 已实现 |
-| 语法高亮   | 代码块语法彩色高亮   | ✅ 已实现 |
-| 导出功能   | 支持多种格式导出     | ✅ 已实现 |
-| 主题切换   | 多种界面主题可选     | ✅ 开发中 |
-| 插件系统   | 扩展功能插件支持     | 🚧 计划中 |
-
-## 数学公式
-### 行内公式
-这是一个行内公式：$E = mc^2$（爱因斯坦质能方程）  
-另一个行内公式：$\\sum_{i=1}^n i = \\frac{n(n+1)}{2}$（自然数求和公式）
-
-### 块级公式
-$$
-\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
-$$
-
-$$
-\\begin{align}
-\\nabla \\times \\vec{\\mathbf{B}} -\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{E}}}{\\partial t} &= \\frac{4\\pi}{c}\\vec{\\mathbf{j}} \\\\
-\\nabla \\cdot \\vec{\\mathbf{E}} &= 4 \\pi \\rho \\\\
-\\nabla \\times \\vec{\\mathbf{E}}\\, +\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{B}}}{\\partial t} &= \\vec{\\mathbf{0}} \\\\
-\\nabla \\cdot \\vec{\\mathbf{B}} &= 0
-\\end{align}
-$$
-
-## 流程图 (Mermaid)
-\`\`\`mermaid
-graph TD
-    A[开始] --> B{用户是否登录?}
-    B -->|是| C[显示编辑器主界面]
-    B -->|否| D[显示登录页面]
-    D --> E[用户输入账号密码]
-    E --> F{验证是否成功?}
-    F -->|是| C
-    F -->|否| G[显示错误提示信息]
-    G --> D
-    C --> H[结束流程]
-\`\`\`
-
-## 时序图
-\`\`\`mermaid
-sequenceDiagram
-    participant U as 用户
-    participant E as 编辑器
-    participant P as 预览器
-    participant S as 服务器
-
-    U->>E: 输入 Markdown 文本内容
-    E->>P: 实时渲染 Markdown 为 HTML
-    P->>U: 展示渲染后的预览效果
-    U->>E: 点击「导出」按钮
-    E->>S: 发送导出请求（含文本内容）
-    S->>E: 返回导出后的文件（PDF/HTML/MD）
-    E->>U: 触发文件下载
-\`\`\`
-
-## 分隔线
----
-
-## 特殊符号和 Emoji
-### 常用符号
-- © 版权符号 (Copyright)
-- ® 注册商标符号 (Registered Trademark)
-- ™ 商标符号 (Trademark)
-- § 章节符号 (Section)
-- ¶ 段落符号 (Paragraph)
-
-### Emoji 表情
-- 😀 开心 | 🚀 火箭（进度/发布） | 💡 想法（灵感）
-- ⭐ 星星（收藏/重点） | 🎉 庆祝（完成/发布） | 📝 笔记（编辑）
-- 💻 电脑（开发/编程） | 🔧 工具（设置/配置） | ✅ 完成 | 🚧 开发中
-
-## 脚注
-这是一个带脚注的文本[^1]，适合补充说明不影响正文阅读的内容，还有另一个脚注[^2]。
-
-[^1]: 这是第一个脚注的详细内容，可以包含多行文本、链接甚至简单格式
-[^2]: 这是第二个脚注的内容，脚注会自动出现在文档末尾，便于查阅
-
-## 高亮文本
-==这是高亮文本==（常用于重点标注、提醒注意的内容）  
-在编辑文档时，==关键信息、重要提示==都可以用高亮突出
-
-## 键盘按键
-按 <kbd>Ctrl</kbd> + <kbd>S</kbd> 保存文档  
-按 <kbd>Ctrl</kbd> + <kbd>C</kbd> 复制选中内容  
-按 <kbd>Ctrl</kbd> + <kbd>Z</kbd> 撤销上一步操作  
-按 <kbd>Shift</kbd> + <kbd>Enter</kbd> 换行不换段
-
-## 缩写
-HTML 是 *HyperText Markup Language*（超文本标记语言）的缩写  
-CSS 是 *Cascading Style Sheets*（层叠样式表）的缩写  
-Markdown 本身没有官方缩写，是一种轻量级标记语言
-
-## 定义列表
-Markdown
-:   一种轻量级标记语言，专注于易读易写，最终可转换为 HTML
-:   核心特点：语法简单、无格式干扰、跨平台兼容
-
-HTML
-:   超文本标记语言，用于创建网页的标准标记语言
-:   与 Markdown 的关系：Markdown 是 HTML 的简化版，最终渲染为 HTML
-
-CSS
-:   层叠样式表，用于描述 HTML 文档的呈现样式
-:   常与 Markdown 编辑器配合，美化渲染后的内容
-
-## 总结
-这个 Markdown 文档全面展示了编辑器支持的核心功能，覆盖八大类场景：
-1. **文本格式化** - 粗体、斜体、删除线、行内代码等基础样式
-2. **结构化内容** - 标题、列表（无序/有序/任务）、表格、定义列表
-3. **媒体内容** - 普通链接、带标题链接、图片（带描述）
-4. **代码展示** - 多语言代码块、语法高亮、代码注释
-5. **数学公式** - 行内/块级 LaTeX 公式，支持复杂公式排版
-6. **图表绘制** - Mermaid 流程图、时序图（无需外部图片）
-7. **交互/补充元素** - 任务列表、脚注、键盘按键、缩写
-8. **特殊格式** - 引用（嵌套）、分隔线、高亮文本
-
----
-
-**版权声明**：本文档仅用于 Markdown 编辑器功能展示，无版权限制，欢迎自由使用、修改和分发。
-
----
-
-### 编辑器使用提示
-点击工具栏的「新建」按钮创建新文件，或从左侧文件树打开现有文件。  
-开始编辑吧！体验 Markdown 带来的简洁高效写作方式 🚀`)
+      setContent(DEFAULT_DOCUMENT_CONTENT)
     }
   }, [initialStateLoaded, content])
 
-  const loadFile = async (path) => {
+  const loadFile = useCallback(async (path) => {
     try {
       // 清除自动保存的内容（因为要加载新文件）
       await clearPersistedContent()
@@ -2733,7 +2504,7 @@ CSS
           if (!confirmed) {
             setStatus('已取消加载')
             setTimeout(() => setStatus('就绪'), 2000)
-            return
+            return false
           }
         }
         
@@ -2742,8 +2513,9 @@ CSS
         setRecentFiles(await getRecentFiles())
         
         setContent(fileContent)
-        
+        setCurrentPath(path)
         setStatus(`已加载: ${path}`)
+        return true
       } else {
         const errorMsg = getUserFriendlyMessage(
           new Error(data.message || data.code),
@@ -2751,6 +2523,7 @@ CSS
         )
         setStatus(`加载失败: ${data.message || data.code}`)
         console.error(errorMsg)
+        return false
       }
     } catch (error) {
       const formattedError = handleError(error, {
@@ -2758,14 +2531,80 @@ CSS
         filePath: path
       })
       setStatus(`加载失败: ${formattedError.message}`)
+      return false
     }
-  }
+  }, [])
+
+  const hasUnsavedChanges = useCallback(() => {
+    if (!content) {
+      return false
+    }
+
+    if (!currentPath) {
+      return content !== lastSavedContentRef.current
+    }
+
+    return currentPath !== lastSavedPathRef.current || content !== lastSavedContentRef.current
+  }, [content, currentPath])
+
+  const openFileWithGuard = useCallback(async (filePath) => {
+    if (!filePath) {
+      return false
+    }
+
+    if (filePath === currentPath && currentPath) {
+      updateShowFileTree((prev) => (isCompactViewport ? false : prev))
+      return true
+    }
+
+    if (hasUnsavedChanges()) {
+      pendingSwitchPathRef.current = filePath
+
+      if (!currentPath) {
+        setIsSaveAsMode(false)
+        setShowSaveAsDialog(true)
+        setStatus('当前内容尚未保存，请先保存后再切换文件')
+        return false
+      }
+
+      const confirmed = window.confirm(
+        '当前文件有未保存内容，是否先保存后再切换？\n\n选择“确定”将先保存当前文件再切换，选择“取消”则留在当前文件。'
+      )
+
+      if (!confirmed) {
+        pendingSwitchPathRef.current = null
+        return false
+      }
+
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = null
+      }
+
+      const success = await saveFile(currentPath, content)
+      if (!success) {
+        return false
+      }
+
+      await saveFileHistory(currentPath, content, '', false).catch(err => {
+        console.warn('切换前保存历史版本失败:', err)
+      })
+    }
+
+    const loaded = await loadFile(filePath)
+    if (loaded) {
+      pendingSwitchPathRef.current = null
+      updateShowFileTree((prev) => (isCompactViewport ? false : prev))
+      return true
+    }
+
+    pendingSwitchPathRef.current = null
+    return false
+  }, [content, currentPath, hasUnsavedChanges, isCompactViewport, loadFile, updateShowFileTree])
 
   const handleFileSelect = useCallback((filePath) => {
-    setCurrentPath(filePath)
-    loadFile(filePath)
-    updateShowFileTree((prev) => (isCompactViewport ? false : prev))
-  }, [isCompactViewport]) // loadFile 是稳定的函数引用
+    void openFileWithGuard(filePath)
+  }, [openFileWithGuard])
 
   const handleNewFile = useCallback(() => {
     setShowNewFileDialog(true)
@@ -2778,6 +2617,8 @@ CSS
     void clearPersistedContent()
     
     // 直接加载模板内容到编辑器
+    lastSavedContentRef.current = ''
+    lastSavedPathRef.current = ''
     setContent(fileContent)
     setCurrentPath('') // 清空当前路径，表示这是新文件
     setInitialFileName('') // 清空初始文件名，用户保存时自己填写
@@ -2802,10 +2643,18 @@ CSS
         const parentPath = newPath.split('/').slice(0, -1).join('/') || '/'
         await fileTreeRef.current.refreshDirectory(parentPath)
       }
+
+      const pendingSwitchPath = pendingSwitchPathRef.current
+      if (pendingSwitchPath) {
+        pendingSwitchPathRef.current = null
+        await loadFile(pendingSwitchPath)
+        updateShowFileTree((prev) => (isCompactViewport ? false : prev))
+        return
+      }
       
       setTimeout(() => setStatus('就绪'), 2000)
     }
-  }, [content]) // 依赖 content
+  }, [content, isCompactViewport, loadFile, updateShowFileTree]) // 依赖 content
 
   const handleImageUpload = useCallback(async (file) => {
     if (!file || !editorRef.current) return
@@ -3016,6 +2865,11 @@ CSS
   const handleSaveAs = useCallback(() => {
     setIsSaveAsMode(true)
     setShowSaveAsDialog(true)
+  }, [])
+
+  const handleSaveAsDialogClose = useCallback(() => {
+    pendingSwitchPathRef.current = null
+    setShowSaveAsDialog(false)
   }, [])
 
   // 转换为微信公众号专属格式
@@ -5311,12 +5165,18 @@ CSS
     }
   }, [])
 
-  const handleEditorMount = useCallback((editor) => {
+  const applyMonacoTheme = useCallback((monacoInstance = window.monaco) => {
+    if (!monacoInstance?.editor) return
+    const monacoTheme = editorThemeRef.current === 'dark' ? 'vs-dark' : 'vs'
+    monacoInstance.editor.setTheme(monacoTheme)
+  }, [])
+
+  const handleEditorMount = useCallback((editor, monacoInstance) => {
     editorRef.current = editor
     setEditorInstance(editor)
 
     // 定义自定义主题 - 修改标题颜色
-    monaco.editor.defineTheme('light', {
+    monacoInstance.editor.defineTheme('light', {
       base: 'vs',
       inherit: true,
       rules: [
@@ -5329,9 +5189,8 @@ CSS
       }
     })
     
-    // 应用主题
-    const monacoTheme = editorTheme === 'dark' ? 'vs-dark' : 'vs'
-    monaco.editor.setTheme(monacoTheme)
+    // 使用最新主题，避免刷新时被旧闭包主题覆盖
+    applyMonacoTheme(monacoInstance)
     
     // 监听粘贴事件，处理图片粘贴
     const domNode = editor.getDomNode()
@@ -5570,7 +5429,7 @@ CSS
       }
     })
     
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, async () => {
       if (currentPath) {
         // 清除自动保存定时器，避免冲突
         if (autoSaveTimerRef.current) {
@@ -5587,27 +5446,27 @@ CSS
       }
     })
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => {
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyB, () => {
       handleToolbarInsert('**', '**', 'wrap')
     })
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, () => {
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyI, () => {
       handleToolbarInsert('*', '*', 'wrap')
     })
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyK, () => {
       handleToolbarInsert('[', '](https://)', 'wrap')
     })
 
     // 搜索和替换快捷键
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyF, () => {
       editor.trigger('keyboard', 'actions.find')
     })
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyH, () => {
       editor.trigger('keyboard', 'editor.action.startFindReplaceAction')
     })
-  }, [editorTheme]) // 依赖 editorTheme
+  }, [applyMonacoTheme])
 
   // MenuBar 处理函数
   const handleMenuUndo = useCallback(() => {
@@ -5814,9 +5673,7 @@ CSS
 
   // 最近文件处理函数
   const handleOpenRecentFile = (filePath) => {
-    setCurrentPath(filePath)
-    loadFile(filePath)
-    updateShowFileTree((prev) => (isCompactViewport ? false : prev))
+    void openFileWithGuard(filePath)
   }
 
   const handleClearRecentFiles = () => {
@@ -5866,28 +5723,22 @@ CSS
     if (favoriteItem) {
       if (favoriteItem.type === 'directory') {
         // 如果是文件夹，展开到该文件夹
-        setCurrentPath(path)
         if (fileTreeRef.current && fileTreeRef.current.expandToPath) {
           await fileTreeRef.current.expandToPath(path)
+        }
+        if (isCompactViewport) {
+          updateShowFileTree(false)
         }
       } else {
         // 如果是文件，加载文件内容并展开到该文件
-        setCurrentPath(path)
         if (fileTreeRef.current && fileTreeRef.current.expandToPath) {
           await fileTreeRef.current.expandToPath(path)
         }
-        loadFile(path)
-      }
-      if (isCompactViewport) {
-        updateShowFileTree(false)
+        await openFileWithGuard(path)
       }
     } else {
       // 如果找不到收藏项，尝试作为文件加载
-      setCurrentPath(path)
-      loadFile(path)
-      if (isCompactViewport) {
-        updateShowFileTree(false)
-      }
+      await openFileWithGuard(path)
     }
   }
 
@@ -6284,7 +6135,7 @@ CSS
 
       {showSaveAsDialog && (
         <SaveAsDialog
-          onClose={() => setShowSaveAsDialog(false)}
+          onClose={handleSaveAsDialogClose}
           onConfirm={handleSaveAsConfirm}
           rootDirs={rootDirs}
           currentPath={currentPath}

@@ -146,6 +146,22 @@
   margin-bottom: 0;
 }
 
+.config-item-custom-theme-editor {
+  margin-bottom: 16px;
+}
+
+.config-action-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.config-inline-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .config-label {
   display: block;
   margin-bottom: 8px;
@@ -155,171 +171,23 @@
 }
 
 /* 选择器 */
-.config-select {
+.config-item {
+  --asel-trigger-height: 36px;
+  --asel-trigger-padding-x: 12px;
+  --asel-trigger-radius: 8px;
+  --asel-trigger-gap: 8px;
+  --asel-font-size: 13px;
+  --asel-arrow-width: 4.5px;
+  --asel-arrow-height: 5.5px;
+  --asel-item-height: 36px;
+  --asel-item-padding-x: 12px;
+  --asel-item-margin-x: 6px;
+  --asel-item-radius: 6px;
+  --asel-selected-font-weight: 600;
+}
+
+.config-item .asel-trigger {
   width: 100%;
-  padding: 8px 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.config-select:hover {
-  border-color: var(--primary-color);
-}
-
-.config-select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-color-alpha);
-}
-
-/* AnimatedSelect */
-.asel-trigger {
-  width: 100%;
-  padding: 8px 32px 8px 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  user-select: none;
-  box-sizing: border-box;
-}
-
-.asel-trigger:hover {
-  border-color: var(--border-color);
-}
-
-.asel-trigger:focus {
-  outline: none;
-  border-color: var(--border-color);
-  box-shadow: none;
-}
-
-.asel-trigger.open {
-  border-color: var(--border-color);
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.asel-value {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.asel-arrow {
-  width: 0;
-  height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid var(--text-secondary);
-  flex-shrink: 0;
-  margin-left: 8px;
-  transition: transform 0.2s;
-}
-
-.asel-arrow.open {
-  transform: rotate(180deg);
-}
-
-.asel-dropdown {
-  position: relative;
-  width: 100%;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-top: none;
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
-  overflow: hidden;
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-  animation: asel-open 0.15s ease;
-}
-
-@keyframes asel-open {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.asel-list {
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 4px 0;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-}
-
-.asel-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.asel-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.asel-list::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
-}
-
-.asel-item {
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background 0.1s;
-  animation: asel-item-in 0.2s ease both;
-}
-
-@keyframes asel-item-in {
-  from { opacity: 0; transform: translateX(-6px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-.asel-item:hover,
-.asel-item.focused {
-  background: var(--bg-hover, rgba(99,102,241,0.08));
-}
-
-.asel-item.selected {
-  color: var(--primary-color);
-  font-weight: 500;
-  background: var(--primary-color-alpha, rgba(99,102,241,0.08));
-}
-
-.asel-gradient-top {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(to bottom, var(--bg-primary), transparent);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.asel-gradient-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(to top, var(--bg-primary), transparent);
-  pointer-events: none;
-  z-index: 1;
 }
 
 /* 输入框 */
@@ -773,11 +641,14 @@
 /* 按钮组 */
 .button-group {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .btn-group-item {
+  width: 100%;
+  min-width: 0;
   padding: 8px 12px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
@@ -787,6 +658,8 @@
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -863,6 +736,9 @@
   --border-color: #30363d;
   --primary-color: #0e639c;
   --primary-color-alpha: rgba(14, 99, 156, 0.2);
+  --select-item-hover-bg: #21262d;
+  --select-item-active-bg: #58a6ff;
+  --select-item-active-color: #0d1117;
   --scrollbar-thumb: #424242;
   --scrollbar-thumb-hover: #4e4e4e;
 }
@@ -878,6 +754,9 @@
   --border-color: #d0d7de;
   --primary-color: #0078d4;
   --primary-color-alpha: rgba(0, 120, 212, 0.2);
+  --select-item-hover-bg: #f6f8fa;
+  --select-item-active-bg: #0969da;
+  --select-item-active-color: #ffffff;
   --scrollbar-thumb: #c1c1c1;
   --scrollbar-thumb-hover: #a8a8a8;
 }
@@ -1005,26 +884,31 @@
   min-width: 24px;
 }
 
-.heading-style-select {
+.heading-style-select-wrap {
   flex: 1;
-  padding: 4px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-color);
-  color: var(--text-color);
+  --asel-trigger-height: 28px;
+  --asel-trigger-padding-x: 8px;
+  --asel-trigger-radius: 6px;
+  --asel-trigger-gap: 6px;
+  --asel-font-size: 12px;
+  --asel-arrow-width: 4px;
+  --asel-arrow-height: 5px;
+  --asel-item-height: 34px;
+  --asel-item-padding-x: 10px;
+  --asel-item-margin-x: 5px;
+  --asel-item-radius: 6px;
+}
+
+.heading-style-select-wrap .asel-trigger {
+  line-height: 1;
+}
+
+.heading-style-select-wrap .asel-value {
   font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
-.heading-style-select:hover {
-  border-color: var(--primary-color);
-}
-
-.heading-style-select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(61, 174, 255, 0.1);
+.heading-style-select-wrap .asel-arrow {
+  opacity: 0.86;
 }
 
 /* 响应式 */
@@ -1060,15 +944,14 @@
     padding: 10px 10px 6px 10px;
   }
 
-  .config-select,
-  .asel-trigger,
   .config-input,
   .radio-label,
   .checkbox-label,
   .toggle-label,
   .btn-group-item,
   .btn-reset,
-  .heading-style-select {
+  .config-item .asel-trigger,
+  .heading-style-select-wrap .asel-trigger {
     min-height: 40px;
   }
 

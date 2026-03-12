@@ -49,6 +49,29 @@
   min-width: 0;
 }
 
+.setting-select-control {
+  width: min(220px, 100%);
+  min-width: 180px;
+  max-width: 220px;
+  flex-shrink: 0;
+  --asel-trigger-height: 36px;
+  --asel-trigger-padding-x: 12px;
+  --asel-trigger-radius: 8px;
+  --asel-trigger-gap: 8px;
+  --asel-font-size: 13px;
+  --asel-arrow-width: 4.5px;
+  --asel-arrow-height: 5.5px;
+  --asel-item-height: 36px;
+  --asel-item-padding-x: 12px;
+  --asel-item-margin-x: 6px;
+  --asel-item-radius: 6px;
+  --asel-selected-font-weight: 600;
+}
+
+.setting-select-control .asel-trigger {
+  line-height: 1;
+}
+
 .setting-label label {
   display: block;
   font-size: 13px;
@@ -119,7 +142,6 @@
 }
 
 /* Form Controls */
-.form-select,
 .form-input {
   padding: 6px 10px;
   border: 1px solid var(--border-color);
@@ -131,17 +153,10 @@
   flex-shrink: 0;
 }
 
-.form-select:focus,
 .form-input:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px var(--focus-ring);
-}
-
-.form-select {
-  cursor: pointer;
-  min-width: 180px;
-  max-width: 220px;
 }
 
 .form-input[type="number"] {
@@ -181,6 +196,11 @@
   --primary-color: #0969da;
   --toggle-bg: #d0d7de;
   --focus-ring: rgba(9, 105, 218, 0.3);
+  --bg-primary: #f6f8fa;
+  --hover-bg: #eef2f6;
+  --select-item-hover-bg: rgba(9, 105, 218, 0.12);
+  --select-item-active-bg: rgba(9, 105, 218, 0.18);
+  --select-item-active-color: #24292f;
 }
 
 /* 暗黑主题 */
@@ -192,6 +212,11 @@
   --primary-color: #58a6ff;
   --toggle-bg: #30363d;
   --focus-ring: rgba(88, 166, 255, 0.3);
+  --bg-primary: #0d1117;
+  --hover-bg: #161b22;
+  --select-item-hover-bg: rgba(88, 166, 255, 0.12);
+  --select-item-active-bg: rgba(88, 166, 255, 0.18);
+  --select-item-active-color: #f0f6fc;
 }
 
 .theme-dark .settings-dialog .setting-label label {
@@ -202,23 +227,11 @@
   color: #b8c0c9;
 }
 
-.theme-dark .settings-dialog .form-select,
 .theme-dark .settings-dialog .form-input {
   background: #0d1117;
   border-color: #3d444d;
   color: #f0f6fc;
 }
-
-.theme-dark .settings-dialog .form-select {
-  color-scheme: dark;
-}
-
-.theme-dark .settings-dialog .form-select option {
-  background: #0d1117;
-  color: #f0f6fc;
-}
-
-.theme-dark .settings-dialog .form-select:hover,
 .theme-dark .settings-dialog .form-input:hover {
   border-color: #4f5863;
 }
@@ -270,10 +283,14 @@
     padding: 12px 0;
   }
 
-  .form-select,
+  .setting-select-control,
   .form-input {
     width: 100%;
     max-width: none;
+  }
+
+  .setting-select-control {
+    min-width: 0;
   }
 
   .settings-dialog .dialog-footer {

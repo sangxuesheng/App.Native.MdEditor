@@ -4,6 +4,7 @@ import './ImageManagerDialog.css'
 import { compressImage } from '../utils/imageCompressor'
 import ImagePreviewDialog from './ImagePreviewDialog'
 import ElasticSlider from './ElasticSlider'
+import AnimatedSelect from './AnimatedSelect'
 import {
   DEFAULT_IMAGE_MANAGER_SETTINGS,
   loadImageManagerSettings,
@@ -844,14 +845,15 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                         <label>压缩模式</label>
                         <p className="setting-description">选择按质量或按文件大小压缩</p>
                       </div>
-                      <select 
-                        value={imageSettings.imageCompressionMode} 
-                        onChange={(e) => handleImageSettingChange('imageCompressionMode', e.target.value)}
-                        className="form-select"
-                      >
-                        <option value="quality">按质量压缩</option>
-                        <option value="size">按文件大小压缩</option>
-                      </select>
+                      <AnimatedSelect
+                        value={imageSettings.imageCompressionMode}
+                        onChange={(value) => handleImageSettingChange('imageCompressionMode', value)}
+                        options={[
+                          { value: 'quality', label: '按质量压缩' },
+                          { value: 'size', label: '按文件大小压缩' },
+                        ]}
+                        wrapperClassName="setting-select-control"
+                      />
                     </div>
 
                     {imageSettings.imageCompressionMode === 'quality' ? (

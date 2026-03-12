@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FileText, StickyNote, FileCheck, Pen, ListTodo, Calendar } from 'lucide-react';
+import { DEFAULT_DOCUMENT_CONTENT } from '../constants/defaultDocument';
 import './NewFileDialog.css';
 
 const TEMPLATES = [
   {
     id: 'blank',
     name: '空白文档',
-    description: '创建一个空白的 Markdown 文件',
-    content: ''
+    description: '创建一个带默认展示内容的 Markdown 文件',
+    content: DEFAULT_DOCUMENT_CONTENT
   },
   {
     id: 'note',

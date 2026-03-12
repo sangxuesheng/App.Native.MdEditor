@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AnimatedSelect from './AnimatedSelect';
 import './SettingsDialog.css';
 
 const SettingsDialog = ({ 
@@ -112,14 +113,15 @@ const SettingsDialog = ({
                   <label>主题</label>
                   <p className="setting-description">选择编辑器的外观主题</p>
                 </div>
-                <select 
-                  value={settings.theme} 
-                  onChange={(e) => handleChange('theme', e.target.value)}
-                  className="form-select"
-                >
-                  <option value="light">浅色</option>
-                  <option value="dark">深色</option>
-                </select>
+                <AnimatedSelect
+                  value={settings.theme}
+                  onChange={(value) => handleChange('theme', value)}
+                  options={[
+                    { value: 'light', label: '浅色' },
+                    { value: 'dark', label: '深色' },
+                  ]}
+                  wrapperClassName="setting-select-control"
+                />
               </div>
             </div>
 
@@ -180,17 +182,18 @@ const SettingsDialog = ({
                   <label>字体</label>
                   <p className="setting-description">编辑器字体</p>
                 </div>
-                <select 
-                  value={settings.fontFamily} 
-                  onChange={(e) => handleChange('fontFamily', e.target.value)}
-                  className="form-select"
-                >
-                  <option value="JetBrains Mono">JetBrains Mono</option>
-                  <option value="Fira Code">Fira Code</option>
-                  <option value="Monaco">Monaco</option>
-                  <option value="Consolas">Consolas</option>
-                  <option value="monospace">系统等宽字体</option>
-                </select>
+                <AnimatedSelect
+                  value={settings.fontFamily}
+                  onChange={(value) => handleChange('fontFamily', value)}
+                  options={[
+                    { value: 'JetBrains Mono', label: 'JetBrains Mono' },
+                    { value: 'Fira Code', label: 'Fira Code' },
+                    { value: 'Monaco', label: 'Monaco' },
+                    { value: 'Consolas', label: 'Consolas' },
+                    { value: 'monospace', label: '系统等宽字体' },
+                  ]}
+                  wrapperClassName="setting-select-control"
+                />
               </div>
 
               <div className="setting-item">
