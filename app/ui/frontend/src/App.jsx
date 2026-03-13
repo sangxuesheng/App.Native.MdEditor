@@ -58,6 +58,7 @@ import { useMobileFirstScreenLoader } from './hooks/useFirstScreenLoader.jsx'
 import { usePreventScrollThrough } from './hooks/usePreventScrollThrough.jsx'
 import { preloadCommonComponents } from './utils/lazyComponents'
 
+import AISidebar from './components/ai/AISidebar'
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 /** 明暗模式仅存 localStorage，不写数据库，由用户自行设定；手机端跟随系统 */
@@ -7522,5 +7523,11 @@ function App() {
     </>
   )
 }
+
+      {/* AI 侧边栏 */}
+      <AISidebar
+        editorContent={content}
+        selectedText={""}
+      />
 
 export default App

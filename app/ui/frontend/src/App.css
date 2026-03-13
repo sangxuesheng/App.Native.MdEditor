@@ -1,3 +1,5 @@
+@import './components/ai/ai-styles.css';
+
 /* 根元素样式重置 - 修复页面布局问题 */
 html, body {
   margin: 0;
