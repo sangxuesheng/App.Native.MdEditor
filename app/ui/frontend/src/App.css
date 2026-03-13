@@ -7,6 +7,13 @@ html, body {
   min-height: 100dvh;
   min-height: 100svh; /* 移动端避免底部空白 */
   overflow: hidden;
+  
+  /* Android 微信浏览器：防止页面滚动 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 #root {
@@ -14,6 +21,14 @@ html, body {
   height: var(--app-viewport-height);
   min-height: 100dvh;
   min-height: 100svh;
+  
+  /* Android 微信浏览器：确保固定定位 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
 }
 
 .app {
@@ -690,6 +705,12 @@ html, body {
   position: relative;
   transition: opacity 0.2s ease;
   z-index: 1;
+  
+  /* 移动端滚动优化 */
+  -webkit-overflow-scrolling: touch;
+  transform: translate3d(0, 0, 0);
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 /* Monaco Editor 容器圆角适配 */
@@ -697,14 +718,37 @@ html, body {
   border-radius: 12px;
   overflow: hidden;
   height: 100%;
+  
+  /* 移动端滚动优化 */
+  -webkit-overflow-scrolling: touch;
+  transform: translate3d(0, 0, 0);
 }
 
 .editor-pane .monaco-editor {
   border-radius: 12px;
+  
+  /* Android 键盘状态滚动优化 */
+  -webkit-overflow-scrolling: touch;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: scroll-position;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .editor-pane .monaco-editor .overflow-guard {
   border-radius: 12px;
+  
+  /* Android 键盘状态滚动优化 */
+  -webkit-overflow-scrolling: touch;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .editor-loading-placeholder {
@@ -824,7 +868,14 @@ html, body {
   min-height: 0;
   position: relative;
   z-index: 1;
-  -webkit-overflow-scrolling: touch; /* 移动端惯性滚动 */
+  
+  /* 移动端滚动优化 - 完整版 */
+  -webkit-overflow-scrolling: touch;
+  transform: translate3d(0, 0, 0);
+  will-change: scroll-position;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  backface-visibility: hidden;
 }
 
 .theme-dark .preview-pane {

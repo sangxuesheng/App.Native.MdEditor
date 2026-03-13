@@ -37,6 +37,7 @@ import EditorContextMenu from './components/EditorContextMenu'
 import ConfirmDialog from './components/ConfirmDialog'
 import { ToastContainer } from './components/Toast'
 import { useDebounce } from './hooks/useDebounce'
+import { debounce, throttle, rafThrottle } from './utils/performanceUtils'
 import { saveFileHistory, getFileHistory as getFileHistoryVersions, deleteVersion } from './utils/fileHistoryManagerV2'
 import { handleError, logError, getUserFriendlyMessage } from './utils/errorHandler'
 import './App.css'
@@ -54,6 +55,7 @@ import { AppUiProvider } from './context/AppUiContext'
 // 性能优化：首屏加载动画
 import FirstScreenLoader from './components/FirstScreenLoader'
 import { useMobileFirstScreenLoader } from './hooks/useFirstScreenLoader.jsx'
+import { usePreventScrollThrough } from './hooks/usePreventScrollThrough.jsx'
 import { preloadCommonComponents } from './utils/lazyComponents'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
@@ -1505,6 +1507,45 @@ function App() {
   const previewRef = useRef(null)
   const editorRef = useRef(null)
   const fileTreeRef = useRef(null)
+  
+  // 防止编辑区和预览区滚动穿透
+  usePreventScrollThrough(previewRef)
+  usePreventScrollThrough(editorRef)
+  
+  // 优化滚动性能：使用 Passive Event Listeners
+  useEffect(() => {
+    const preview = previewRef.current
+    const editor = editorRef.current
+    
+    const handleScroll = (e) => {
+      e.stopPropagation() // 阻止事件冒泡，确保滚动独立
+    }
+    
+    // passive: true 告诉浏览器不会调用 preventDefault()
+    // 浏览器可以立即开始滚动，不需要等待 JS 执行
+    preview?.addEventListener('scroll', handleScroll, { passive: true })
+    editor?.addEventListener('scroll', handleScroll, { passive: true })
+    
+    return () => {
+      preview?.removeEventListener('scroll', handleScroll)
+      editor?.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+  
+  // 防抖的内容更新处理（优化编辑器输入性能）
+  const debouncedSetContent = useMemo(
+    () => debounce((value) => {
+      setContent(value || '')
+    }, 150), // 150ms 防抖，平衡响应速度和性能
+    []
+  )
+  
+  // 清理防抖函数
+  useEffect(() => {
+    return () => {
+      debouncedSetContent.cancel()
+    }
+  }, [debouncedSetContent])
   const fileTreeSwipeRef = useRef({
     tracking: false,
     startX: 0,
@@ -7189,7 +7230,7 @@ function App() {
                   defaultLanguage="markdown"
                   theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
                   value={content}
-                  onChange={(value) => setContent(value || '')}
+                  onChange={debouncedSetContent}
                   onMount={handleEditorMount}
                   options={{
                     fontSize: editorFontSize,
@@ -7294,7 +7335,7 @@ function App() {
                   defaultLanguage="markdown"
                   theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
                   value={content}
-                  onChange={(value) => setContent(value || '')}
+                  onChange={debouncedSetContent}
                   onMount={handleEditorMount}
                   options={{
                     fontSize: editorFontSize,
