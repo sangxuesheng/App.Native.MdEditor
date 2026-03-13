@@ -642,13 +642,31 @@ html, body {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  
+  /* 硬件加速优化 */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  will-change: transform, background, color, box-shadow;
+  
+  /* 快速果断的过渡动画 - 缩短时间 */
+  transition: 
+    background 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-pane-tab:active {
+  /* 点击反馈 - 更快速 */
+  transform: translate3d(0, 0, 0) scale(0.96);
+  transition-duration: 0.05s;
 }
 
 .mobile-pane-tab.active {
   background: #086ADA;
   color: #ffffff;
   box-shadow: 0 6px 16px rgba(8, 106, 218, 0.22);
+  transform: translate3d(0, 0, 0) scale(1);
 }
 
 .app.theme-dark .mobile-pane-tab.active {
@@ -694,6 +712,53 @@ html, body {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #21262d;
+  
+  /* 硬件加速优化 */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  
+  /* 快速果断的过渡动画 - 缩短时间 */
+  transition: 
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 移动端单列布局：编辑区和预览区切换动画 */
+@media (max-width: 768px) {
+  .mobile-single-column .editor-pane,
+  .mobile-single-column .preview-pane {
+    will-change: opacity, transform;
+  }
+  
+  /* 编辑模式：编辑区显示，预览区隐藏 */
+  .mobile-single-column.layout-editor-only .editor-pane {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    pointer-events: auto;
+  }
+  
+  .mobile-single-column.layout-editor-only .preview-pane {
+    opacity: 0;
+    transform: translate3d(15px, 0, 0);
+    pointer-events: none;
+    position: absolute;
+    visibility: hidden;
+  }
+  
+  /* 预览模式：预览区显示，编辑区隐藏 */
+  .mobile-single-column.layout-preview-only .preview-pane {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    pointer-events: auto;
+  }
+  
+  .mobile-single-column.layout-preview-only .editor-pane {
+    opacity: 0;
+    transform: translate3d(-15px, 0, 0);
+    pointer-events: none;
+    position: absolute;
+    visibility: hidden;
+  }
 }
 
 .editor-pane {

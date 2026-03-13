@@ -2255,24 +2255,29 @@ function App() {
 
       setIsVirtualKeyboardOpen(isAdaptiveSinglePaneViewport && keyboardInset > 120)
     }
+    
+    // 使用 RAF 节流优化 resize 性能
+    const throttledUpdateViewportMetrics = rafThrottle(updateViewportMetrics)
 
-    updateViewportMetrics()
+    throttledUpdateViewportMetrics()
 
     const viewport = window.visualViewport
-    window.addEventListener('resize', updateViewportMetrics)
+    window.addEventListener('resize', throttledUpdateViewportMetrics)
 
     if (viewport?.addEventListener) {
-      viewport.addEventListener('resize', updateViewportMetrics)
-      viewport.addEventListener('scroll', updateViewportMetrics)
+      viewport.addEventListener('resize', throttledUpdateViewportMetrics)
+      viewport.addEventListener('scroll', throttledUpdateViewportMetrics)
       return () => {
-        window.removeEventListener('resize', updateViewportMetrics)
-        viewport.removeEventListener('resize', updateViewportMetrics)
-        viewport.removeEventListener('scroll', updateViewportMetrics)
+        window.removeEventListener('resize', throttledUpdateViewportMetrics)
+        viewport.removeEventListener('resize', throttledUpdateViewportMetrics)
+        viewport.removeEventListener('scroll', throttledUpdateViewportMetrics)
+        throttledUpdateViewportMetrics.cancel()
       }
     }
 
     return () => {
-      window.removeEventListener('resize', updateViewportMetrics)
+      window.removeEventListener('resize', throttledUpdateViewportMetrics)
+      throttledUpdateViewportMetrics.cancel()
     }
   }, [isAdaptiveSinglePaneViewport])
 
