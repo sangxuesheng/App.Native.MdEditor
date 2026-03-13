@@ -143,7 +143,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
   };
 
   return (
-    <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
+    <div className={`dialog-overlay compact-panel-overlay save-as-dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
       <div
         className={`dialog-container compact-panel-dialog save-as-dialog ${showOverwriteConfirm ? 'overwrite-mode' : ''}`}
         onClick={(e) => e.stopPropagation()}

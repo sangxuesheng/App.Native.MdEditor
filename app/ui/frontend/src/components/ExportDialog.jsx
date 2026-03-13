@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Globe, FileText, File, FileCode, Image, FileType } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import './ExportDialog.css';
+import { useAppUi } from '../context/AppUiContext';
 
 const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, exportConfig }) => {
+  const { showToast } = useAppUi();
   const [exportFormat, setExportFormat] = useState('html');
   const [includeCSS, setIncludeCSS] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -254,7 +256,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
     if (!previewHtml || previewHtml.trim() === '') {
       console.error('=== 导出错误 ===');
       console.error('previewHtml 为空，无法导出');
-      alert('导出失败：预览内容为空。请确保文档已正确渲染。');
+      showToast('导出失败：预览内容为空。请确保文档已正确渲染。', 'error');
       return;
     }
     

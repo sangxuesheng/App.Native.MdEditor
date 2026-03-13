@@ -11,9 +11,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: calc(16px + var(--safe-area-top)) calc(16px + var(--safe-area-right)) calc(16px + var(--safe-area-bottom)) calc(16px + var(--safe-area-left));
   z-index: 100000;
   animation: fadeIn 0.2s ease;
   backdrop-filter: blur(4px);
+  overscroll-behavior: contain;
 }
 
 @keyframes fadeIn {
@@ -30,13 +32,14 @@
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  max-width: 90vw;
-  max-height: 85vh;
+  max-width: min(90vw, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 32px));
+  max-height: min(85vh, calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 32px));
   width: 600px;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease;
   border: none;
+  overflow: hidden;
 }
 
 .theme-light .dialog-container {
@@ -274,14 +277,14 @@
 
 @media (max-width: 1024px) {
   .dialog-overlay.compact-panel-overlay {
-    padding: 12px;
+    padding: calc(12px + var(--safe-area-top)) calc(12px + var(--safe-area-right)) calc(12px + var(--safe-area-bottom)) calc(12px + var(--safe-area-left));
     align-items: flex-end;
   }
 
   .dialog-overlay.compact-panel-overlay .dialog-container.compact-panel-dialog {
     width: min(100%, 920px);
     max-width: 100%;
-    max-height: calc(100vh - 24px);
+    max-height: calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 24px);
     border-radius: 18px;
   }
 }
@@ -289,18 +292,18 @@
 /* 响应式 */
 @media (max-width: 768px) {
   .dialog-container {
-    width: 95vw;
-    max-height: 90vh;
+    width: min(100%, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px));
+    max-height: calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 16px);
   }
 
   .dialog-overlay.compact-panel-overlay {
-    padding: 8px;
+    padding: calc(8px + var(--safe-area-top)) calc(8px + var(--safe-area-right)) calc(8px + var(--safe-area-bottom)) calc(8px + var(--safe-area-left));
   }
 
   .dialog-overlay.compact-panel-overlay .dialog-container.compact-panel-dialog {
     width: 100%;
-    max-height: calc(100vh - 16px);
-    border-radius: 16px;
+    max-height: calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 16px);
+    border-radius: 20px;
   }
 
   .dialog-header {
@@ -313,5 +316,12 @@
 
   .dialog-footer {
     padding: 12px 20px;
+    flex-wrap: wrap;
+  }
+
+  .dialog-footer > .btn-secondary,
+  .dialog-footer > .btn-primary,
+  .dialog-footer > .btn-danger {
+    flex: 1 1 140px;
   }
 }

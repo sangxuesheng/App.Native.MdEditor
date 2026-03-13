@@ -18,19 +18,48 @@ const { getDb } = require('./db');
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
 const STATIC_DIR = path.join(__dirname, '../ui/frontend/dist');
 
-// 授权目录解析
+// 共享路径解析：fnOS 用 TRIM_APPNAME 推导 shares，开发环境用相对路径
+const SHARES_BASE = process.env.TRIM_APPNAME
+  ? path.join('/var/apps', process.env.TRIM_APPNAME, 'shares')
+  : path.join(__dirname, '../shares');
+
+function getSharePathsFromEnv() {
+  const out = [];
+  const add = (raw) => {
+    if (!raw) return;
+    raw.split(':').forEach(p => {
+      const t = (p || '').trim();
+      if (t && !out.includes(t)) out.push(t.replace(/\/+$/, ''));
+    });
+  };
+  add(process.env.TRIM_DATA_ACCESSIBLE_PATHS);
+  add(process.env.TRIM_DATA_SHARE_PATHS);
+  return out;
+}
+
+function getSharePath(shareName) {
+  const all = getSharePathsFromEnv();
+  const found = all.find(p => p.endsWith('/' + shareName) || p.includes('/' + shareName + '/'));
+  if (found) return found;
+  return path.join(SHARES_BASE, shareName);
+}
+
+// 授权目录解析：Folder 为文件树根，mdeditor 根目录支持在空白处新建文件夹
 function getAllowedRoots() {
   const roots = [];
   const accessible = process.env.TRIM_DATA_ACCESSIBLE_PATHS || '';
   if (accessible) {
     accessible.split(':').forEach(p => {
-      if (p) roots.push(p);
+      if (p) roots.push(p.trim());
     });
   }
-  // 始终挂载 shares/Folder 作为用户文档目录
-  const sharesFolder = '/var/apps/App.Native.MdEditor2/shares/Folder';
+  const sharesFolder = path.join(SHARES_BASE, 'Folder');
   if (fs.existsSync(sharesFolder) && !roots.includes(sharesFolder)) {
     roots.push(sharesFolder);
+  }
+  const mdeditorRoot = path.join(SHARES_BASE, 'mdeditor');
+  if (fs.existsSync(mdeditorRoot) && !roots.includes(mdeditorRoot)) {
+    roots.push(mdeditorRoot);
   }
   return roots;
 }
@@ -674,15 +703,49 @@ const server = http.createServer(async (req, res) => {
       const safePath = requestedPath === '/' ? null : resolveSafePath(requestedPath);
       const roots = getAllowedRoots();
       
-      // 如果请求根目录，返回所有授权根目录
+      // 如果请求根目录：列出 mdeditor 下的目录（Folder + 用户新建的文件夹），images/history 已过滤
       if (!safePath) {
-        const rootDirs = roots.map(root => ({
-          name: path.basename(root),
-          path: root,
-          type: 'directory',
-          isRoot: true
-        }));
-        sendJson(res, 200, { ok: true, path: '/', items: rootDirs });
+        const mdeditorRoot = path.join(SHARES_BASE, 'mdeditor');
+        const listDir = fs.existsSync(mdeditorRoot)
+          ? mdeditorRoot
+          : (roots[0] ? path.dirname(roots[0]) : path.join(SHARES_BASE, 'Folder'));
+        if (!listDir) {
+          const rootDirs = roots.map(root => ({
+            name: path.basename(root),
+            path: root,
+            type: 'directory',
+            isRoot: true
+          }));
+          sendJson(res, 200, { ok: true, path: '/', items: rootDirs });
+          return;
+        }
+        fs.readdir(listDir, { withFileTypes: true }, (err, entries) => {
+          if (err) {
+            const rootDirs = roots.map(root => ({
+              name: path.basename(root),
+              path: root,
+              type: 'directory',
+              isRoot: true
+            }));
+            sendJson(res, 200, { ok: true, path: '/', items: rootDirs });
+            return;
+          }
+          const items = entries
+            .filter(entry => {
+              if (entry.name.startsWith('.')) return false;
+              if (!entry.isDirectory()) return false;
+              if (entry.name === 'images' || entry.name === 'history') return false;
+              return true;
+            })
+            .map(entry => ({
+              name: entry.name,
+              path: path.join(listDir, entry.name),
+              type: 'directory',
+              isRoot: true
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+          sendJson(res, 200, { ok: true, path: '/', items });
+        });
         return;
       }
       
@@ -703,6 +766,8 @@ const server = http.createServer(async (req, res) => {
           .filter(entry => {
             if (entry.name.startsWith('.')) return false;
             if (entry.isFile() && !entry.name.endsWith('.md')) return false;
+            // images、history 为内部目录，默认不在文件树中显示
+            if (entry.isDirectory() && (entry.name === 'images' || entry.name === 'history')) return false;
             return true;
           })
           .map(entry => ({
@@ -1101,8 +1166,7 @@ const server = http.createServer(async (req, res) => {
   // 图片列表：GET /api/image/list
   if (parsed.pathname === '/api/image/list' && req.method === 'GET') {
     try {
-      // 使用共享目录存储图片
-      const imagesBaseDir = '/var/apps/App.Native.MdEditor2/shares/images';
+      const imagesBaseDir = getSharePath('images');
       
       if (!fs.existsSync(imagesBaseDir)) {
         sendJson(res, 200, { ok: true, images: [] });
@@ -1183,8 +1247,7 @@ const server = http.createServer(async (req, res) => {
       }
       
       try {
-        // 使用共享目录存储图片
-        const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares', imageUrl);
+        const imagePath = path.join(getSharePath('images'), imageUrl.replace(/^\/images\/?/, ''));
         
         // 检查文件是否存在
         if (!fs.existsSync(imagePath)) {
@@ -1370,7 +1433,7 @@ const server = http.createServer(async (req, res) => {
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
-        const imagesDir = path.join('/var/apps/App.Native.MdEditor2/shares/images', year.toString(), month, day);
+        const imagesDir = path.join(getSharePath('images'), year.toString(), month, day);
         if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
 
         const timestamp = Date.now();
@@ -1379,7 +1442,7 @@ const server = http.createServer(async (req, res) => {
         const filePath = path.join(imagesDir, filename);
         fs.writeFileSync(filePath, buffer);
 
-        const imageUrl = `/shares/images/${year}/${month}/${day}/${filename}`;
+        const imageUrl = `/images/${year}/${month}/${day}/${filename}`;
         sendJson(res, 200, { ok: true, url: imageUrl, filename, size: buffer.length });
       } catch (e) {
         console.error('fetch-url 失败:', e);
@@ -1398,8 +1461,9 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     
-    // 简单的 multipart 解析（生产环境建议使用 multer 等库）
-    const boundary = contentType.split('boundary=')[1];
+    // 简单的 multipart 解析（与 git 63328a6 一致）
+    let boundary = (contentType.split('boundary=')[1] || '').trim();
+    boundary = boundary.replace(/^["']|["']$/g, '').split(';')[0].trim(); // 移除引号及 ; 后内容
     if (!boundary) {
       sendJson(res, 400, { ok: false, code: 'NO_BOUNDARY', message: '缺少 boundary' });
       return;
@@ -1441,10 +1505,10 @@ const server = http.createServer(async (req, res) => {
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
         
-        // 使用共享目录作为图片存储位置
+        // 使用硬编码路径（与 git 63328a6 工作版本一致）
         const imagesDir = path.join('/var/apps/App.Native.MdEditor2/shares/images', year.toString(), month, day);
         
-        // 确保目录存在
+        // 确保目录存在（与 git 63328a6 一致）
         if (!fs.existsSync(imagesDir)) {
           fs.mkdirSync(imagesDir, { recursive: true });
         }
@@ -1594,7 +1658,10 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, { ok: true, images: uploadedImages });
       } catch (err) {
         console.error('Image upload error:', err);
-        sendJson(res, 500, { ok: false, code: 'UPLOAD_ERROR', message: '上传失败: ' + err.message });
+        const msg = err.code === 'EACCES'
+          ? '无权限写入图片目录，请检查 shares/images 权限'
+          : ('上传失败: ' + (err.message || String(err)));
+        sendJson(res, 500, { ok: false, code: 'UPLOAD_ERROR', message: msg });
       }
     });
     return;
@@ -2030,7 +2097,6 @@ const server = http.createServer(async (req, res) => {
     try {
       // 解码 URL 路径以处理中文文件名
       const decodedPathname = decodeURIComponent(parsed.pathname);
-      // 移除 /images 前缀，拼接到共享目录下
       const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares/images', decodedPathname.substring('/images/'.length));
       
       console.log('Image request:', imagePath);
@@ -2087,14 +2153,18 @@ const server = http.createServer(async (req, res) => {
       '.woff2': 'font/woff2'
     };
     const contentType = mimeTypes[ext] || 'application/octet-stream';
-    
+    const headers = { 'Content-Type': contentType };
+    // index.html 不缓存，避免手机端拿到旧 HTML 去请求已删除的 hash 资源导致白屏
+    if (ext === '.html') {
+      headers['Cache-Control'] = 'no-cache, max-age=0, must-revalidate';
+    }
     fs.readFile(staticPath, (err, data) => {
       if (err) {
         res.writeHead(500);
         res.end('Internal Server Error');
         return;
       }
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, headers);
       res.end(data);
     });
     return;
@@ -2110,7 +2180,10 @@ const server = http.createServer(async (req, res) => {
           res.end('Internal Server Error');
           return;
         }
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache, max-age=0, must-revalidate'
+        });
         res.end(data);
       });
       return;
@@ -2122,7 +2195,8 @@ const server = http.createServer(async (req, res) => {
   res.end('Not Found');
 });
 
-server.listen(PORT, () => {
+// 显式绑定 0.0.0.0，与 web/fpk 的 python -m http.server --bind 0.0.0.0 一致，确保局域网内手机/PC 均可访问
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`App.Native.MdEditor backend listening on port ${PORT}`);
   console.log(`Static files: ${STATIC_DIR}`);
 });

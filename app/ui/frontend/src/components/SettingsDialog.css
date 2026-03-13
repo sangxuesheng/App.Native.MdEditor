@@ -177,9 +177,9 @@
   gap: 12px;
 }
 
-.settings-dialog .dialog-footer > .btn-secondary,
-.settings-dialog .footer-right > .btn-secondary,
-.settings-dialog .footer-right > .btn-primary {
+  .settings-dialog .dialog-footer > .btn-secondary,
+  .settings-dialog .footer-right > .btn-secondary,
+  .settings-dialog .footer-right > .btn-primary {
   min-height: 38px;
   min-width: 90px;
   display: inline-flex;
@@ -297,9 +297,17 @@
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
+    flex-wrap: nowrap;
+  }
+
+  /* 覆盖 Dialog.css 的 flex: 1 1 140px，避免恢复默认按钮高度/宽度异常；放宽 min-width 以自适应窄屏 */
+  .settings-dialog .dialog-footer .btn-secondary,
+  .settings-dialog .dialog-footer .btn-primary {
+    min-width: 0;
   }
 
   .settings-dialog .dialog-footer > .btn-secondary {
+    flex: none;
     width: 100%;
   }
 
@@ -310,8 +318,11 @@
     gap: 12px;
   }
 
-  .settings-dialog .footer-right button {
-    flex: 1;
+  .settings-dialog .footer-right .btn-secondary,
+  .settings-dialog .footer-right .btn-primary {
+    flex: none;
+    min-width: 0;
+    width: 100%;
   }
 }
 

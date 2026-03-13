@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
-import Editor from '@monaco-editor/react'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkMath from 'remark-math'
-import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
 import remarkRehype from 'remark-rehype'
 import rehypeKatex from 'rehype-katex'
@@ -12,11 +10,13 @@ import { applyExportConfigStyles } from './utils/cssVariables'
 import { sandboxCSS, sandboxCSSForElement } from './utils/sandboxCSS'
 import rehypeRaw from 'rehype-raw'
 import rehypeHighlight from 'rehype-highlight'
+import remarkGfmCompat from './utils/remarkGfmCompat'
 import html2canvas from 'html2canvas'
 import 'katex/dist/katex.min.css'
 // github-markdown-css 将根据主题动态加载
 
 import FileTree from './components/FileTree'
+import OutlinePanel from './components/OutlinePanel'
 import Resizer from './components/Resizer'
 import markdownLogo from './assets/markdown.svg'
 import EditorToolbar from './components/EditorToolbar'
@@ -34,6 +34,7 @@ import AboutDialog from './components/AboutDialog'
 import SyncDialog from './components/SyncDialog'
 import FileHistoryDialog from './components/FileHistoryDialog'
 import EditorContextMenu from './components/EditorContextMenu'
+import ConfirmDialog from './components/ConfirmDialog'
 import { ToastContainer } from './components/Toast'
 import { useDebounce } from './hooks/useDebounce'
 import { saveFileHistory, getFileHistory as getFileHistoryVersions, deleteVersion } from './utils/fileHistoryManagerV2'
@@ -42,18 +43,40 @@ import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
-import { FolderArchive, Sun, Moon, Columns, FileText, Eye } from 'lucide-react'
+import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
 import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting } from './utils/settingsApi'
 import { copyToWeChat } from './utils/wechatExporter'
 import { DEFAULT_DOCUMENT_CONTENT } from './constants/defaultDocument'
+import { AppUiProvider } from './context/AppUiContext'
+
+// 性能优化：首屏加载动画
+import FirstScreenLoader from './components/FirstScreenLoader'
+import { useMobileFirstScreenLoader } from './hooks/useFirstScreenLoader.jsx'
+import { preloadCommonComponents } from './utils/lazyComponents'
+
+const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+
+/** 明暗模式仅存 localStorage，不写数据库，由用户自行设定；手机端跟随系统 */
+const THEME_STORAGE_KEY = 'md-editor-theme'
+const getInitialTheme = () => {
+  if (typeof window === 'undefined') return 'light'
+  const isMobile = window.matchMedia?.('(max-width: 768px)')?.matches
+  if (isMobile) {
+    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'
+  }
+  const stored = localStorage.getItem(THEME_STORAGE_KEY)
+  if (stored === 'light' || stored === 'dark') return stored
+  if (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) return 'dark'
+  return 'light'
+}
 
 // 初始化 unified 处理器
 const createMarkdownProcessor = () => {
   return unified()
     .use(remarkParse)
-    .use(remarkGfm)
+    .use(remarkGfmCompat)
     .use(remarkBreaks) // 支持硬换行：单个换行符转换为 <br>
     .use(remarkMath)
     .use(remarkRehype, { allowDangerousHtml: true })
@@ -92,18 +115,22 @@ const loadMermaid = async () => {
 }
 
 function App() {
+  // 首屏加载动画 - 立即显示，避免白屏
+  const { isLoading, loadingMessage } = useMobileFirstScreenLoader()
+  
   const [content, setContent] = useState(DEFAULT_APP_STATE.content)
   const [showImageManager, setShowImageManager] = useState(false)
   const [currentPath, setCurrentPath] = useState(DEFAULT_APP_STATE.currentPath)
   const [status, setStatus] = useState('就绪')
   const [statusType, setStatusType] = useState('normal') // normal, success, error
   const [showTableDialog, setShowTableDialog] = useState(false)
-  const [editorTheme, setEditorTheme] = useState('light')
+  const [editorTheme, setEditorTheme] = useState(getInitialTheme)
   const [layout, setLayout] = useState('vertical')
   const [showFileTree, setShowFileTree] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
   const [isSaveAsMode, setIsSaveAsMode] = useState(true)
+  const [showSwitchSaveConfirm, setShowSwitchSaveConfirm] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [showMarkdownHelp, setShowMarkdownHelp] = useState(false)
@@ -124,6 +151,7 @@ function App() {
 
   // 导出配置面板状态
   const [showExportConfigPanel, setShowExportConfigPanel] = useState(false)
+  const [previewLayoutVersion, setPreviewLayoutVersion] = useState(0)
   const [exportConfig, setExportConfig] = useState({
     // 主题与基础
     theme: 'default',
@@ -208,19 +236,19 @@ function App() {
         document.head.appendChild(themeLink)
       }
       
-      // 根据主题名称加载对应的 CSS
+      // 根据主题名称加载对应的 CSS（本地构建产物，避免 CDN 延迟）
       const themeMap = {
-        'github': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css',
-        'github-dark': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css',
-        'vs': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs.min.css',
-        'vs2015': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css',
-        'dracula': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/dracula.min.css',
-        'atom-one-dark': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css',
-        'solarized-light': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/solarized-light.min.css',
-        'solarized-dark': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/solarized-dark.min.css',
-        'nord': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/nord.min.css',
-        'monokai': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai.min.css',
-        'material': 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/material.min.css'
+        'github': '/code-themes/github.min.css',
+        'github-dark': '/code-themes/github-dark.min.css',
+        'vs': '/code-themes/vs.min.css',
+        'vs2015': '/code-themes/vs2015.min.css',
+        'dracula': '/code-themes/base16/dracula.min.css',
+        'atom-one-dark': '/code-themes/atom-one-dark.min.css',
+        'solarized-light': '/code-themes/base16/solarized-light.min.css',
+        'solarized-dark': '/code-themes/base16/solarized-dark.min.css',
+        'nord': '/code-themes/nord.min.css',
+        'monokai': '/code-themes/monokai.min.css',
+        'material': '/code-themes/base16/material.min.css'
       }
       
       themeLink.href = themeMap[theme] || themeMap['github']
@@ -1280,7 +1308,8 @@ function App() {
             solidBg = bgColorMatch[1].trim()
           } else {
             // 尝试匹配 background 简写（只取纯色值，忽略渐变）
-            const bgMatch = exportConfig.customCSS.match(/container\s*\{[\s\S]*?(?<![\w-])background\s*:\s*(#[0-9a-fA-F]{3,8}|rgb[^;]+|hsl[^;]+)/)
+            // Safari/iOS 对 lookbehind 支持不稳定，这里改用前置分组避免正则语法报错
+            const bgMatch = exportConfig.customCSS.match(/container\s*\{[\s\S]*?(?:^|[^\w-])background\s*:\s*(#[0-9a-fA-F]{3,8}|rgb[^;]+|hsl[^;]+)/)
             if (bgMatch) solidBg = bgMatch[1].trim()
           }
         }
@@ -1290,7 +1319,7 @@ function App() {
           solidBg = exportConfig.bgColor
         } else if (exportConfig.bgCSS) {
           const m = exportConfig.bgCSS.match(/background-color\s*:\s*([^;!\n]+)/i)
-            || exportConfig.bgCSS.match(/(?<![\w-])background\s*:\s*(#[0-9a-fA-F]{3,8}|rgb[^;]+|hsl[^;]+)/i)
+            || exportConfig.bgCSS.match(/(?:^|[^\w-])background\s*:\s*(#[0-9a-fA-F]{3,8}|rgb[^;]+|hsl[^;]+)/i)
           if (m) solidBg = m[1].trim()
         }
 
@@ -1464,7 +1493,7 @@ function App() {
         }
       }
     }, 100)
-  }, [exportConfig, editorTheme])
+  }, [exportConfig, editorTheme, previewLayoutVersion])
 
   // 使用 useMemo 缓存 Markdown 处理器，避免每次渲染都重新创建
   const markdownProcessor = useMemo(() => {
@@ -1476,10 +1505,44 @@ function App() {
   const previewRef = useRef(null)
   const editorRef = useRef(null)
   const fileTreeRef = useRef(null)
+  const fileTreeSwipeRef = useRef({
+    tracking: false,
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    deltaX: 0,
+    deltaY: 0,
+  })
+  const fileTreeSwipeCloseTimerRef = useRef(null)
+  const fileTreeEdgeSwipeRef = useRef({
+    tracking: false,
+    startX: 0,
+    startY: 0,
+    deltaX: 0,
+    deltaY: 0,
+  })
+  const paneSwipeRef = useRef({
+    active: false,
+    decided: false,
+    tracking: false,
+    startX: 0,
+    startY: 0,
+    deltaX: 0,
+    deltaY: 0,
+  })
   const [isCompactViewport, setIsCompactViewport] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.matchMedia('(max-width: 1024px)').matches
   })
+  const [isSingleColumnViewport, setIsSingleColumnViewport] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(max-width: 768px)').matches
+  })
+  const [mobileActivePane, setMobileActivePane] = useState('editor')
+  const [showMobileOutlinePanel, setShowMobileOutlinePanel] = useState(false)
+  const [isVirtualKeyboardOpen, setIsVirtualKeyboardOpen] = useState(false)
+  const [fileTreeSwipeOffset, setFileTreeSwipeOffset] = useState(0)
+  const [isFileTreeSwipeDragging, setIsFileTreeSwipeDragging] = useState(false)
   const [editorInstance, setEditorInstance] = useState(null)
   const syncPreviewWithEditorRef = useRef(syncPreviewWithEditor)
   const editorThemeRef = useRef(editorTheme)
@@ -1497,6 +1560,51 @@ function App() {
 
   // Toast 通知状态
   const [toasts, setToasts] = useState([])
+  const [confirmDialogState, setConfirmDialogState] = useState(null)
+
+  const isAdaptiveSinglePaneViewport = isSingleColumnViewport
+  const isTabletCompactViewport = isCompactViewport && !isSingleColumnViewport
+  const compactFileTreePanelWidth = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return fileTreeWidth
+    }
+
+    return Math.min(fileTreeWidth, Math.max(window.innerWidth - 24, 0))
+  }, [fileTreeWidth])
+  const fileTreeSwipeProgress = compactFileTreePanelWidth > 0
+    ? Math.min(Math.abs(fileTreeSwipeOffset) / compactFileTreePanelWidth, 1)
+    : 0
+
+  const effectiveLayout = useMemo(() => {
+    if (!isAdaptiveSinglePaneViewport) {
+      return layout
+    }
+
+    if (showExportConfigPanel) {
+      return 'preview-only'
+    }
+
+    return mobileActivePane === 'preview' ? 'preview-only' : 'editor-only'
+  }, [isAdaptiveSinglePaneViewport, layout, mobileActivePane, showExportConfigPanel])
+
+  // 当预览区变为可见时触发样式应用（解决移动端切换后 Mac 代码块、代码主题未加载的问题）
+  useEffect(() => {
+    if (effectiveLayout === 'preview-only' || effectiveLayout === 'vertical') {
+      setPreviewLayoutVersion((v) => v + 1)
+    }
+  }, [effectiveLayout])
+
+  const currentDocumentName = useMemo(() => {
+    if (!currentPath) {
+      return '未命名文档'
+    }
+
+    return currentPath.split('/').pop() || currentPath
+  }, [currentPath])
+
+  const currentDocumentMeta = useMemo(() => {
+    return currentPath || '未保存'
+  }, [currentPath])
 
   editorThemeRef.current = editorTheme
 
@@ -1510,7 +1618,7 @@ function App() {
         ])
 
         const s = settings || {}
-        if (s.editorTheme) setEditorTheme(s.editorTheme)
+        // 明暗模式不从数据库加载，由用户通过 localStorage 自行设定
         if (typeof s.editorFontSize === 'number') setEditorFontSize(s.editorFontSize)
         if (typeof s.editorLineHeight === 'number') setEditorLineHeight(s.editorLineHeight)
         if (typeof s.editorFontFamily === 'string') setEditorFontFamily(s.editorFontFamily)
@@ -1519,14 +1627,13 @@ function App() {
         if (typeof s.showFileTree === 'boolean') setShowFileTree(s.showFileTree)
         if (typeof s.showToolbar === 'boolean') setShowToolbar(s.showToolbar)
         if (typeof s.showExportConfigPanel === 'boolean') setShowExportConfigPanel(s.showExportConfigPanel)
-        if (typeof s.showSettingsDialog === 'boolean') setShowSettingsDialog(s.showSettingsDialog)
         if (typeof s.showMarkdownHelp === 'boolean') setShowMarkdownHelp(s.showMarkdownHelp)
         if (typeof s.showShortcuts === 'boolean') setShowShortcuts(s.showShortcuts)
         if (typeof s.showAbout === 'boolean') setShowAbout(s.showAbout)
         if (typeof s.showHistory === 'boolean') setShowHistory(s.showHistory)
 
-        setContent(persistedState.content || '')
-        setCurrentPath(persistedState.currentPath || '')
+        // 方案1：启动时不恢复上次编辑的文件，仅恢复布局等设置
+        // setContent / setCurrentPath 由 initialDocumentHandledRef 统一处理（新建页面或 URL 指定文件）
         setFileTreeWidth(persistedState.fileTreeWidth || DEFAULT_APP_STATE.fileTreeWidth)
         setEditorWidth(persistedState.editorWidth || DEFAULT_APP_STATE.editorWidth)
         setExportConfigPanelWidth(
@@ -1553,7 +1660,15 @@ function App() {
         if (!res.ok) return
         const data = await res.json()
         if (!data || !data.ok || !data.preset || !data.preset.config) return
-        setExportConfig(prev => ({ ...prev, ...data.preset.config }))
+        const apiConfig = data.preset.config
+        // 仅用 API 中已定义的字段覆盖，避免 undefined 覆盖默认值（如 macCodeBlock: true）
+        setExportConfig(prev => {
+          const merged = { ...prev }
+          for (const [k, v] of Object.entries(apiConfig)) {
+            if (v !== undefined) merged[k] = v
+          }
+          return merged
+        })
       } catch (e) {
         console.error('[App] 加载导出配置失败:', e)
       }
@@ -1621,6 +1736,45 @@ function App() {
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id))
   }, [])
+
+  const closeConfirmDialog = useCallback(() => {
+    setConfirmDialogState(null)
+  }, [])
+
+  const requestConfirm = useCallback((options = {}) => {
+    return new Promise((resolve) => {
+      const {
+        title = '请确认',
+        message = '',
+        confirmText = '确定',
+        cancelText = '取消',
+        confirmVariant = 'danger',
+        closeOnOverlayClick = true,
+      } = options
+
+      setConfirmDialogState({
+        title,
+        message,
+        confirmText,
+        cancelText,
+        confirmVariant,
+        closeOnOverlayClick,
+        onCancel: () => {
+          setConfirmDialogState(null)
+          resolve(false)
+        },
+        onConfirm: () => {
+          setConfirmDialogState(null)
+          resolve(true)
+        },
+      })
+    })
+  }, [])
+
+  const appUi = useMemo(() => ({
+    showToast,
+    requestConfirm,
+  }), [showToast, requestConfirm])
 
   // ============================================
   // 右键菜单辅助函数
@@ -1905,6 +2059,18 @@ function App() {
 
   // 编辑器右键事件处理
   const handleEditorContextMenu = useCallback((e) => {
+    // 在移动端/平板上完全交给系统级复制，不拦截 contextmenu
+    try {
+      const isCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches
+      const isNarrowViewport = window.matchMedia?.('(max-width: 1024px)').matches
+      if (isCoarsePointer && isNarrowViewport) {
+        // 触摸设备上：保留系统长按菜单，用于复制/粘贴
+        return
+      }
+    } catch (err) {
+      // 媒体查询异常时忽略，按桌面逻辑处理
+    }
+
     e.preventDefault()
     e.stopPropagation()
     
@@ -1935,7 +2101,7 @@ function App() {
     console.log('[handlePreviewContextMenu] 触发，target:', e.target, 'tagName:', e.target.tagName)
     
     // 在"仅预览"模式下，完全禁用右键菜单
-    if (layout === 'preview-only') {
+    if (effectiveLayout === 'preview-only') {
       return
     }
     
@@ -1972,7 +2138,7 @@ function App() {
       selectedImage,
       hasClipboard
     })
-  }, [layout, detectPreviewImage, findImageInEditor])
+  }, [effectiveLayout, detectPreviewImage, findImageInEditor])
 
   // 编辑状态持久化到数据库
   const persistenceState = {
@@ -1996,20 +2162,136 @@ function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
-    const mediaQuery = window.matchMedia('(max-width: 1024px)')
-    const handleViewportChange = (event) => {
+    const compactViewportQuery = window.matchMedia('(max-width: 1024px)')
+    const singleColumnViewportQuery = window.matchMedia('(max-width: 768px)')
+    const handleCompactViewportChange = (event) => {
       setIsCompactViewport(event.matches)
     }
-
-    setIsCompactViewport(mediaQuery.matches)
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleViewportChange)
-      return () => mediaQuery.removeEventListener('change', handleViewportChange)
+    const handleSingleColumnViewportChange = (event) => {
+      setIsSingleColumnViewport(event.matches)
     }
 
-    mediaQuery.addListener(handleViewportChange)
-    return () => mediaQuery.removeListener(handleViewportChange)
+    setIsCompactViewport(compactViewportQuery.matches)
+    setIsSingleColumnViewport(singleColumnViewportQuery.matches)
+
+    if (compactViewportQuery.addEventListener) {
+      compactViewportQuery.addEventListener('change', handleCompactViewportChange)
+      singleColumnViewportQuery.addEventListener('change', handleSingleColumnViewportChange)
+      return () => {
+        compactViewportQuery.removeEventListener('change', handleCompactViewportChange)
+        singleColumnViewportQuery.removeEventListener('change', handleSingleColumnViewportChange)
+      }
+    }
+
+    compactViewportQuery.addListener(handleCompactViewportChange)
+    singleColumnViewportQuery.addListener(handleSingleColumnViewportChange)
+    return () => {
+      compactViewportQuery.removeListener(handleCompactViewportChange)
+      singleColumnViewportQuery.removeListener(handleSingleColumnViewportChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined
+
+    const root = document.documentElement
+    const updateViewportMetrics = () => {
+      const viewport = window.visualViewport
+      const layoutViewportHeight = Math.max(
+        window.innerHeight || 0,
+        document.documentElement?.clientHeight || 0
+      )
+      const visualViewportHeight = Math.round(viewport?.height || layoutViewportHeight)
+      const viewportOffsetTop = Math.round(viewport?.offsetTop || 0)
+      const keyboardInset = Math.max(layoutViewportHeight - visualViewportHeight - viewportOffsetTop, 0)
+      // iPhone Safari 在地址栏/底部工具栏存在时，visualViewport.height 可能小于实际页面高度，
+      // 直接使用它会导致应用只占上半屏。仅在软键盘弹起时才使用 visualViewport 高度。
+      const effectiveViewportHeight = keyboardInset > 0 ? visualViewportHeight : layoutViewportHeight
+
+      root.style.setProperty('--app-viewport-height', `${effectiveViewportHeight}px`)
+      root.style.setProperty('--app-viewport-offset-top', `${viewportOffsetTop}px`)
+      root.style.setProperty('--app-keyboard-inset', `${keyboardInset}px`)
+
+      setIsVirtualKeyboardOpen(isAdaptiveSinglePaneViewport && keyboardInset > 120)
+    }
+
+    updateViewportMetrics()
+
+    const viewport = window.visualViewport
+    window.addEventListener('resize', updateViewportMetrics)
+
+    if (viewport?.addEventListener) {
+      viewport.addEventListener('resize', updateViewportMetrics)
+      viewport.addEventListener('scroll', updateViewportMetrics)
+      return () => {
+        window.removeEventListener('resize', updateViewportMetrics)
+        viewport.removeEventListener('resize', updateViewportMetrics)
+        viewport.removeEventListener('scroll', updateViewportMetrics)
+      }
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateViewportMetrics)
+    }
+  }, [isAdaptiveSinglePaneViewport])
+
+  useEffect(() => {
+    if (!isAdaptiveSinglePaneViewport || !isVirtualKeyboardOpen || mobileActivePane !== 'editor') {
+      return undefined
+    }
+
+    const timer = setTimeout(() => {
+      const editor = editorRef.current
+      const domNode = editor?.getDomNode?.()
+      domNode?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      editor?.layout?.()
+    }, 120)
+
+    return () => clearTimeout(timer)
+  }, [isAdaptiveSinglePaneViewport, isVirtualKeyboardOpen, mobileActivePane])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const isIgnorableMonacoCanceledError = ({ message = '', stack = '', filename = '' }) => {
+      const normalizedMessage = String(message || '')
+      const normalizedStack = String(stack || '')
+      const normalizedFilename = String(filename || '')
+
+      if (!/Canceled(?::\s*Canceled)?/i.test(normalizedMessage)) {
+        return false
+      }
+
+      return /editor\.api-|monaco/i.test(normalizedStack) || /editor\.api-|monaco/i.test(normalizedFilename)
+    }
+
+    const handleUnhandledRejection = (event) => {
+      const reason = event.reason
+      const message = reason?.message || String(reason || '')
+      const stack = reason?.stack || ''
+
+      if (isIgnorableMonacoCanceledError({ message, stack })) {
+        event.preventDefault()
+      }
+    }
+
+    const handleWindowError = (event) => {
+      if (isIgnorableMonacoCanceledError({
+        message: event.message,
+        stack: event.error?.stack,
+        filename: event.filename,
+      })) {
+        event.preventDefault()
+      }
+    }
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+    window.addEventListener('error', handleWindowError)
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+      window.removeEventListener('error', handleWindowError)
+    }
   }, [])
 
   // 当主题变化时，应用到 Monaco Editor
@@ -2023,6 +2305,19 @@ function App() {
       }
     }
   }, [editorTheme])
+
+  // 手机端：监听系统明暗模式变化，自动同步
+  useEffect(() => {
+    const colorSchemeMq = window.matchMedia('(prefers-color-scheme: dark)')
+    const mobileMq = window.matchMedia('(max-width: 768px)')
+    const handleChange = () => {
+      if (mobileMq.matches) {
+        setEditorTheme(colorSchemeMq.matches ? 'dark' : 'light')
+      }
+    }
+    colorSchemeMq.addEventListener('change', handleChange)
+    return () => colorSchemeMq.removeEventListener('change', handleChange)
+  }, [])
 
   // 动态加载 github-markdown CSS
   useEffect(() => {
@@ -2164,13 +2459,9 @@ function App() {
   }, [])
 
   const updateShowSettingsDialog = useCallback((nextValue) => {
-    setShowSettingsDialog(prev => {
-      const resolvedValue = typeof nextValue === 'function' ? nextValue(prev) : nextValue
-      persistSetting('showSettingsDialog', resolvedValue).catch((e) => {
-        console.error('[App] 保存设置面板状态失败:', e)
-      })
-      return resolvedValue
-    })
+    setShowSettingsDialog(prev => (
+      typeof nextValue === 'function' ? nextValue(prev) : nextValue
+    ))
   }, [])
 
   const updateShowMarkdownHelp = useCallback((nextValue) => {
@@ -2221,9 +2512,246 @@ function App() {
     updateShowFileTree(false)
   }, [updateShowFileTree])
 
+  const handleFileTreeTouchStart = useCallback((event) => {
+    if (!isCompactViewport || !showFileTree) return
+
+    if (fileTreeSwipeCloseTimerRef.current) {
+      clearTimeout(fileTreeSwipeCloseTimerRef.current)
+      fileTreeSwipeCloseTimerRef.current = null
+    }
+
+    const touch = event.touches?.[0]
+    if (!touch) return
+
+    fileTreeSwipeRef.current = {
+      tracking: true,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startTime: performance.now(),
+      deltaX: 0,
+      deltaY: 0,
+    }
+    setIsFileTreeSwipeDragging(false)
+  }, [isCompactViewport, showFileTree])
+
+  const handleFileTreeTouchMove = useCallback((event) => {
+    if (!fileTreeSwipeRef.current.tracking) return
+
+    const touch = event.touches?.[0]
+    if (!touch) return
+
+    const nextDeltaX = touch.clientX - fileTreeSwipeRef.current.startX
+    const nextDeltaY = touch.clientY - fileTreeSwipeRef.current.startY
+    const isHorizontalIntent = Math.abs(nextDeltaX) > Math.abs(nextDeltaY) * 1.1
+
+    fileTreeSwipeRef.current.deltaX = nextDeltaX
+    fileTreeSwipeRef.current.deltaY = nextDeltaY
+
+    if (isHorizontalIntent && nextDeltaX < 0) {
+      event.preventDefault()
+      setIsFileTreeSwipeDragging(true)
+      setFileTreeSwipeOffset(Math.max(nextDeltaX, -compactFileTreePanelWidth))
+    }
+  }, [compactFileTreePanelWidth])
+
+  const handleFileTreeTouchEnd = useCallback(() => {
+    const { tracking, deltaX, deltaY, startTime } = fileTreeSwipeRef.current
+
+    const elapsed = Math.max(performance.now() - (startTime || performance.now()), 1)
+    const velocityX = deltaX / elapsed
+
+    fileTreeSwipeRef.current = {
+      tracking: false,
+      startX: 0,
+      startY: 0,
+      startTime: 0,
+      deltaX: 0,
+      deltaY: 0,
+    }
+
+    if (!tracking) {
+      setIsFileTreeSwipeDragging(false)
+      return
+    }
+
+    const traveled = Math.abs(Math.min(deltaX, 0))
+    const closeThreshold = compactFileTreePanelWidth * 0.35
+    const isHorizontalSwipe = traveled > 24 && traveled > Math.abs(deltaY) * 1.15
+    const isClosingSwipe = deltaX < 0
+    const shouldClose = isHorizontalSwipe && isClosingSwipe && (traveled > closeThreshold || velocityX < -0.35)
+
+    setIsFileTreeSwipeDragging(false)
+
+    if (shouldClose) {
+      setFileTreeSwipeOffset(-compactFileTreePanelWidth)
+      fileTreeSwipeCloseTimerRef.current = setTimeout(() => {
+        handleCloseFileTree()
+        setFileTreeSwipeOffset(0)
+        fileTreeSwipeCloseTimerRef.current = null
+      }, 180)
+      return
+    }
+
+    setFileTreeSwipeOffset(0)
+  }, [compactFileTreePanelWidth, handleCloseFileTree])
+
+  const handleEdgeSwipeTouchStart = useCallback((event) => {
+    if (!isCompactViewport || showFileTree || showExportConfigPanel) return
+
+    const touch = event.touches?.[0]
+    if (!touch) return
+
+    const EDGE_ZONE_WIDTH = 24
+    if (touch.clientX > EDGE_ZONE_WIDTH) return
+
+    fileTreeEdgeSwipeRef.current = {
+      tracking: true,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      deltaX: 0,
+      deltaY: 0,
+    }
+  }, [isCompactViewport, showFileTree, showExportConfigPanel])
+
+  const handleEdgeSwipeTouchMove = useCallback((event) => {
+    if (!fileTreeEdgeSwipeRef.current.tracking) return
+
+    const touch = event.touches?.[0]
+    if (!touch) return
+
+    const deltaX = touch.clientX - fileTreeEdgeSwipeRef.current.startX
+    const deltaY = touch.clientY - fileTreeEdgeSwipeRef.current.startY
+
+    fileTreeEdgeSwipeRef.current.deltaX = deltaX
+    fileTreeEdgeSwipeRef.current.deltaY = deltaY
+  }, [])
+
+  const handleEdgeSwipeTouchEnd = useCallback(() => {
+    const { tracking, deltaX, deltaY } = fileTreeEdgeSwipeRef.current
+
+    fileTreeEdgeSwipeRef.current = {
+      tracking: false,
+      startX: 0,
+      startY: 0,
+      deltaX: 0,
+      deltaY: 0,
+    }
+
+    if (!tracking) return
+
+    const OPEN_THRESHOLD = 50
+    const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY) * 1.2
+    const isRightSwipe = deltaX > 0
+
+    if (isHorizontalSwipe && isRightSwipe && deltaX >= OPEN_THRESHOLD) {
+      updateShowFileTree(true)
+    }
+  }, [updateShowFileTree])
+
+  const handlePaneSwipeTouchStart = useCallback((event) => {
+    if (!isAdaptiveSinglePaneViewport || showExportConfigPanel) return
+
+    const target = event.target
+    if (target?.closest?.('.editor-toolbar') || target?.closest?.('.mobile-pane-switcher')) return
+
+    const touch = event.touches?.[0]
+    if (!touch) return
+
+    // 延迟判定：不在 touchStart 立即 tracking，避免干扰编辑区垂直滚动
+    paneSwipeRef.current = {
+      active: true,
+      decided: false,
+      tracking: false,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      deltaX: 0,
+      deltaY: 0,
+    }
+  }, [isAdaptiveSinglePaneViewport, showExportConfigPanel])
+
+  const handlePaneSwipeTouchMove = useCallback((event) => {
+    const ref = paneSwipeRef.current
+    if (!ref?.active) return
+
+    const touch = event.touches?.[0]
+    if (!touch) return
+
+    const deltaX = touch.clientX - ref.startX
+    const deltaY = touch.clientY - ref.startY
+
+    if (!ref.decided) {
+      const MOVE_THRESHOLD = 12
+      const totalMove = Math.abs(deltaX) + Math.abs(deltaY)
+      if (totalMove < MOVE_THRESHOLD) return
+
+      // 首次显著移动：垂直则放行给编辑区滚动，水平则跟踪 pane 切换
+      if (Math.abs(deltaY) > Math.abs(deltaX) * 1.2) {
+        ref.decided = true
+        ref.tracking = false
+        return
+      }
+      if (Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+        ref.decided = true
+        ref.tracking = true
+      }
+    }
+
+    if (ref.tracking) {
+      ref.deltaX = deltaX
+      ref.deltaY = deltaY
+    }
+  }, [])
+
+  const handlePaneSwipeTouchEnd = useCallback(() => {
+    const { tracking, deltaX, deltaY } = paneSwipeRef.current
+
+    paneSwipeRef.current = {
+      active: false,
+      decided: false,
+      tracking: false,
+      startX: 0,
+      startY: 0,
+      deltaX: 0,
+      deltaY: 0,
+    }
+
+    if (!tracking) return
+
+    const SWIPE_THRESHOLD = 50
+    const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY) * 1.2
+
+    if (!isHorizontalSwipe) return
+
+    if (deltaX < -SWIPE_THRESHOLD && mobileActivePane === 'editor') {
+      setMobileActivePane('preview')
+    } else if (deltaX > SWIPE_THRESHOLD && mobileActivePane === 'preview') {
+      setMobileActivePane('editor')
+    }
+  }, [mobileActivePane])
+
+  useEffect(() => {
+    if (showFileTree) {
+      setFileTreeSwipeOffset(0)
+      setIsFileTreeSwipeDragging(false)
+      return undefined
+    }
+
+    if (fileTreeSwipeCloseTimerRef.current) {
+      clearTimeout(fileTreeSwipeCloseTimerRef.current)
+      fileTreeSwipeCloseTimerRef.current = null
+    }
+
+    setFileTreeSwipeOffset(0)
+    setIsFileTreeSwipeDragging(false)
+    return undefined
+  }, [showFileTree])
+
   const handleToggleExportConfigPanel = useCallback(() => {
+    if (isAdaptiveSinglePaneViewport) {
+      setMobileActivePane('preview')
+    }
     updateShowExportConfigPanel((prev) => !prev)
-  }, [updateShowExportConfigPanel])
+  }, [isAdaptiveSinglePaneViewport, updateShowExportConfigPanel])
 
   const handleCloseExportConfigPanel = useCallback(() => {
     updateShowExportConfigPanel(false)
@@ -2237,11 +2765,16 @@ function App() {
     // 在 light 和 dark 之间切换，或使用指定主题
     const newTheme = normalizedTheme || (editorTheme === 'light' ? 'dark' : 'light')
 
-    // 保存主题设置
+    // 明暗模式：手机端跟随系统不持久化，桌面端存 localStorage
     setEditorTheme(newTheme)
-    persistSetting('editorTheme', newTheme).catch((e) => {
-      console.error('[App] 保存主题设置失败:', e)
-    })
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+    if (!isMobile) {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, newTheme)
+      } catch (e) {
+        console.error('[App] 保存主题到 localStorage 失败:', e)
+      }
+    }
     
     // 如果 Mermaid 已加载，根据主题设置
     if (mermaidLoaded && mermaidModule) {
@@ -2375,12 +2908,10 @@ function App() {
     }
   }, [content, currentPath, getAutoSaveInterval])
 
-  // 当文件加载时，更新上次保存的内容
+  // 当文件加载或切换到新建页面时，更新上次保存的内容（仅 currentPath 变化时，避免每次输入都覆盖）
   useEffect(() => {
-    if (currentPath) {
-      lastSavedContentRef.current = content
-      lastSavedPathRef.current = currentPath
-    }
+    lastSavedContentRef.current = content
+    lastSavedPathRef.current = currentPath
   }, [currentPath])
 
   // 加载最近文件列表和收藏夹
@@ -2476,11 +3007,15 @@ function App() {
     const path = params.get('path')
     if (path) {
       void loadFile(path)
-    } else if (!content) {
-      // 只在没有保存内容时才显示默认文本
+    } else {
+      // 无 URL 路径时：始终以新建页面开始，使用空白文档模板
+      void clearPersistedContent()
       setContent(DEFAULT_DOCUMENT_CONTENT)
+      setCurrentPath('')
+      lastSavedContentRef.current = DEFAULT_DOCUMENT_CONTENT
+      lastSavedPathRef.current = ''
     }
-  }, [initialStateLoaded, content])
+  }, [initialStateLoaded])
 
   const loadFile = useCallback(async (path) => {
     try {
@@ -2498,9 +3033,12 @@ function App() {
         const fileSizeKB = fileContent.length / 1024
         if (fileSizeKB > 1024) { // 大于 1MB
           const fileSizeMB = (fileSizeKB / 1024).toFixed(2)
-          const confirmed = window.confirm(
-            `文件较大（${fileSizeMB} MB），加载可能需要一些时间。是否继续？`
-          )
+          const confirmed = await requestConfirm({
+            title: '加载大文件',
+            message: `文件较大（${fileSizeMB} MB），加载可能需要一些时间。是否继续？`,
+            confirmText: '继续加载',
+            confirmVariant: 'primary'
+          })
           if (!confirmed) {
             setStatus('已取消加载')
             setTimeout(() => setStatus('就绪'), 2000)
@@ -2547,6 +3085,55 @@ function App() {
     return currentPath !== lastSavedPathRef.current || content !== lastSavedContentRef.current
   }, [content, currentPath])
 
+  const continuePendingSwitch = useCallback(async () => {
+    const pendingSwitchPath = pendingSwitchPathRef.current
+    if (!pendingSwitchPath) {
+      return false
+    }
+
+    const loaded = await loadFile(pendingSwitchPath)
+    if (loaded) {
+      pendingSwitchPathRef.current = null
+      updateShowFileTree((prev) => (isCompactViewport ? false : prev))
+      return true
+    }
+
+    pendingSwitchPathRef.current = null
+    return false
+  }, [isCompactViewport, loadFile, updateShowFileTree])
+
+  const handleSwitchSaveConfirm = useCallback(async () => {
+    setShowSwitchSaveConfirm(false)
+
+    if (!currentPath) {
+      setIsSaveAsMode(false)
+      setShowSaveAsDialog(true)
+      setStatus('当前内容尚未保存，请先保存后再切换文件')
+      return
+    }
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+      autoSaveTimerRef.current = null
+    }
+
+    const success = await saveFile(currentPath, content)
+    if (!success) {
+      return
+    }
+
+    await saveFileHistory(currentPath, content, '', false).catch(err => {
+      console.warn('切换前保存历史版本失败:', err)
+    })
+
+    await continuePendingSwitch()
+  }, [content, continuePendingSwitch, currentPath])
+
+  const handleSwitchWithoutSaving = useCallback(async () => {
+    setShowSwitchSaveConfirm(false)
+    await continuePendingSwitch()
+  }, [continuePendingSwitch])
+
   const openFileWithGuard = useCallback(async (filePath) => {
     if (!filePath) {
       return false
@@ -2559,48 +3146,13 @@ function App() {
 
     if (hasUnsavedChanges()) {
       pendingSwitchPathRef.current = filePath
-
-      if (!currentPath) {
-        setIsSaveAsMode(false)
-        setShowSaveAsDialog(true)
-        setStatus('当前内容尚未保存，请先保存后再切换文件')
-        return false
-      }
-
-      const confirmed = window.confirm(
-        '当前文件有未保存内容，是否先保存后再切换？\n\n选择“确定”将先保存当前文件再切换，选择“取消”则留在当前文件。'
-      )
-
-      if (!confirmed) {
-        pendingSwitchPathRef.current = null
-        return false
-      }
-
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current)
-        autoSaveTimerRef.current = null
-      }
-
-      const success = await saveFile(currentPath, content)
-      if (!success) {
-        return false
-      }
-
-      await saveFileHistory(currentPath, content, '', false).catch(err => {
-        console.warn('切换前保存历史版本失败:', err)
-      })
+      setShowSwitchSaveConfirm(true)
+      return false
     }
 
-    const loaded = await loadFile(filePath)
-    if (loaded) {
-      pendingSwitchPathRef.current = null
-      updateShowFileTree((prev) => (isCompactViewport ? false : prev))
-      return true
-    }
-
-    pendingSwitchPathRef.current = null
-    return false
-  }, [content, currentPath, hasUnsavedChanges, isCompactViewport, loadFile, updateShowFileTree])
+    pendingSwitchPathRef.current = filePath
+    return continuePendingSwitch()
+  }, [continuePendingSwitch, hasUnsavedChanges, currentPath])
 
   const handleFileSelect = useCallback((filePath) => {
     void openFileWithGuard(filePath)
@@ -2616,8 +3168,8 @@ function App() {
     // 清除自动保存的内容（因为要创建新文件）
     void clearPersistedContent()
     
-    // 直接加载模板内容到编辑器
-    lastSavedContentRef.current = ''
+    // 直接加载模板内容到编辑器，模板内容视为「已保存」状态，未修改时不弹保存提示
+    lastSavedContentRef.current = fileContent
     lastSavedPathRef.current = ''
     setContent(fileContent)
     setCurrentPath('') // 清空当前路径，表示这是新文件
@@ -2776,6 +3328,38 @@ function App() {
       top: targetOffset - centerOffset,
       behavior: 'smooth'
     })
+  }, [])
+
+  // 移动端预览区大纲点击：仅滚动预览并关闭面板
+  const handleMobileOutlineHeadingClick = useCallback((headingOrLine) => {
+    const headingText =
+      headingOrLine && typeof headingOrLine === 'object' ? headingOrLine.text : null
+    if (!previewRef.current || !headingText) {
+      setShowMobileOutlinePanel(false)
+      return
+    }
+    const previewRoot = previewRef.current
+    const previewPane = previewRoot.parentElement || previewRoot
+    const headingEls = previewRoot.querySelectorAll('h1, h2, h3, h4, h5, h6')
+    let target = null
+    for (const el of headingEls) {
+      if (el.textContent && el.textContent.trim() === headingText) {
+        target = el
+        break
+      }
+    }
+    if (target && previewPane) {
+      const targetRect = target.getBoundingClientRect()
+      const paneRect = previewPane.getBoundingClientRect()
+      const currentScrollTop = previewPane.scrollTop
+      const targetOffset = targetRect.top - paneRect.top + currentScrollTop
+      const centerOffset = previewPane.clientHeight / 2 - targetRect.height / 2
+      previewPane.scrollTo({
+        top: targetOffset - centerOffset,
+        behavior: 'smooth'
+      })
+    }
+    setShowMobileOutlinePanel(false)
   }, [])
 
   // 插入表格
@@ -4942,9 +5526,9 @@ function App() {
   // ])
 
   useEffect(() => {
-    if (layout === 'preview-only' || layout === 'vertical') {
+    if (effectiveLayout === 'preview-only' || effectiveLayout === 'vertical') {
       const timer = setTimeout(() => {
-        // 布局切换时强制渲染（即使内容相同）
+        // 布局切换或导出配置面板开关时强制渲染（平板模式下关闭导出配置会切换 DOM 分支，预览区被替换需重新填充）
         if (!isRenderingRef.current && previewRef.current) {
           console.log('布局切换，触发渲染')
           isRenderingRef.current = true
@@ -4955,7 +5539,7 @@ function App() {
       }, 50)
       return () => clearTimeout(timer)
     }
-  }, [layout, content, renderMarkdown])
+  }, [effectiveLayout, content, renderMarkdown, showExportConfigPanel])
 
   // 处理脚注链接点击，防止页面滚动
   useEffect(() => {
@@ -5195,8 +5779,28 @@ function App() {
     // 监听粘贴事件，处理图片粘贴
     const domNode = editor.getDomNode()
     if (domNode) {
-      // 添加右键菜单事件监听
-      domNode.addEventListener('contextmenu', handleEditorContextMenu)
+      domNode.addEventListener('focusin', () => {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+          setMobileActivePane('editor')
+          setTimeout(() => {
+            domNode.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+            editor.layout()
+          }, 120)
+        }
+      })
+
+      // 添加右键菜单事件监听（仅桌面设备启用自定义菜单）
+      try {
+        const isCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches
+        const isNarrowViewport = window.matchMedia?.('(max-width: 1024px)').matches
+        const shouldUseSystemMenu = isCoarsePointer && isNarrowViewport
+
+        if (!shouldUseSystemMenu) {
+          domNode.addEventListener('contextmenu', handleEditorContextMenu)
+        }
+      } catch {
+        domNode.addEventListener('contextmenu', handleEditorContextMenu)
+      }
       
       domNode.addEventListener('paste', async (e) => {
         const items = e.clipboardData?.items
@@ -5695,9 +6299,22 @@ function App() {
   }
 
   const handleClearFavorites = () => {
-    if (window.confirm('确定要清空收藏夹吗？')) {
-      clearFavorites().then(() => setFavorites([]))
-    }
+    void (async () => {
+      const confirmed = await requestConfirm({
+        title: '清空收藏夹',
+        message: '确定要清空收藏夹吗？此操作不会删除原始文件。',
+        confirmText: '清空',
+      })
+
+      if (!confirmed) {
+        return
+      }
+
+      clearFavorites().then(() => {
+        setFavorites([])
+        showToast('收藏夹已清空', 'success')
+      })
+    })()
   }
 
   const handleReorderFavorites = (newFavorites, options = {}) => {
@@ -5799,7 +6416,11 @@ function App() {
         
       case 'delete-image':
         if (contextMenu?.selectedImage?.isLocal) {
-          const confirmed = window.confirm('确定要删除这个图片文件吗？')
+          const confirmed = await requestConfirm({
+            title: '删除图片',
+            message: '确定要删除这个图片文件吗？删除后将同时从文档中移除。',
+            confirmText: '删除',
+          })
           if (confirmed) {
             try {
               const image = contextMenu.selectedImage
@@ -6121,9 +6742,66 @@ function App() {
     }
   }, [contextMenu, handleToolbarInsert, showToast])
 
+  const menuBarProps = {
+    onNewFile: handleNewFile,
+    onSave: handleSaveClick,
+    onSaveAs: handleSaveAs,
+    onExport: handleExport,
+    onCopyToWeChat: handleMenuCopyToWeChat,
+    onUndo: handleMenuUndo,
+    onRedo: handleMenuRedo,
+    onCopy: handleMenuCopy,
+    onCut: handleMenuCut,
+    onPaste: handleMenuPaste,
+    onFormatDocument: handleMenuFormatDocument,
+    onFind: handleMenuFind,
+    onReplace: handleMenuReplace,
+    onInsertHeading: (level) => handleToolbarInsert('#'.repeat(level) + ' ', '', 'heading'),
+    onInsertBold: () => handleToolbarInsert('**', '**', 'wrap'),
+    onInsertItalic: () => handleToolbarInsert('*', '*', 'wrap'),
+    onInsertLink: () => handleToolbarInsert('[', '](https://)', 'wrap'),
+    onInsertImage: () => setShowImageManager(true),
+    onInsertCode: handleInsertCode,
+    onInsertTable: () => setShowTableDialog(true),
+    onOpenTableInsert: () => setShowTableDialog(true),
+    onToggleFileTree: handleToggleFileTree,
+    onToggleTheme: () => toggleEditorTheme(),
+    onSettings: handleSettings,
+    onToggleToolbar: handleToggleToolbar,
+    onZoomIn: handleZoomIn,
+    onZoomOut: handleZoomOut,
+    onZoomReset: handleZoomReset,
+    onLayoutChange: setLayout,
+    onShowMarkdownHelp: handleShowMarkdownHelp,
+    onShowShortcuts: handleShowShortcuts,
+    onShowAbout: handleShowAbout,
+    onShowHistory: handleShowHistory,
+    onPublish: () => setShowSyncDialog(true),
+    imageCaptionFormat,
+    onImageCaptionFormatChange: handleImageCaptionFormatChange,
+    recentFiles,
+    onOpenRecentFile: handleOpenRecentFile,
+    onClearRecentFiles: handleClearRecentFiles,
+    disabled: !currentPath,
+    theme: editorTheme,
+  }
+
 
   return (
-    <div className={`app theme-${editorTheme}`}>
+    <>
+      {/* 首屏加载动画 - 覆盖在主应用上方 */}
+      {isLoading && <FirstScreenLoader message={loadingMessage} />}
+      
+      {/* 主应用内容 - 始终渲染，加载时隐藏 */}
+      <AppUiProvider value={appUi}>
+        <div 
+          className={`app theme-${editorTheme} ${isVirtualKeyboardOpen ? 'keyboard-open' : ''}`}
+          style={{ 
+            visibility: isLoading ? 'hidden' : 'visible',
+            opacity: isLoading ? 0 : 1,
+            transition: 'opacity 0.3s ease-out'
+          }}
+        >
       {showNewFileDialog && (
         <NewFileDialog
           onClose={() => setShowNewFileDialog(false)}
@@ -6142,6 +6820,36 @@ function App() {
           theme={editorTheme}
           initialFileName={initialFileName}
           isSaveAs={isSaveAsMode}
+        />
+      )}
+
+      {showSwitchSaveConfirm && (
+        <ConfirmDialog
+          title="是否需要保存该文件"
+          message="当前文件有未保存内容。点击“确定”将进入保存流程，点击“取消”将不保存并直接切换文件。"
+          confirmVariant="primary"
+          closeOnOverlayClick={false}
+          onConfirm={() => {
+            void handleSwitchSaveConfirm()
+          }}
+          onCancel={() => {
+            void handleSwitchWithoutSaving()
+          }}
+          theme={editorTheme}
+        />
+      )}
+
+      {confirmDialogState && (
+        <ConfirmDialog
+          title={confirmDialogState.title}
+          message={confirmDialogState.message}
+          confirmText={confirmDialogState.confirmText}
+          cancelText={confirmDialogState.cancelText}
+          confirmVariant={confirmDialogState.confirmVariant}
+          closeOnOverlayClick={confirmDialogState.closeOnOverlayClick}
+          onConfirm={confirmDialogState.onConfirm}
+          onCancel={confirmDialogState.onCancel || closeConfirmDialog}
+          theme={editorTheme}
         />
       )}
 
@@ -6238,55 +6946,28 @@ function App() {
           >
             <FolderArchive />
           </button>
-          <img src={markdownLogo} alt="Markdown" className="app-logo" />
-          <MenuBar
-            onNewFile={handleNewFile}
-            onSave={handleSaveClick}
-            onSaveAs={handleSaveAs}
-            onExport={handleExport}
-            onCopyToWeChat={handleMenuCopyToWeChat}
-            onUndo={handleMenuUndo}
-            onRedo={handleMenuRedo}
-            onCopy={handleMenuCopy}
-            onCut={handleMenuCut}
-            onPaste={handleMenuPaste}
-            onFormatDocument={handleMenuFormatDocument}
-            onFind={handleMenuFind}
-            onReplace={handleMenuReplace}
-            onInsertHeading={(level) => handleToolbarInsert('#'.repeat(level) + ' ', '', 'heading')}
-            onInsertBold={() => handleToolbarInsert('**', '**', 'wrap')}
-            onInsertItalic={() => handleToolbarInsert('*', '*', 'wrap')}
-            onInsertLink={() => handleToolbarInsert('[', '](https://)', 'wrap')}
-            onInsertImage={() => setShowImageManager(true)}
-            onInsertCode={handleInsertCode}
-            onInsertTable={() => setShowTableDialog(true)}
-            onOpenTableInsert={() => setShowTableDialog(true)}
-            onToggleFileTree={handleToggleFileTree}
-            onToggleTheme={() => toggleEditorTheme()}
-            onSettings={handleSettings}
-            onToggleToolbar={handleToggleToolbar}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onZoomReset={handleZoomReset}
-            onLayoutChange={setLayout}
-            onShowMarkdownHelp={handleShowMarkdownHelp}
-            onShowShortcuts={handleShowShortcuts}
-            onShowAbout={handleShowAbout}
-            onShowHistory={handleShowHistory}
-            onPublish={() => setShowSyncDialog(true)}
-            imageCaptionFormat={imageCaptionFormat}
-            onImageCaptionFormatChange={handleImageCaptionFormatChange}
-            recentFiles={recentFiles}
-            onOpenRecentFile={handleOpenRecentFile}
-            onClearRecentFiles={handleClearRecentFiles}
-            disabled={!currentPath}
-            theme={editorTheme}
-            compact={isCompactViewport}
-          />
+          {!isAdaptiveSinglePaneViewport && (
+            <>
+              <img src={markdownLogo} alt="Markdown" className="app-logo" />
+              <MenuBar {...menuBarProps} />
+            </>
+          )}
+          {isAdaptiveSinglePaneViewport && (
+            <div className="mobile-document-meta">
+              <div className="mobile-document-title-row">
+                <span className="title mobile-document-title">{currentDocumentName}</span>
+                {hasUnsavedChanges() && <span className="unsaved-indicator mobile-unsaved-indicator" aria-label="未保存">*</span>}
+              </div>
+              <div className="file-path mobile-document-path">{currentDocumentMeta}</div>
+            </div>
+          )}
         
         </div>
         
         <div className="toolbar-right">
+          {isCompactViewport && (
+            <MenuBar {...menuBarProps} compact />
+          )}
           <button 
             className="btn-secondary toolbar-action-btn toolbar-config-btn" 
             onClick={handleToggleExportConfigPanel}
@@ -6304,12 +6985,58 @@ function App() {
         </div>
       </header>
 
-      <main className={`main-content layout-${layout} ${isCompactViewport ? 'is-compact-viewport' : ''} ${isCompactViewport && showFileTree ? 'filetree-overlay-open' : ''}`}>
+      <main className={`main-content layout-${effectiveLayout} ${isCompactViewport ? 'is-compact-viewport' : ''} ${isAdaptiveSinglePaneViewport ? 'mobile-single-column' : ''} ${isCompactViewport && showFileTree ? 'filetree-overlay-open' : ''}`}>
         {isCompactViewport && showFileTree && (
-          <div className="filetree-overlay-backdrop" onClick={handleCloseFileTree} />
+          <div
+            className="filetree-overlay-backdrop"
+            style={{ opacity: 1 - fileTreeSwipeProgress }}
+            onClick={handleCloseFileTree}
+          />
         )}
-        {isCompactViewport && showExportConfigPanel && (
-          <div className="export-config-overlay-backdrop" onClick={handleCloseExportConfigPanel} />
+        {isCompactViewport && showFileTree && (
+          <div
+            className="filetree-close-hit-area"
+            style={{ left: `${compactFileTreePanelWidth}px` }}
+            onClick={handleCloseFileTree}
+          />
+        )}
+        {isCompactViewport && !showFileTree && !showExportConfigPanel && (
+          <div
+            className="filetree-edge-swipe-zone"
+            onTouchStart={handleEdgeSwipeTouchStart}
+            onTouchMove={handleEdgeSwipeTouchMove}
+            onTouchEnd={handleEdgeSwipeTouchEnd}
+            onTouchCancel={handleEdgeSwipeTouchEnd}
+          />
+        )}
+        {isAdaptiveSinglePaneViewport && mobileActivePane === 'preview' && showMobileOutlinePanel && (
+          <div
+            className="mobile-outline-overlay-backdrop"
+            onClick={() => setShowMobileOutlinePanel(false)}
+            aria-hidden="true"
+          />
+        )}
+        {isAdaptiveSinglePaneViewport && mobileActivePane === 'preview' && showMobileOutlinePanel && (
+          <div className="mobile-outline-overlay-panel">
+            <div className="mobile-outline-panel-header">
+              <button
+                type="button"
+                className="mobile-outline-close-btn"
+                onClick={() => setShowMobileOutlinePanel(false)}
+                title="关闭大纲"
+                aria-label="关闭大纲"
+              >
+                <Menu size={20} />
+              </button>
+              <span className="mobile-outline-panel-title">大纲</span>
+            </div>
+            <div className="mobile-outline-panel-body">
+              <OutlinePanel
+                content={content}
+                onHeadingClick={handleMobileOutlineHeadingClick}
+              />
+            </div>
+          </div>
         )}
         <div className="editor-preview-container">
           {showFileTree && !isCompactViewport && (
@@ -6337,7 +7064,18 @@ function App() {
             </div>
           )}
           {showFileTree && isCompactViewport && (
-            <div className="filetree-overlay-panel">
+            <div
+              className="filetree-overlay-panel"
+              style={{
+                width: `min(${fileTreeWidth}px, calc(100vw - 24px))`,
+                transform: `translate3d(${fileTreeSwipeOffset}px, 0, 0)`,
+                transition: isFileTreeSwipeDragging ? 'none' : 'transform 180ms ease-out',
+              }}
+              onTouchStart={handleFileTreeTouchStart}
+              onTouchMove={handleFileTreeTouchMove}
+              onTouchEnd={handleFileTreeTouchEnd}
+              onTouchCancel={handleFileTreeTouchEnd}
+            >
               <FileTree 
                 ref={fileTreeRef}
                 onFileSelect={handleFileSelect} 
@@ -6356,18 +7094,52 @@ function App() {
               />
             </div>
           )}
-          {showExportConfigPanel && isCompactViewport && (
-            <div className="export-config-overlay-panel">
-              <ExportConfigPanel
-                config={exportConfig}
-                onChange={handleExportConfigChange}
-                onClose={handleCloseExportConfigPanel}
-                compact
-              />
-            </div>
-          )}
-          <div className="editor-preview-wrapper">
-            {showToolbar && (layout === 'vertical' || layout === 'editor-only') && (
+          <div
+            className={`editor-preview-wrapper${isCompactViewport && showExportConfigPanel ? ' mobile-export-config-split' : ''}`}
+            {...(isAdaptiveSinglePaneViewport && !showExportConfigPanel
+              ? {
+                  onTouchStart: handlePaneSwipeTouchStart,
+                  onTouchMove: handlePaneSwipeTouchMove,
+                  onTouchEnd: handlePaneSwipeTouchEnd,
+                  onTouchCancel: handlePaneSwipeTouchEnd,
+                }
+              : {})}
+          >
+            {isAdaptiveSinglePaneViewport && !showExportConfigPanel && (
+              <div className="mobile-pane-switcher" role="tablist" aria-label="移动端主视图切换">
+                {mobileActivePane === 'preview' && (
+                  <button
+                    type="button"
+                    className="mobile-outline-trigger-btn"
+                    onClick={() => setShowMobileOutlinePanel(true)}
+                    title="大纲"
+                    aria-label="打开大纲"
+                  >
+                    <PanelLeft size={20} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={`mobile-pane-tab ${mobileActivePane === 'editor' ? 'active' : ''}`}
+                  onClick={() => {
+                    setMobileActivePane('editor')
+                    setShowMobileOutlinePanel(false)
+                  }}
+                  aria-selected={mobileActivePane === 'editor'}
+                >
+                  编辑
+                </button>
+                <button
+                  type="button"
+                  className={`mobile-pane-tab ${mobileActivePane === 'preview' ? 'active' : ''}`}
+                  onClick={() => setMobileActivePane('preview')}
+                  aria-selected={mobileActivePane === 'preview'}
+                >
+                  预览
+                </button>
+              </div>
+            )}
+            {showToolbar && (effectiveLayout === 'vertical' || effectiveLayout === 'editor-only') && (
               <EditorToolbar 
                 onInsert={handleToolbarInsert}
                 onImageUpload={handleImageUpload}
@@ -6383,15 +7155,19 @@ function App() {
                 }}
                 exportConfig={exportConfig}
                 disabled={false}
+                compact={isAdaptiveSinglePaneViewport}
+                theme={editorTheme}
               />
             )}
-            <div className="editor-preview-content">
-              {(layout === 'vertical' || layout === 'editor-only') && (
+            {isCompactViewport && showExportConfigPanel ? (
+              <div className="mobile-export-config-split-body">
+                <div className="editor-preview-content">
+              {(effectiveLayout === 'vertical' || effectiveLayout === 'editor-only') && (
             <>
               <div
                 className="editor-pane"
                 style={
-                  (layout === 'vertical')
+                  (effectiveLayout === 'vertical')
                     ? {
                         width: `${editorWidth}%`,
                         flex: `0 0 ${editorWidth}%`,
@@ -6401,58 +7177,65 @@ function App() {
                     : { flex: 1, minHeight: 0 }
                 }
               >
-              
-              <Editor
-                height="100%"
-                defaultLanguage="markdown"
-                theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
-                value={content}
-                onChange={(value) => setContent(value || '')}
-                onMount={handleEditorMount}
-                options={{
-                  fontSize: editorFontSize,
-                  lineHeight: editorLineHeight,
-                  minimap: { enabled: false },
-                  wordWrap: 'on',
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  tabSize: 2,
-                  fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
-                  fontLigatures: true,
-                  contextmenu: false, // 禁用默认右键菜单
-                  // 行号配置
-                  lineNumbers: 'on',
-                  lineNumbersMinChars: 2,
-                  // 代码折叠配置
-                  folding: true,
-                  showFoldingControls: 'always',
-                  foldingStrategy: 'auto',
-                  foldingHighlight: true,
-                  foldingMaximumRegions: 5000,
-                  unfoldOnClickAfterEndOfLine: true,
-                  // 滚动条配置
-                  scrollbar: {
-                    vertical: 'visible',
-                    horizontal: 'visible',
-                    useShadows: false,
-                    verticalHasArrows: false,
-                    horizontalHasArrows: false,
-                    verticalScrollbarSize: 10,
-                    horizontalScrollbarSize: 10
-                  }
-                }}
-              />
+              <Suspense
+                fallback={
+                  <div className={`editor-loading-placeholder ${editorTheme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
+                    编辑器加载中...
+                  </div>
+                }
+              >
+                <MonacoEditor
+                  height="100%"
+                  defaultLanguage="markdown"
+                  theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
+                  value={content}
+                  onChange={(value) => setContent(value || '')}
+                  onMount={handleEditorMount}
+                  options={{
+                    fontSize: editorFontSize,
+                    lineHeight: editorLineHeight,
+                    minimap: { enabled: false },
+                    wordWrap: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
+                    fontLigatures: true,
+                    contextmenu: false, // 禁用默认右键菜单
+                    // 行号配置
+                    lineNumbers: 'on',
+                    lineNumbersMinChars: 2,
+                    // 代码折叠配置
+                    folding: true,
+                    showFoldingControls: 'always',
+                    foldingStrategy: 'auto',
+                    foldingHighlight: true,
+                    foldingMaximumRegions: 5000,
+                    unfoldOnClickAfterEndOfLine: true,
+                    // 滚动条配置
+                    scrollbar: {
+                      vertical: 'visible',
+                      horizontal: 'visible',
+                      useShadows: false,
+                      verticalHasArrows: false,
+                      horizontalHasArrows: false,
+                      verticalScrollbarSize: 10,
+                      horizontalScrollbarSize: 10
+                    }
+                  }}
+                />
+              </Suspense>
             </div>
-            {layout === 'vertical' && (
+            {effectiveLayout === 'vertical' && (
               <Resizer direction="vertical" onResize={handleEditorResize} />
             )}
           </>
         )}
 
-        {(layout === 'vertical' || layout === 'preview-only') && (
+        {(effectiveLayout === 'vertical' || effectiveLayout === 'preview-only') && (
           <div 
             className="preview-pane" 
-            style={(layout === 'vertical') ? { flex: '1 1 0', minWidth: '120px', minHeight: 0 } : { flex: 1, minHeight: 0 }}
+            style={(effectiveLayout === 'vertical') ? { flex: '1 1 0', minWidth: '120px', minHeight: 0 } : { flex: 1, minHeight: 0 }}
             onContextMenu={(e) => {
               console.log('[preview-pane] onContextMenu 触发，target:', e.target, 'currentTarget:', e.currentTarget)
               handlePreviewContextMenu(e)
@@ -6472,9 +7255,112 @@ function App() {
             />
           </div>
         )}
+                </div>
+                <div className="mobile-export-config-split-panel">
+                  <ExportConfigPanel
+                    config={exportConfig}
+                    onChange={handleExportConfigChange}
+                    onClose={handleCloseExportConfigPanel}
+                    compact
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="editor-preview-content">
+              {(effectiveLayout === 'vertical' || effectiveLayout === 'editor-only') && (
+            <>
+              <div
+                className="editor-pane"
+                style={
+                  (effectiveLayout === 'vertical')
+                    ? {
+                        width: `${editorWidth}%`,
+                        flex: `0 0 ${editorWidth}%`,
+                        minWidth: '120px',
+                        minHeight: 0
+                      }
+                    : { flex: 1, minHeight: 0 }
+                }
+              >
+              <Suspense
+                fallback={
+                  <div className={`editor-loading-placeholder ${editorTheme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
+                    编辑器加载中...
+                  </div>
+                }
+              >
+                <MonacoEditor
+                  height="100%"
+                  defaultLanguage="markdown"
+                  theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
+                  value={content}
+                  onChange={(value) => setContent(value || '')}
+                  onMount={handleEditorMount}
+                  options={{
+                    fontSize: editorFontSize,
+                    lineHeight: editorLineHeight,
+                    minimap: { enabled: false },
+                    wordWrap: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
+                    fontLigatures: true,
+                    contextmenu: false,
+                    lineNumbers: 'on',
+                    lineNumbersMinChars: 2,
+                    folding: true,
+                    showFoldingControls: 'always',
+                    foldingStrategy: 'auto',
+                    foldingHighlight: true,
+                    foldingMaximumRegions: 5000,
+                    unfoldOnClickAfterEndOfLine: true,
+                    scrollbar: {
+                      vertical: 'visible',
+                      horizontal: 'visible',
+                      useShadows: false,
+                      verticalHasArrows: false,
+                      horizontalHasArrows: false,
+                      verticalScrollbarSize: 10,
+                      horizontalScrollbarSize: 10
+                    }
+                  }}
+                />
+              </Suspense>
             </div>
+            {effectiveLayout === 'vertical' && (
+              <Resizer direction="vertical" onResize={handleEditorResize} />
+            )}
+          </>
+        )}
+
+        {(effectiveLayout === 'vertical' || effectiveLayout === 'preview-only') && (
+          <div 
+            className="preview-pane" 
+            style={(effectiveLayout === 'vertical') ? { flex: '1 1 0', minWidth: '120px', minHeight: 0 } : { flex: 1, minHeight: 0 }}
+            onContextMenu={(e) => {
+              console.log('[preview-pane] onContextMenu 触发，target:', e.target, 'currentTarget:', e.currentTarget)
+              handlePreviewContextMenu(e)
+            }}
+          >
+            <div 
+              ref={previewRef}
+              className="markdown-body"
+              style={{
+                fontSize: exportConfig.fontSize || '16px',
+                lineHeight: exportConfig.lineHeight || 1.8,
+                textAlign: exportConfig.textAlign || 'left',
+                fontFamily: exportConfig.fontFamily === 'serif' ? 'Georgia, serif' :
+                           exportConfig.fontFamily === 'monospace' ? 'Monaco, Consolas, monospace' :
+                           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}
+            />
           </div>
-          
+        )}
+              </div>
+            )}
+          </div>
+
           {/* 导出配置面板 */}
           {showExportConfigPanel && !isCompactViewport && (
             <div
@@ -6506,20 +7392,33 @@ function App() {
           <span className={`status-text status-${statusType}`}>{status}</span>
         </div>
         <div className="statusbar-right">
-          <span className="status-info">
-            {content.length} 字符 · {content.split('\n').length} 行
-          </span>
+          {!isAdaptiveSinglePaneViewport && (
+            <span className="status-info">
+              {content.length} 字符 · {content.split('\n').length} 行
+            </span>
+          )}
+          {isAdaptiveSinglePaneViewport && (
+            <span className="mobile-status-meta">
+              {mobileActivePane === 'editor' ? '编辑' : '预览'} · {content.split('\n').length} 行
+            </span>
+          )}
           <button 
             className="statusbar-btn" 
             onClick={() => {
+              if (isAdaptiveSinglePaneViewport) {
+                setMobileActivePane((prev) => (prev === 'editor' ? 'preview' : 'editor'))
+                return
+              }
               const layouts = ['vertical', 'editor-only', 'preview-only']
               const currentIndex = layouts.indexOf(layout)
               const nextIndex = (currentIndex + 1) % layouts.length
               updateLayout(layouts[nextIndex])
             }}
-            title="切换布局"
+            title={isAdaptiveSinglePaneViewport ? (mobileActivePane === 'editor' ? '切换到预览' : '切换到编辑') : '切换布局'}
           >
-            {layout === 'vertical' ? (
+            {isAdaptiveSinglePaneViewport ? (
+              mobileActivePane === 'editor' ? <Eye size={16} /> : <FileText size={16} />
+            ) : layout === 'vertical' ? (
               <Columns size={16} />
             ) : layout === 'editor-only' ? (
               <FileText size={16} />
@@ -6572,7 +7471,9 @@ function App() {
           onClose={() => setContextMenu(null)}
         />
       )}
-    </div>
+      </div>
+      </AppUiProvider>
+    </>
   )
 }
 

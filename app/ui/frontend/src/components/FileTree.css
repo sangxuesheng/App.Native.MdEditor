@@ -400,6 +400,26 @@
     touch-action: pan-y;
   }
 
+  .tree-node,
+  .tree-node-content,
+  .tree-node-text,
+  .tree-node-name,
+  .tree-node-icon,
+  .tree-node-toggle-btn,
+  .tree-node-more-btn,
+  .tree-node-favorite {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .tree-node-content,
+  .tree-node-toggle-btn,
+  .tree-node-more-btn {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   .file-tree-tab {
     min-height: 44px;
   }

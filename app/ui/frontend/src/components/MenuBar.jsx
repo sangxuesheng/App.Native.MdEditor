@@ -38,8 +38,7 @@ import {
   X,
   Settings,
   File,
-  FileJson,
-  MoreHorizontal
+  FileJson
 } from 'lucide-react'
 
 /**
@@ -417,7 +416,6 @@ function MenuBar({
             className={`menu-button compact-trigger ${activeMenu === compactMenuKey ? 'active' : ''}`}
             onClick={() => handleMenuClick(compactMenuKey)}
           >
-            <MoreHorizontal size={16} />
             菜单
           </button>
           {activeMenu === compactMenuKey && renderCompactMenuContent()}

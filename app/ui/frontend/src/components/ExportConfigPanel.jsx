@@ -1533,9 +1533,15 @@ code_pre {
                     className="btn-group-item"
                     style={{ flex: 1 }}
                     onClick={() => {
-                      if (confirm('确定要清空自定义 CSS 吗？')) {
-                        updateConfig('customCSS', '')
-                      }
+                      showDialog({
+                        type: 'confirm',
+                        title: '清空自定义 CSS',
+                        message: '确定要清空自定义 CSS 吗？',
+                        onConfirm: () => {
+                          updateConfig('customCSS', '')
+                          closeDialog()
+                        }
+                      })
                     }}
                   >
                     <Trash2 size={16} />

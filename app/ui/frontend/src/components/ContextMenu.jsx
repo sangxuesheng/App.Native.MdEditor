@@ -10,6 +10,7 @@ function ContextMenu({
   y, 
   node,
   type,
+  expanded,
   onAction,
   onClose
 }) {
@@ -17,9 +18,15 @@ function ContextMenu({
 
   // 根据节点类型生成菜单项
   const getMenuItems = () => {
-    // 如果是头部菜单
+    // 如果是头部菜单或空白处菜单
     if (type === 'header') {
       return [
+        {
+          label: '新建文件夹',
+          icon: <FolderPlus size={16} />,
+          action: () => onAction('newfolder')
+        },
+        { divider: true },
         {
           label: '刷新',
           icon: <RefreshCw size={16} />,
@@ -33,12 +40,13 @@ function ContextMenu({
     const isFile = node.type === 'file'
     const isDirectory = node.type === 'directory'
     const isFav = !!node.isFavorite
+    const isFolderExpanded = isDirectory && expanded && expanded.has(node.path)
     
     const items = []
     
-    // 打开
+    // 打开 / 展开 / 收起
     items.push({
-      label: isFile ? '打开文件' : '展开文件夹',
+      label: isFile ? '打开文件' : (isFolderExpanded ? '收起文件夹' : '展开文件夹'),
       icon: isFile ? <File size={16} /> : <Folder size={16} />,
       action: () => onAction('open')
     })

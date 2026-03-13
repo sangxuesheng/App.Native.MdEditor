@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { 
   Heading1, 
   Heading2, 
@@ -23,9 +24,11 @@ import {
   Copy
 } from 'lucide-react'
 import { copyToWeChat } from '../utils/wechatExporter'
+import { useAppUi } from '../context/AppUiContext'
 import './EditorToolbar.css'
 
-function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTableInsert, disabled, onShowToast, exportConfig }) {
+function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTableInsert, disabled, onShowToast, exportConfig, compact = false, theme = 'dark' }) {
+  const { showToast } = useAppUi()
   const [showChartMenu, setShowChartMenu] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
   const [copying, setCopying] = useState(false)
@@ -77,22 +80,14 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
       // 获取预览内容 - 使用 .markdown-body 选择器
       const previewEl = document.querySelector('.markdown-body')
       if (!previewEl) {
-        if (onShowToast) {
-          onShowToast('未找到预览内容，请确保文档已渲染', 'error')
-        } else {
-          alert('未找到预览内容，请确保文档已渲染')
-        }
+        ;(onShowToast || showToast)('未找到预览内容，请确保文档已渲染', 'error')
         setCopying(false)
         return
       }
       
       const htmlContent = previewEl.innerHTML
       if (!htmlContent || htmlContent.trim() === '') {
-        if (onShowToast) {
-          onShowToast('预览内容为空，请先编辑文档', 'error')
-        } else {
-          alert('预览内容为空，请先编辑文档')
-        }
+        ;(onShowToast || showToast)('预览内容为空，请先编辑文档', 'error')
         setCopying(false)
         return
       }
@@ -114,25 +109,13 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
       const success = await copyToWeChat(htmlContent, primaryColor)
       
       if (success) {
-        if (onShowToast) {
-          onShowToast('✅ 已复制微信格式，可直接粘贴到微信公众号编辑器', 'success')
-        } else {
-          alert('✅ 已复制到剪贴板！\n\n可以直接粘贴到微信公众号编辑器中，样式将完美保留。')
-        }
+        ;(onShowToast || showToast)('已复制微信格式，可直接粘贴到微信公众号编辑器', 'success')
       } else {
-        if (onShowToast) {
-          onShowToast('复制失败，请重试', 'error')
-        } else {
-          alert('复制失败，请重试')
-        }
+        ;(onShowToast || showToast)('复制失败，请重试', 'error')
       }
     } catch (err) {
       console.error('复制微信格式失败:', err)
-      if (onShowToast) {
-        onShowToast('复制失败: ' + err.message, 'error')
-      } else {
-        alert('复制失败: ' + err.message)
-      }
+      ;(onShowToast || showToast)('复制失败: ' + err.message, 'error')
     } finally {
       setCopying(false)
     }
@@ -144,21 +127,29 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
   
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (chartMenuRef.current && !chartMenuRef.current.contains(event.target) &&
-          !chartButtonRef.current?.contains(event.target)) {
-        setShowChartMenu(false)
-      }
+      if (!showChartMenu) return
+      const target = event.target
+      if (chartMenuRef.current?.contains(target) || chartButtonRef.current?.contains(target)) return
+      setShowChartMenu(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    document.addEventListener('touchstart', handleClickOutside, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [showChartMenu])
   
   useEffect(() => {
     if (showChartMenu && chartButtonRef.current) {
       const rect = chartButtonRef.current.getBoundingClientRect()
+      const dropdownHeight = 280
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      const openAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
       setMenuPosition({
-        top: rect.bottom + 8,
-        left: rect.left
+        top: openAbove ? rect.top - dropdownHeight - 8 : rect.bottom + 8,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - 296))
       })
     }
   }, [showChartMenu])
@@ -304,6 +295,78 @@ ${'```'}`
     { id: 'er', label: '实体关系图', icon: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="8" height="10" rx="1"/><rect x="14" y="7" width="8" height="10" rx="1"/><path d="M10 12h4"/></svg>) }
   ]
 
+  if (compact) {
+    return (
+      <div className="editor-toolbar mobile-compact">
+        <div className="toolbar-group mobile-compact-group">
+          <button className="toolbar-btn" onClick={() => insertHeading(1)} disabled={disabled} title="标题 1"><Heading1 size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={() => insertHeading(2)} disabled={disabled} title="标题 2"><Heading2 size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={() => insertHeading(3)} disabled={disabled} title="标题 3"><Heading3 size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertBold} disabled={disabled} title="加粗 (Ctrl+B)"><Bold size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertItalic} disabled={disabled} title="斜体 (Ctrl+I)"><Italic size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertStrikethrough} disabled={disabled} title="删除线"><Strikethrough size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertUnorderedList} disabled={disabled} title="无序列表"><List size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertOrderedList} disabled={disabled} title="有序列表"><ListOrdered size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertTaskList} disabled={disabled} title="任务列表"><CheckSquare size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertLink} disabled={disabled} title="插入链接"><Link2 size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={handleOpenImageManagerClick} disabled={disabled} title="图片管理"><Image size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={handleUploadClick} disabled={disabled} title="上传图片 (支持多选)"><Upload size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertCodeBlock} disabled={disabled} title="代码块"><FileCode size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertInlineCode} disabled={disabled} title="行内代码"><Code2 size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertQuote} disabled={disabled} title="引用"><Quote size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={handleOpenTableInsertClick} disabled={disabled} title="插入表格"><Table size={iconSize} /></button>
+          <button className="toolbar-btn" onClick={insertHorizontalRule} disabled={disabled} title="分隔线"><Minus size={iconSize} /></button>
+          <div className="toolbar-group chart-group mobile-chart-group">
+            <button
+              ref={chartButtonRef}
+              className={`toolbar-btn chart-btn ${showChartMenu ? 'active' : ''}`}
+              onClick={() => setShowChartMenu(!showChartMenu)}
+              disabled={disabled}
+              title="插入图表"
+            >
+              <BarChart3 size={iconSize} />
+              <ChevronDown size={12} />
+            </button>
+          </div>
+        </div>
+
+        {showChartMenu && createPortal(
+          <div
+            ref={chartMenuRef}
+            className={`chart-dropdown theme-${theme}`}
+            style={{
+              position: 'fixed',
+              top: `${menuPosition.top}px`,
+              left: `${menuPosition.left}px`,
+              zIndex: 9999
+            }}
+          >
+            <div className="chart-dropdown-header">图表类型</div>
+            <div className="chart-grid">
+              {chartTypes.map(chart => (
+                <button key={chart.id} className="chart-item" onClick={() => insertChart(chart.id)} disabled={disabled}>
+                  <span className="chart-icon">{chart.icon}</span>
+                  <span className="chart-label">{chart.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="chart-dropdown-footer">图表将在预览面板中渲染</div>
+          </div>,
+          document.body
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+      </div>
+    )
+  }
+
 
   return (
     <div className="editor-toolbar">
@@ -366,10 +429,10 @@ ${'```'}`
         </button>
       </div>
       
-      {showChartMenu && (
-        <div 
+      {showChartMenu && createPortal(
+        <div
           ref={chartMenuRef}
-          className="chart-dropdown" 
+          className={`chart-dropdown theme-${theme}`}
           style={{
             position: 'fixed',
             top: `${menuPosition.top}px`,
@@ -387,7 +450,8 @@ ${'```'}`
             ))}
           </div>
           <div className="chart-dropdown-footer">图表将在预览面板中渲染</div>
-        </div>
+        </div>,
+        document.body
       )}
       
       {/* 隐藏的文件输入框 */}

@@ -25,6 +25,9 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedImages, setSelectedImages] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [contextMenu, setContextMenu] = useState(null) // { x, y, image }
+  const longPressTimerRef = useRef(null)
+  const longPressTriggeredRef = useRef(false)
   const fileInputRef = useRef(null)
   const recentUploadsRef = useRef(null)
   
@@ -459,6 +462,10 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
     onClose()
   }
 
+  const handleInsertUploadedClick = (image) => {
+    doInsertUploadedImage(image)
+  }
+
   const handleOverlayClick = () => {
     onClose()
   }
@@ -525,13 +532,68 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
     doOpenPreviewImage(image)
   }
 
-  const handleImageDeleteClick = async (e, image) => {
-    e.stopPropagation()
-    await doDeleteImage(image)
+  // 长按事件处理
+  const handleImageTouchStart = (e, image) => {
+    longPressTriggeredRef.current = false
+    longPressTimerRef.current = setTimeout(() => {
+      const touch = e.touches[0]
+      setContextMenu({
+        x: touch.clientX,
+        y: touch.clientY,
+        image: image
+      })
+      longPressTriggeredRef.current = true
+    }, 500)
   }
 
-  const handleInsertUploadedClick = (image) => {
-    doInsertUploadedImage(image)
+  const handleImageTouchEnd = (e, image) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+    }
+
+    // 如果触摸结束发生在操作按钮上（插入 / 删除 / 选择框），则不触发预览
+    const target = e.target
+    if (
+      target.closest?.('.insert-image-btn') ||
+      target.closest?.('.delete-image-btn') ||
+      target.closest?.('.image-checkbox')
+    ) {
+      longPressTriggeredRef.current = false
+      return
+    }
+
+    // 非长按视为点击预览（仅在未进入批量选择模式时）
+    if (!longPressTriggeredRef.current && !selectionMode) {
+      doOpenPreviewImage(image)
+    }
+
+    longPressTriggeredRef.current = false
+  }
+
+  const handleImageDeleteClick = (e, image) => {
+    e.stopPropagation()
+    doDeleteImage(image)
+  }
+
+  const handleContextMenuAction = (action) => {
+    if (!contextMenu) return
+    
+    const image = contextMenu.image
+    switch (action) {
+      case 'delete':
+        doDeleteImage(image)
+        break
+      default:
+        break
+    }
+    setContextMenu(null)
+  }
+
+  const handleOverlayClickForMenu = (e) => {
+    // 点击菜单外空白处关闭菜单
+    if (contextMenu && e.target === e.currentTarget) {
+      setContextMenu(null)
+    }
   }
 
   const handleEnterSelectionModeClick = () => {
@@ -669,6 +731,13 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                             插入
                           </button>
                         </div>
+                        <button
+                          className="insert-image-btn"
+                          onClick={() => handleInsertUploadedClick(image)}
+                          title="插入到文档"
+                        >
+                          插入
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -748,6 +817,8 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                       <div 
                         key={index} 
                         className={`image-item ${selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`}
+                        onTouchStart={(e) => handleImageTouchStart(e, image)}
+                        onTouchEnd={(e) => handleImageTouchEnd(e, image)}
                       >
                         {selectionMode && (
                           <div 
@@ -781,14 +852,16 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
                           </span>
                         </div>
                         {!selectionMode && (
-                          <>
-                          <button className="img-preview-icon-btn" onClick={(e) => handlePreviewOpenClick(e, image)} title="预览"><Eye size={14} /></button>
-                          <div className="image-overlay">
-                            <button onClick={() => handleInsertUploadedClick(image)}>
-                              插入
-                            </button>
-                          </div>
-                          </>
+                          <button
+                            className="insert-image-btn"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              doInsertUploadedImage(image)
+                            }}
+                            title="插入到文档"
+                          >
+                            插入
+                          </button>
                         )}
                       </div>
                     )
@@ -1026,6 +1099,29 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
         </div>
       </div>
     </div>
+
+    {/* 上下文菜单 */}
+    {contextMenu && (
+      <>
+        <div 
+          className="image-context-menu-overlay"
+          onClick={handleOverlayClickForMenu}
+        />
+        <div 
+          className="image-context-menu"
+          style={{
+            position: 'fixed',
+            left: `${contextMenu.x}px`,
+            top: `${contextMenu.y}px`,
+            zIndex: 10001
+          }}
+        >
+          <button onClick={() => handleContextMenuAction('delete')}>
+            <Trash2 size={16} /> 删除
+          </button>
+        </div>
+      </>
+    )}
 
     {/* 图片预览浮窗 */}
     {previewImage && (

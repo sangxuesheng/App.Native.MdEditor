@@ -2,31 +2,12 @@
   ".url": {
     "App.Native.MdEditor2.Application": {
       "title": "Markdown 编辑器 v2",
-      "icon": "images/icon-256.png",
-      "type": "iframe",
-      "protocol": "http",
+      "icon": "images/icon-{0}.png",
+      "type": "url",
+      "protocol": "",
       "port": "18080",
       "url": "/",
-      "allUsers": true,
-      "width": 1412,
-      "height": 887,
-      "minWidth": 1200,
-      "minHeight": 800
-    },
-    "App.Native.MdEditor2.OpenFile": {
-      "title": "用 Markdown 编辑器打开",
-      "icon": "images/icon-256.png",
-      "type": "iframe",
-      "protocol": "http",
-      "port": "18080",
-      "url": "/",
-      "allUsers": true,
-      "fileTypes": ["md"],
-      "noDisplay": true,
-      "width": 1412,
-      "height": 887,
-      "minWidth": 1200,
-      "minHeight": 800
+      "allUsers": true
     }
   }
 }

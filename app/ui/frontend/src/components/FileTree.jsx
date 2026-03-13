@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronRight, File, Folder, Star, FileText, FileJson, MoreHorizontal } from 'lucide-react';
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
@@ -13,6 +14,7 @@ import { filterFileTree, highlightMatches } from '../utils/fileSearcher';
 import { useDebounce } from '../hooks/useDebounce';
 import { toggleFavorite, getFavorites, updateFavoritePath } from '../utils/favoritesManager';
 import { loadSetting, parseStoredArray, persistSetting } from '../utils/settingsApi';
+import { useAppUi } from '../context/AppUiContext';
 import './FileTree.css';
 
 const FileTree = forwardRef(({ 
@@ -30,6 +32,7 @@ const FileTree = forwardRef(({
   theme = 'light',
   compactInteractionMode = false
 }, ref) => {
+  const { showToast, requestConfirm } = useAppUi();
   const FILE_TREE_TABS = ['files', 'outline', 'history'];
   const [activeTab, setActiveTab] = useState('files'); // 'files', 'outline', 'history'
   const [tree, setTree] = useState([]);
@@ -472,15 +475,11 @@ const FileTree = forwardRef(({
     openContextMenuAt(e.clientX, e.clientY, null, 'header');
   };
 
-  // 处理空白区域右键菜单（显示根目录菜单）
+  // 处理空白区域右键菜单：显示头部菜单，新建文件夹时父级为 mdeditor 根目录
   const handleEmptyAreaContextMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // 如果有根目录，使用第一个根目录
-    if (tree.length > 0 && tree[0].type === 'directory') {
-      openContextMenuAt(e.clientX, e.clientY, tree[0]);
-    }
+    openContextMenuAt(e.clientX, e.clientY, null, 'header');
   };
 
   const handleHeaderMenuButtonClick = (e) => {
@@ -637,10 +636,20 @@ const FileTree = forwardRef(({
   const handleMenuAction = async (action) => {
     setContextMenu(null);
     
-    // 处理头部菜单操作
+    // 处理头部菜单操作（含空白处右键）
     if (contextMenu?.type === 'header') {
       if (action === 'refresh') {
         await doRefreshRootDirectory();
+      } else if (action === 'newfolder') {
+        // 空白处新建文件夹：父级为 mdeditor 根目录（Folder 的上一级）
+        const rootParentPath = tree.length > 0 && tree[0].path
+          ? tree[0].path.replace(/\/[^/]+$/, '')
+          : null;
+        if (rootParentPath) {
+          doOpenNewFolderDialog({ path: rootParentPath, type: 'directory', name: '' });
+        } else {
+          showToast?.('无法获取根目录，请刷新后重试', 'error');
+        }
       }
       return;
     }
@@ -735,12 +744,13 @@ const FileTree = forwardRef(({
         if (currentPath === oldPath) {
           onFileSelect(newPath);
         }
+        showToast(`已重命名为 ${newName}`, 'success');
       } else {
-        alert(`重命名失败: ${data.message || data.code}`);
+        showToast(`重命名失败: ${data.message || data.code}`, 'error');
       }
     } catch (error) {
       console.error('Rename error:', error);
-      alert('重命名失败: 网络错误');
+      showToast('重命名失败: 网络错误', 'error');
     }
     
     doCloseRenameDialog();
@@ -762,14 +772,20 @@ const FileTree = forwardRef(({
       const data = await response.json();
       
       if (data.ok) {
-        // 刷新父目录
-        await loadDirectory(newFolderParent.path);
+        // 刷新：若父级为根目录（mdeditor），刷新根；否则刷新父目录
+        const rootParentPath = tree.length > 0 && tree[0].path
+          ? tree[0].path.replace(/\/[^/]+$/, '')
+          : null;
+        await loadDirectory(
+          rootParentPath && newFolderParent.path === rootParentPath ? '/' : newFolderParent.path
+        );
+        showToast(`已创建文件夹 ${folderName}`, 'success');
       } else {
-        alert(`创建文件夹失败: ${data.message || data.code}`);
+        showToast(`创建文件夹失败: ${data.message || data.code}`, 'error');
       }
     } catch (error) {
       console.error('Create folder error:', error);
-      alert('创建文件夹失败: 网络错误');
+      showToast('创建文件夹失败: 网络错误', 'error');
     }
     
     doCloseNewFolderDialog();
@@ -781,7 +797,14 @@ const FileTree = forwardRef(({
       ? `确定要删除文件夹 "${node.name}" 及其所有内容吗？`
       : `确定要删除文件 "${node.name}" 吗？`;
       
-    if (!window.confirm(confirmMsg)) {
+    const confirmed = await requestConfirm({
+      title: node.type === 'directory' ? '删除文件夹' : '删除文件',
+      message: confirmMsg,
+      confirmText: '删除',
+      confirmVariant: 'danger'
+    });
+
+    if (!confirmed) {
       return;
     }
     
@@ -804,12 +827,13 @@ const FileTree = forwardRef(({
         if (currentPath === node.path) {
           onFileSelect('');
         }
+        showToast('删除成功', 'success');
       } else {
-        alert(`删除失败: ${data.message || data.code}`);
+        showToast(`删除失败: ${data.message || data.code}`, 'error');
       }
     } catch (error) {
       console.error('Delete error:', error);
-      alert('删除失败: 网络错误');
+      showToast('删除失败: 网络错误', 'error');
     }
   };
 
@@ -822,12 +846,11 @@ const FileTree = forwardRef(({
         path: node.path,
         type: node.type
       }));
-      
-      // 显示提示
-      const msg = node.type === 'directory' ? '文件夹已复制' : '文件已复制';
-      console.log(msg);
+
+      showToast(node.type === 'directory' ? '文件夹已复制' : '文件已复制', 'success');
     } catch (error) {
       console.error('Copy error:', error);
+      showToast('复制失败', 'error');
     }
   };
 
@@ -840,12 +863,11 @@ const FileTree = forwardRef(({
         path: node.path,
         type: node.type
       }));
-      
-      // 显示提示
-      const msg = node.type === 'directory' ? '文件夹已剪切' : '文件已剪切';
-      console.log(msg);
+
+      showToast(node.type === 'directory' ? '文件夹已剪切' : '文件已剪切', 'success');
     } catch (error) {
       console.error('Cut error:', error);
+      showToast('剪切失败', 'error');
     }
   };
 
@@ -854,7 +876,7 @@ const FileTree = forwardRef(({
     try {
       const clipboardData = localStorage.getItem('clipboard');
       if (!clipboardData) {
-        alert('剪贴板为空');
+        showToast('剪贴板为空', 'warning');
         return;
       }
       
@@ -862,7 +884,7 @@ const FileTree = forwardRef(({
       const { action, path: sourcePath, type } = clipData;
       
       if (!sourcePath) {
-        alert('剪贴板数据无效');
+        showToast('剪贴板数据无效', 'error');
         return;
       }
       
@@ -872,13 +894,13 @@ const FileTree = forwardRef(({
       
       // 检查是否粘贴到自己
       if (sourcePath === targetPath) {
-        alert('不能粘贴到相同位置');
+        showToast('不能粘贴到相同位置', 'warning');
         return;
       }
       
       // 检查是否粘贴到子目录（避免循环）
       if (type === 'directory' && targetPath.startsWith(sourcePath + '/')) {
-        alert('不能将文件夹粘贴到其子目录中');
+        showToast('不能将文件夹粘贴到其子目录中', 'warning');
         return;
       }
       
@@ -909,14 +931,13 @@ const FileTree = forwardRef(({
           }
         }
         
-        const msg = action === 'cut' ? '移动成功' : '复制成功';
-        alert(msg);
+        showToast(action === 'cut' ? '移动成功' : '复制成功', 'success');
       } else {
-        alert(`操作失败: ${data.message || data.code}`);
+        showToast(`操作失败: ${data.message || data.code}`, 'error');
       }
     } catch (error) {
       console.error('Paste error:', error);
-      alert('粘贴失败: 网络错误');
+      showToast('粘贴失败: 网络错误', 'error');
     }
   };
 
@@ -980,6 +1001,8 @@ const FileTree = forwardRef(({
           onPointerMove={handleNodePointerMove}
           onPointerUp={handleNodePointerEnd}
           onPointerCancel={handleNodePointerEnd}
+          onSelectStart={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
         >
           {hasChildren && (
             <>
@@ -1138,36 +1161,44 @@ const FileTree = forwardRef(({
           y={contextMenu.y}
           node={contextMenu.node}
           type={contextMenu.type}
+          expanded={expanded}
           onAction={handleMenuAction}
           onClose={() => setContextMenu(null)}
         />
       )}
       
-      {/* 重命名对话框 */}
-      {showRenameDialog && renameNode && (
-        <RenameDialog
-          node={renameNode}
-          onConfirm={doRenameNode}
-          onCancel={doCloseRenameDialog}
-          theme={theme}
-        />
+      {/* 重命名/新建文件夹/文件属性对话框 - 使用 Portal 渲染到 body，避免被文件树 overlay 的 will-change 限制定位，移动端/平板端可正确居中 */}
+      {showRenameDialog && renameNode && createPortal(
+        <div className={`theme-${theme}`}>
+          <RenameDialog
+            node={renameNode}
+            onConfirm={doRenameNode}
+            onCancel={doCloseRenameDialog}
+            theme={theme}
+          />
+        </div>,
+        document.body
       )}
       
-      {/* 新建文件夹对话框 */}
-      {showNewFolderDialog && newFolderParent && (
-        <NewFolderDialog
-          parentPath={newFolderParent.path}
-          onConfirm={doCreateFolder}
-          onCancel={doCloseNewFolderDialog}
-        />
+      {showNewFolderDialog && newFolderParent && createPortal(
+        <div className={`theme-${theme}`}>
+          <NewFolderDialog
+            parentPath={newFolderParent.path}
+            onConfirm={doCreateFolder}
+            onCancel={doCloseNewFolderDialog}
+          />
+        </div>,
+        document.body
       )}
 
-      {/* 文件属性对话框 */}
-      {showPropertiesDialog && propertiesNode && (
-        <FilePropertiesDialog
-          node={propertiesNode}
-          onClose={doClosePropertiesDialog}
-        />
+      {showPropertiesDialog && propertiesNode && createPortal(
+        <div className={`theme-${theme}`}>
+          <FilePropertiesDialog
+            node={propertiesNode}
+            onClose={doClosePropertiesDialog}
+          />
+        </div>,
+        document.body
       )}
     </div>
   );

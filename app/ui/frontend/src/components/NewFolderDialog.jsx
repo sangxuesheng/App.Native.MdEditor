@@ -69,7 +69,7 @@ function NewFolderDialog({
   }
 
   return (
-    <div className="dialog-overlay" onClick={handleOverlayClick}>
+    <div className="dialog-overlay new-folder-dialog-overlay" onClick={handleOverlayClick}>
       <div className="dialog-content new-folder-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>新建文件夹</h2>

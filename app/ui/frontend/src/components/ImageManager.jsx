@@ -3,8 +3,10 @@ import { Image, X, Upload, Copy, Plus, Trash2 } from 'lucide-react';
 import './ImageManager.css';
 import ImageUploader from './ImageUploader';
 import ImagePreview from './ImagePreview';
+import { useAppUi } from '../context/AppUiContext';
 
 const ImageManager = ({ onInsert, onClose }) => {
+  const { showToast, requestConfirm } = useAppUi();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -53,7 +55,13 @@ const ImageManager = ({ onInsert, onClose }) => {
   };
 
   const doDeleteImage = async (image) => {
-    if (!confirm(`确定要删除 ${image.filename} 吗？`)) {
+    const confirmed = await requestConfirm({
+      title: '删除图片',
+      message: `确定要删除 ${image.filename} 吗？`,
+      confirmText: '删除'
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -67,16 +75,16 @@ const ImageManager = ({ onInsert, onClose }) => {
       if (result.ok) {
         loadImages();
       } else {
-        alert('删除失败：' + result.message);
+        showToast('删除失败：' + result.message, 'error');
       }
     } catch (err) {
-      alert('删除失败：' + err.message);
+      showToast('删除失败：' + err.message, 'error');
     }
   };
 
   const doCopyImageLink = (image) => {
     navigator.clipboard.writeText(image.url);
-    alert('链接已复制到剪贴板');
+    showToast('链接已复制到剪贴板', 'success');
   };
 
   const handleUploadSuccess = () => {

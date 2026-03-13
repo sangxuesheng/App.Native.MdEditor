@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Folder, FolderOpen, ChevronRight, ChevronDown, Plus, X } from 'lucide-react';
 import AnimatedList from './AnimatedList';
 import './FileBrowser.css';
@@ -307,8 +308,8 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
         )}
       </div>
 
-      {showNewFolderDialog && (
-        <div className="new-folder-overlay" onClick={handleOverlayClick}>
+      {showNewFolderDialog && createPortal(
+        <div className={`new-folder-overlay theme-${theme || 'light'}`} onClick={handleOverlayClick}>
           <div className="new-folder-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <h3>新建文件夹</h3>
@@ -342,7 +343,8 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

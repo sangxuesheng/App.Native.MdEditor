@@ -10,6 +10,7 @@ import {
   syncToPlatform,
 } from '../utils/coseClient'
 import { packContent, titleFromPath } from '../utils/contentPacker'
+import { useAppUi } from '../context/AppUiContext'
 
 const COSE_STORE_URL =
   'https://chromewebstore.google.com/detail/ilhikcdphhpjofhlnbojifbihhfmmhfk'
@@ -79,6 +80,7 @@ function extractFirstParagraph(md) {
 }
 
 function SyncDialog({ onClose, theme, currentPath, markdown, renderedHtml }) {
+  const { showToast } = useAppUi()
   const themeClass = theme === 'light' ? 'theme-light' : theme === 'md3' ? 'theme-md3' : 'theme-dark'
 
   const [metaCover, setMetaCover] = useState('')
@@ -202,7 +204,7 @@ function SyncDialog({ onClose, theme, currentPath, markdown, renderedHtml }) {
     } catch (e) {
       setPackingContent(false)
       setIsSyncing(false)
-      alert('内容准备失败：' + e.message)
+      showToast('内容准备失败：' + e.message, 'error')
       return
     }
     setPackingContent(false)

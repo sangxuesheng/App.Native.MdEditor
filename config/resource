@@ -2,6 +2,14 @@
   "data-share": {
     "shares": [
       {
+        "name": "mdeditor",
+        "permission": {
+          "rw": [
+            "data"
+          ]
+        }
+      },
+      {
         "name": "mdeditor/images",
         "permission": {
           "rw": [

@@ -1,10 +1,12 @@
 {
   "name": "md-editor-frontend",
   "private": true,
-  "version": "1.27.32",
+  "version": "1.27.48",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-code-themes.cjs",
     "dev": "vite",
+    "prebuild": "node scripts/copy-code-themes.cjs",
     "build": "vite build",
     "preview": "vite preview"
   },

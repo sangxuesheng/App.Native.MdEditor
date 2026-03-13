@@ -127,25 +127,36 @@ do_install_fpk() {
 }
 
 # ----------------------------------------------------------------------------
-# 步骤 3b：install-local 开发快速安装
+# 步骤 3b：快速安装（fnpack build + install-fpk 静默模式）
+# 说明：install-local 在重装已存在应用时会报 code 10234，
+#       改用 fnpack build + install-fpk --env config.env 静默安装更可靠。
 # ----------------------------------------------------------------------------
 do_install_local() {
-    log_step "步骤 3 / appcenter-cli install-local（开发模式）"
+    log_step "步骤 3 / 快速安装（fnpack + install-fpk 静默模式）"
+    check_fnpack
     check_appcenter
     cd "$SCRIPT_DIR"
-  if ! appcenter-cli install-local; then
-      log_err "install-local 命令执行失败（请检查 appcenter 日志）"
-      return 1
-  fi
 
-  # 再次确认应用是否真正安装成功（避免 appcenter 内部报错但退出码为 0 的情况）
-  if ! appcenter-cli list 2>/dev/null | grep -q "$APP_NAME"; then
-      log_err "install-local 可能失败：在已安装列表中未找到 $APP_NAME"
-      log_info "请检查 manifest / config/privilege / config/resource 及 app/ cmd/ wizard/ 目录结构是否符合规范"
-      return 1
-  fi
+    # 打包
+    log_info "执行 fnpack build..."
+    fnpack build
+    FPK_FILE=$(ls -t *.fpk 2>/dev/null | head -1)
+    if [ -z "$FPK_FILE" ]; then
+        log_err "未找到 .fpk 文件，打包失败"
+        return 1
+    fi
+    log_ok "打包成功 → $FPK_FILE  ($(du -sh "$FPK_FILE" | cut -f1))"
 
-  log_ok "install-local 完成（已检测到 $APP_NAME 安装记录）"
+    # 静默安装：若存在 config.env 则使用静默模式，否则交互安装
+    if [ -f "$SCRIPT_DIR/config.env" ]; then
+        log_info "使用 config.env 静默安装..."
+        appcenter-cli install-fpk "$FPK_FILE" --env "$SCRIPT_DIR/config.env"
+    else
+        log_info "未找到 config.env，使用交互模式安装..."
+        appcenter-cli install-fpk "$FPK_FILE"
+    fi
+
+    log_ok "安装完成"
 }
 
 # ----------------------------------------------------------------------------
@@ -204,7 +215,15 @@ case "${1:-}" in
         echo "╚══════════════════════════════════════════╝"
         do_build
         do_pack
-        do_install_fpk
+        
+        # 优先尝试 install-local（开发快速模式），失败则回退到 install-fpk
+        if do_install_local; then
+            log_ok "使用 install-local 安装成功"
+        else
+            log_info "install-local 失败，回退到 install-fpk..."
+            do_install_fpk
+        fi
+        
         do_restart
         echo ""
         echo "══════════════════════════════════════════"

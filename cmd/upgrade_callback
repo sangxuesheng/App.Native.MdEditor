@@ -4,6 +4,40 @@
 # - 通常用于配置迁移、数据结构升级等
 
 echo "App.Native.MdEditor upgrade_callback running..."
+
+# 确保 shares 下的所有目录（Folder、images、history）归属应用用户（与 install_callback 一致）
+# 对每个目录单独执行 chown，确保权限修复成功
+
+SHARES_BASE="/var/apps/${TRIM_APPNAME:-App.Native.MdEditor2}/shares"
+APP_USER="${TRIM_USERNAME:-App.Native.MdEditor2}"
+APP_GROUP="${TRIM_GROUPNAME:-App.Native.MdEditor2}"
+
+# 对 shares 根目录及其下的所有目录执行 chown
+if [ -d "${SHARES_BASE}" ]; then
+  # 先对 shares 本身执行 chown
+  chown "${APP_USER}:${APP_GROUP}" "${SHARES_BASE}" 2>/dev/null || true
+  
+  # 对 shares 下的每个一级目录（包括符号链接目标）执行 chown -R
+  for dir in "${SHARES_BASE}"/*; do
+    if [ -e "$dir" ] || [ -L "$dir" ]; then
+      # 如果是符号链接，解析到实际路径后执行 chown
+      if [ -L "$dir" ]; then
+        real_path=$(readlink -f "$dir" 2>/dev/null)
+        if [ -n "$real_path" ] && [ -d "$real_path" ]; then
+          # 对实际路径及其所有子目录执行 chown -R
+          chown -R "${APP_USER}:${APP_GROUP}" "$real_path" 2>/dev/null || true
+          # 额外：使用 find 确保所有子目录都被修复（处理用户创建的目录）
+          find "$real_path" -type d -exec chown "${APP_USER}:${APP_GROUP}" {} \; 2>/dev/null || true
+        fi
+      else
+        # 如果是普通目录，直接执行 chown
+        chown -R "${APP_USER}:${APP_GROUP}" "$dir" 2>/dev/null || true
+        find "$dir" -type d -exec chown "${APP_USER}:${APP_GROUP}" {} \; 2>/dev/null || true
+      fi
+    fi
+  done
+fi
+
 exit 0
 
 

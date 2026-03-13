@@ -1,6 +1,6 @@
 export const DEFAULT_DOCUMENT_CONTENT = `# Markdown 编辑器功能展示
 这是一个完整的 Markdown 功能展示文档，包含了各种常用的格式和元素，可直观呈现编辑器的核心能力。
-
+# 
 ## 文本格式
 ### 基础文本样式
 - **粗体文本**
@@ -8,6 +8,7 @@ export const DEFAULT_DOCUMENT_CONTENT = `# Markdown 编辑器功能展示
 - ***粗斜体文本***
 - ~~删除线文本~~
 - \`行内代码（单行代码片段）\`
+
 
 ### 标题层级
 # 一级标题
@@ -115,20 +116,20 @@ for i in range(10):
 ## 数学公式
 ### 行内公式
 这是一个行内公式：$E = mc^2$（爱因斯坦质能方程）  
-另一个行内公式：$\sum_{i=1}^n i = \frac{n(n+1)}{2}$（自然数求和公式）
+另一个行内公式：$\\sum_{i=1}^n i = \\frac{n(n+1)}{2}$（自然数求和公式）
 
 ### 块级公式
 $$
-\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
 $$
 
 $$
-\begin{align}
-\nabla \times \vec{\mathbf{B}} -\, \frac1c\, \frac{\partial\vec{\mathbf{E}}}{\partial t} &= \frac{4\pi}{c}\vec{\mathbf{j}} \\
-\nabla \cdot \vec{\mathbf{E}} &= 4 \pi \rho \\
-\nabla \times \vec{\mathbf{E}}\, +\, \frac1c\, \frac{\partial\vec{\mathbf{B}}}{\partial t} &= \vec{\mathbf{0}} \\
-\nabla \cdot \vec{\mathbf{B}} &= 0
-\end{align}
+\\begin{align}
+\\nabla \\times \\vec{\\mathbf{B}} -\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{E}}}{\\partial t} &= \\frac{4\\pi}{c}\\vec{\\mathbf{j}} \\\\
+\\nabla \\cdot \\vec{\\mathbf{E}} &= 4 \\pi \\rho \\\\
+\\nabla \\times \\vec{\\mathbf{E}}\\, +\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{B}}}{\\partial t} &= \\vec{\\mathbf{0}} \\\\
+\\nabla \\cdot \\vec{\\mathbf{B}} &= 0
+\\end{align}
 $$
 
 ## 流程图 (Mermaid)

@@ -9,12 +9,14 @@ import {
 import ConfirmDialog from './ConfirmDialog'
 import VersionPreviewDialog from './VersionPreviewDialog'
 import AnimatedList from './AnimatedList'
+import { useAppUi } from '../context/AppUiContext'
 import './HistoryPanel.css'
 
 /**
  * 历史版本面板组件
  */
 function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
+  const { showToast } = useAppUi()
   const [versions, setVersions] = useState([])
   const [loading, setLoading] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
@@ -67,7 +69,7 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
       await loadVersions() // 重新加载列表
     } catch (error) {
       console.error('删除版本失败:', error)
-      alert('删除失败: ' + error.message)
+      showToast('删除失败: ' + error.message, 'error')
     }
   }
 
@@ -85,7 +87,7 @@ function HistoryPanel({ currentPath, theme = 'light', onVersionRestore }) {
       setShowClearConfirm(false)
     } catch (error) {
       console.error('清空历史版本失败:', error)
-      alert('清空失败: ' + error.message)
+      showToast('清空失败: ' + error.message, 'error')
     }
   }
 

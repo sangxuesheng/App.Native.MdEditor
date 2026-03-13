@@ -4,6 +4,7 @@
   max-width: 92vw !important;
   display: flex !important;
   flex-direction: column !important;
+  overflow: hidden !important;
   flex-shrink: 0 !important;
   box-sizing: border-box !important;
 }
@@ -70,6 +71,7 @@
   padding: 16px 20px;
   border-top: 1px solid #30363d;
   background: #0d1117;
+  border-radius: 0 0 12px 12px;
 }
 
 .theme-light .save-as-dialog .dialog-footer {
@@ -329,6 +331,7 @@
   .save-as-dialog .dialog-footer {
     flex-wrap: wrap;
     align-items: stretch;
+    border-radius: 0 0 18px 18px;
   }
 
   .save-as-dialog .footer-left,
@@ -342,9 +345,25 @@
 }
 
 @media (max-width: 768px) {
+  .dialog-overlay.compact-panel-overlay.save-as-dialog-overlay {
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
   .save-as-dialog {
     width: 100% !important;
-    height: calc(100vh - 16px) !important;
+    height: min(50vh, 480px) !important;
+    max-height: min(50vh, calc(100vh - var(--safe-area-top) - var(--safe-area-bottom) - 24px)) !important;
+  }
+
+  .save-as-dialog.overwrite-mode {
+    height: auto !important;
+    max-height: min(50vh, 400px) !important;
+  }
+
+  .save-as-dialog .dialog-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .overwrite-confirm {
@@ -354,6 +373,7 @@
   .save-as-dialog .dialog-footer {
     padding: 14px 16px;
     gap: 12px;
+    border-radius: 0 0 20px 20px;
   }
 
   .save-as-dialog .footer-right {

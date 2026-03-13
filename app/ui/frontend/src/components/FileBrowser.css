@@ -391,7 +391,7 @@
   margin-bottom: 16px;
 }
 
-/* 新建文件夹对话框 */
+/* 新建文件夹对话框 - 使用 Portal 渲染到 body，需高于另存为对话框 (z-index: 100000) */
 .new-folder-overlay {
   position: fixed;
   top: 0;
@@ -402,8 +402,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 100001;
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Portal 渲染时脱离 .file-browser，需在此定义主题变量 */
+.new-folder-overlay.theme-light {
+  --dialog-bg: #ffffff;
+  --border-color: #d0d7de;
+  --text-color: #24292f;
+  --text-secondary: #57606a;
+  --hover-bg: #f6f8fa;
+  --selected-bg: #0969da;
+  --selected-text: #ffffff;
+}
+
+.new-folder-overlay.theme-dark {
+  --dialog-bg: #0d1117;
+  --border-color: #30363d;
+  --text-color: #c9d1d9;
+  --text-secondary: #8b949e;
+  --hover-bg: #21262d;
+  --selected-bg: #58a6ff;
+  --selected-text: #0d1117;
 }
 
 @keyframes fadeIn {

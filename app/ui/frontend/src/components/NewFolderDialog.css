@@ -137,3 +137,88 @@
   --error-color: #f85149;
 }
 
+/* 平板端自适应 (max-width: 1024px) */
+@media (max-width: 1024px) {
+  .dialog-overlay.new-folder-dialog-overlay {
+    padding: calc(12px + var(--safe-area-top)) calc(12px + var(--safe-area-right)) calc(12px + var(--safe-area-bottom)) calc(12px + var(--safe-area-left));
+    align-items: center;
+    box-sizing: border-box;
+  }
+
+  .dialog-overlay.new-folder-dialog-overlay .dialog-content.new-folder-dialog {
+    width: min(95vw, 480px) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 24px) !important;
+    height: auto !important;
+    min-height: 280px !important;
+    max-height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom) - 24px) !important;
+  }
+
+  .dialog-overlay.new-folder-dialog-overlay .dialog-content.new-folder-dialog > * {
+    max-width: 100% !important;
+  }
+
+  .new-folder-dialog .dialog-body {
+    padding: 16px 20px;
+  }
+
+  .new-folder-dialog .dialog-footer {
+    padding: 16px 20px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .new-folder-dialog .form-hint {
+    max-width: 100%;
+    font-size: 11px;
+  }
+}
+
+/* 移动端自适应 (max-width: 768px) */
+@media (max-width: 768px) {
+  .dialog-overlay.new-folder-dialog-overlay {
+    padding: calc(8px + var(--safe-area-top)) calc(8px + var(--safe-area-right)) calc(8px + var(--safe-area-bottom)) calc(8px + var(--safe-area-left));
+    align-items: center;
+  }
+
+  .dialog-overlay.new-folder-dialog-overlay .dialog-content.new-folder-dialog {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 260px !important;
+    max-height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom) - 16px) !important;
+  }
+
+  .new-folder-dialog .dialog-header {
+    padding: 16px 20px;
+  }
+
+  .new-folder-dialog .dialog-body {
+    padding: 16px 20px;
+  }
+
+  .new-folder-dialog .dialog-footer {
+    padding: 12px 20px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .new-folder-dialog .form-hint {
+    max-width: 100%;
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  .new-folder-dialog .footer-buttons {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .new-folder-dialog .btn-secondary,
+  .new-folder-dialog .btn-primary {
+    min-width: 80px;
+    height: 36px;
+  }
+}
+

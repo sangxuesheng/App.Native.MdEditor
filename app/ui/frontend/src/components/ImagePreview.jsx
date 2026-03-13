@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { X, ZoomIn, ZoomOut, Copy, Plus, Download, Trash2 } from 'lucide-react';
 import './ImagePreview.css';
+import { useAppUi } from '../context/AppUiContext';
 
 const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
+  const { showToast } = useAppUi();
   const [scale, setScale] = useState(1);
 
   const handleWheel = (e) => {
@@ -25,7 +27,7 @@ const ImagePreview = ({ image, onInsert, onDelete, onClose }) => {
 
   const doCopyImageLink = () => {
     navigator.clipboard.writeText(image.url);
-    alert('链接已复制到剪贴板');
+    showToast('链接已复制到剪贴板', 'success');
   };
 
   const doDownloadImage = () => {

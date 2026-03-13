@@ -2,8 +2,8 @@
   "defaults": {
     "run-as": "package"
   },
-  "username": "App.Native.MdEditor",
-  "groupname": "App.Native.MdEditor"
+  "username": "App.Native.MdEditor2",
+  "groupname": "App.Native.MdEditor2"
 }
 
 

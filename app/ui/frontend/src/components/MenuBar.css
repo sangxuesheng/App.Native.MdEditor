@@ -253,6 +253,16 @@
   opacity: 0.72;
 }
 
+.theme-light .compact-menu-section-title {
+  color: #0969da;
+  opacity: 1;
+}
+
+.theme-dark .compact-menu-section-title {
+  color: #58a6ff;
+  opacity: 1;
+}
+
 .compact-menu-section-body {
   display: flex;
   flex-direction: column;
@@ -269,6 +279,16 @@
   font-size: 12px;
   font-weight: 600;
   opacity: 0.78;
+}
+
+.theme-light .compact-submenu-label {
+  color: #0969da;
+  opacity: 0.9;
+}
+
+.theme-dark .compact-submenu-label {
+  color: #58a6ff;
+  opacity: 0.9;
 }
 
 .compact-submenu-item {

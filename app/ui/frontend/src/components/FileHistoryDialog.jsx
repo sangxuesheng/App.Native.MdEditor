@@ -6,6 +6,7 @@ import {
   formatFileSize, 
   calculateDiff 
 } from '../utils/fileHistoryManagerV2'
+import { useAppUi } from '../context/AppUiContext'
 import './FileHistoryDialog.css'
 
 /**
@@ -20,6 +21,7 @@ function FileHistoryDialog({
   onClose,
   theme 
 }) {
+  const { showToast, requestConfirm } = useAppUi()
   const [selectedVersion, setSelectedVersion] = useState(null)
   const [showDiff, setShowDiff] = useState(false)
   const themeClass = theme === 'light' ? 'theme-light' : theme === 'md3' ? 'theme-md3' : 'theme-dark'
@@ -31,7 +33,7 @@ function FileHistoryDialog({
       setShowDiff(false)
     } catch (error) {
       console.error('加载历史版本内容失败:', error)
-      alert('加载版本内容失败: ' + error.message)
+      showToast('加载版本内容失败: ' + error.message, 'error')
     }
   }
 
@@ -39,15 +41,30 @@ function FileHistoryDialog({
     await doSelectVersion(version)
   }
 
-  const doRestoreSelectedVersion = () => {
-    if (selectedVersion && window.confirm('确定要恢复到此版本吗？当前内容将被替换。')) {
+  const doRestoreSelectedVersion = async () => {
+    if (!selectedVersion) return
+
+    const confirmed = await requestConfirm({
+      title: '恢复历史版本',
+      message: '确定要恢复到此版本吗？当前内容将被替换。',
+      confirmText: '恢复',
+      confirmVariant: 'primary'
+    })
+
+    if (confirmed) {
       onRestore(selectedVersion.content)
       onClose()
     }
   }
 
-  const doDeleteVersion = (version) => {
-    if (window.confirm('确定要删除此历史版本吗？')) {
+  const doDeleteVersion = async (version) => {
+    const confirmed = await requestConfirm({
+      title: '删除历史版本',
+      message: '确定要删除此历史版本吗？',
+      confirmText: '删除'
+    })
+
+    if (confirmed) {
       onDelete(version.versionNumber)
       if (selectedVersion && selectedVersion.versionNumber === version.versionNumber) {
         setSelectedVersion(null)
@@ -61,7 +78,7 @@ function FileHistoryDialog({
 
   const handleDeleteClick = (e, version) => {
     e.stopPropagation()
-    doDeleteVersion(version)
+    void doDeleteVersion(version)
   }
 
   const handleToggleDiffClick = () => {
@@ -77,7 +94,7 @@ function FileHistoryDialog({
   }
 
   const handleConfirmClick = () => {
-    doRestoreSelectedVersion()
+    void doRestoreSelectedVersion()
   }
 
   const renderDiff = () => {

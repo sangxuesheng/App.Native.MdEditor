@@ -4,21 +4,14 @@ let Database
 let dbInstance = null
 
 function getAppDataPath() {
-  const currentDir = __dirname
-
-  // 飞牛安装环境：
-  // /vol4/@appcenter/App.Native.MdEditor2/server
-  // 真实可写 appdata 路径应走 /var/apps/<appname>/var
-  if (currentDir.includes('/@appcenter/')) {
-    const match = currentDir.match(/@appcenter\/([^/]+)/)
-    const appName = match && match[1] ? match[1] : 'App.Native.MdEditor2'
-    const varDir = path.join('/var/apps', appName, 'var')
-    return path.join(varDir, 'app.db')
+  // 飞牛环境：使用系统提供的 var 目录
+  const trimVar = process.env.TRIM_PKGVAR
+  if (trimVar) {
+    return path.join(trimVar, 'app.db')
   }
 
-  // 开发环境：
-  // /vol4/1000/开发文件夹/mac/app/server -> /vol4/1000/开发文件夹/mac/app/var/app.db
-  const appRoot = path.join(currentDir, '..')
+  // 开发环境：使用相对路径
+  const appRoot = path.join(__dirname, '..')
   const varDir = path.join(appRoot, 'var')
 
   try {
