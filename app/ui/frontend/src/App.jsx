@@ -7518,16 +7518,16 @@ function App() {
           onClose={() => setContextMenu(null)}
         />
       )}
-      </div>
-      </AppUiProvider>
-    </>
-  )
-}
 
       {/* AI 侧边栏 */}
       <AISidebar
         editorContent={content}
         selectedText={""}
       />
+      </div>
+      </AppUiProvider>
+    </>
+  )
+}
 
 export default App
