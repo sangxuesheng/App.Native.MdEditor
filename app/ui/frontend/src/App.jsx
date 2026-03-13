@@ -7526,7 +7526,7 @@ function App() {
 
       {/* AI 侧边栏 */}
       <AISidebar
-        editorContent={content}
+        editorContent={editorContent}
         selectedText={""}
       />
 
