@@ -1,6 +1,6 @@
 /* ==================== AI 对话窗口样式 ==================== */
 
-/* AI 切换按钮 */
+/* AI 浮动按钮（可拖动） */
 .ai-toggle-btn {
   position: fixed;
   right: 20px;
@@ -12,19 +12,31 @@
   color: white;
   border: none;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-  cursor: pointer;
+  cursor: grab;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   gap: 2px;
-  transition: all 0.3s ease;
+  transition: box-shadow 0.3s ease;
   z-index: 1000;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
 
 .ai-toggle-btn:hover {
   transform: scale(1.1);
   box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+}
+
+.ai-toggle-btn.dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.ai-toggle-btn.dragging:hover {
+  transform: none;
 }
 
 .ai-toggle-label {
@@ -851,11 +863,13 @@
 }
 
 .ai-model-switcher-group-title {
-  padding: 4px 12px 6px;
+  padding: 6px 12px;
   font-size: 12px;
   font-weight: 600;
   color: #8b949e;
   letter-spacing: 0.02em;
+  background: rgba(48, 54, 61, 0.6);
+  margin: 0 0 4px 0;
 }
 
 .ai-model-switcher-popover.theme-light .ai-model-switcher-group:not(:first-child),
@@ -866,6 +880,11 @@
 .ai-model-switcher-popover.theme-light .ai-model-switcher-group-title,
 .theme-light .ai-model-switcher-group-title {
   color: #57606a;
+  background: rgba(208, 215, 222, 0.5);
+}
+
+.ai-model-switcher-group:first-child .ai-model-switcher-group-title {
+  margin-top: 0;
 }
 
 .ai-model-switcher-item {
@@ -3063,6 +3082,21 @@
   padding: 0 16px;
 }
 
+.ai-image-desc-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--md-primary-color, #667eea);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.ai-image-desc-link:hover {
+  color: var(--md-primary-color, #667eea);
+  opacity: 0.85;
+}
+
 .ai-image-main {
   flex: 1;
   display: flex;
@@ -3212,20 +3246,34 @@
 .ai-image-history-panel {
   background: var(--bg-secondary, #161b22);
   border-radius: 12px;
-  padding: 16px;
-  max-width: 90%;
+  padding: 0;
+  width: 90%;
+  max-width: 400px;
   max-height: 80%;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .ai-image-history-panel h4 {
-  margin: 0 0 12px 0;
+  margin: 0;
+  padding: 16px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color, #e6edf3);
+  border-bottom: 1px solid var(--border-color, #30363d);
+  flex-shrink: 0;
 }
 
 .ai-image-history-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 12px 16px;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .ai-image-history-item {
@@ -3237,19 +3285,94 @@
   background: var(--bg-color, #0d1117);
 }
 
-.ai-image-history-item img {
+.ai-image-history-item img.ai-image-history-thumb {
   width: 48px;
   height: 48px;
   object-fit: cover;
   border-radius: 4px;
+  cursor: pointer;
+}
+
+.ai-image-history-item img.ai-image-history-thumb:hover {
+  opacity: 0.9;
+  outline: 2px solid var(--accent-color, #58a6ff);
+}
+
+/* 文生图历史缩略图点击预览 overlay */
+.ai-image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  cursor: pointer;
+  animation: fadeIn 0.2s ease;
+}
+
+.ai-image-preview-overlay img {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  cursor: default;
 }
 
 .ai-image-history-item span {
+  flex: 1;
   font-size: 13px;
   color: var(--text-secondary, #6b7280);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-image-history-delete {
+  flex-shrink: 0;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.ai-image-history-delete:hover {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.1);
+}
+
+/* 浅色主题下历史记录面板 */
+.theme-light .ai-image-history-panel {
+  background: var(--bg-primary, #ffffff);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .ai-image-history-panel h4 {
+  color: var(--text-primary, #1f2937);
+  border-bottom-color: var(--border-color, #e5e7eb);
+}
+
+.theme-light .ai-image-history-item {
+  background: #f6f8fa;
+}
+
+.theme-light .ai-image-history-item span {
+  color: #57606a;
+}
+
+.theme-light .ai-image-history-delete {
+  color: #57606a;
+}
+
+.theme-light .ai-image-history-delete:hover {
+  color: #cf222e;
+  background: #ffebe9;
 }
 
 /* ==================== AI 历史会话面板（与文生图历史、项目 overlay 一致） */

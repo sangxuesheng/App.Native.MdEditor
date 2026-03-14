@@ -6,7 +6,7 @@ import AIImagePanel from './AIImagePanel'
 import { useAIChat } from '../../hooks/ai/useAIChat'
 import { useAIImage } from '../../hooks/ai/useAIImage'
 
-export default function AIDialog({ isOpen, onClose, getEditorContent, getSelectedText, onInsertImage, onInsertText }) {
+export default function AIDialog({ isOpen, onClose, getEditorContent, getSelectedText, onInsertImage, onInsertText, onOpenImageManager }) {
   const [showConfig, setShowConfig] = React.useState(false)
   const [mode, setMode] = React.useState('chat') // 'chat' | 'image'
   const [configPanelTab, setConfigPanelTab] = React.useState('chat') // 打开配置面板时默认标签：'chat' | 'image'
@@ -22,7 +22,7 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
     image.setConfig((prev) => ({ ...prev, ...updates }))
   }
 
-  // 文生图与对话共用 API 配置：endpoint、apiKey、fetchedModelsByService 优先从对话 config 按服务商读取
+  // 文生图与对话共用 API 配置：endpoint、apiKey、fetchedModelsByService、disabledProviders 优先从对话 config 按服务商读取
   const effectiveImageConfig = React.useMemo(() => {
     const ep = chat.config.endpoints?.[image.config.type] ?? image.config.endpoint ?? ''
     const ak = chat.config.apiKeys?.[image.config.type] ?? image.config.apiKey ?? ''
@@ -31,8 +31,9 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
       endpoint: ep && ep.trim() ? ep : (image.config.endpoint || ''),
       apiKey: ak,
       fetchedModelsByService: chat.config.fetchedModelsByService,
+      disabledProviders: chat.config.disabledProviders,
     }
-  }, [image.config, chat.config.endpoints, chat.config.apiKeys, chat.config.fetchedModelsByService])
+  }, [image.config, chat.config.endpoints, chat.config.apiKeys, chat.config.fetchedModelsByService, chat.config.disabledProviders])
 
   const openChatConfig = () => {
     setConfigPanelTab('chat')
@@ -82,6 +83,9 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
             onSwitchToChat={() => setMode('chat')}
             onInsertImage={onInsertImage}
             onImageConfigChange={handleImageConfigChange}
+            onOpenImageManager={() => onOpenImageManager?.('library')}
+            onDeleteHistory={image.removeHistoryItem}
+            onSelectHistoryItem={(item) => image.setResultUrl?.(item?.url)}
           />
         ) : (
           <AIChatPanel
