@@ -10,6 +10,45 @@ export const DEFAULT_APP_STATE = {
   fileTreeWidth: 280,
   exportConfigPanelWidth: 280,
   imageCaptionFormat: 'title-first',
+  exportConfig: null, // 导出配置（主题等），null 表示使用默认或预设
+}
+
+/** 默认导出配置结构（用于校验与合并） */
+const DEFAULT_EXPORT_CONFIG_KEYS = [
+  'theme', 'customCSS', 'fontFamily', 'fontSize', 'textAlign', 'lineHeight',
+  'themeColor', 'elementStyles', 'codeTheme', 'macCodeBlock', 'captionFormat',
+  'paragraphIndent', 'paragraphJustify', 'wechatLinkToFootnote', 'includeTOC',
+  'headingColor', 'headingStyles', 'bgColor', 'bgCSS'
+]
+
+const sanitizeExportConfig = (config) => {
+  if (!config || typeof config !== 'object') return null
+  const out = {}
+  for (const k of DEFAULT_EXPORT_CONFIG_KEYS) {
+    const v = config[k]
+    if (v !== undefined) out[k] = v
+  }
+  return Object.keys(out).length > 0 ? out : null
+}
+
+/**
+ * 将持久化的 exportConfig 与默认结构合并，供恢复时使用
+ * @param {Object} persisted - 持久化的配置（可能不完整）
+ * @param {Object} defaults - 默认完整结构
+ */
+export function mergeExportConfigWithDefaults(persisted, defaults) {
+  if (!persisted || typeof persisted !== 'object') return defaults
+  const merged = { ...defaults }
+  for (const k of Object.keys(persisted)) {
+    if (persisted[k] !== undefined && DEFAULT_EXPORT_CONFIG_KEYS.includes(k)) {
+      if (k === 'elementStyles' && typeof persisted[k] === 'object') {
+        merged[k] = { ...(defaults[k] || {}), ...persisted[k] }
+      } else {
+        merged[k] = persisted[k]
+      }
+    }
+  }
+  return merged
 }
 
 export const DEFAULT_IMAGE_MANAGER_SETTINGS = {
@@ -33,20 +72,25 @@ const safeParseJson = (value, fallback) => {
   }
 }
 
-const sanitizeAppState = (state = {}) => ({
-  content: typeof state.content === 'string' ? state.content : DEFAULT_APP_STATE.content,
-  currentPath: typeof state.currentPath === 'string' ? state.currentPath : DEFAULT_APP_STATE.currentPath,
-  editorWidth: typeof state.editorWidth === 'number' ? state.editorWidth : DEFAULT_APP_STATE.editorWidth,
-  fileTreeWidth: typeof state.fileTreeWidth === 'number' ? state.fileTreeWidth : DEFAULT_APP_STATE.fileTreeWidth,
-  exportConfigPanelWidth:
-    typeof state.exportConfigPanelWidth === 'number'
-      ? state.exportConfigPanelWidth
-      : DEFAULT_APP_STATE.exportConfigPanelWidth,
-  imageCaptionFormat:
-    typeof state.imageCaptionFormat === 'string'
-      ? state.imageCaptionFormat
-      : DEFAULT_APP_STATE.imageCaptionFormat,
-})
+const sanitizeAppState = (state = {}) => {
+  const base = {
+    content: typeof state.content === 'string' ? state.content : DEFAULT_APP_STATE.content,
+    currentPath: typeof state.currentPath === 'string' ? state.currentPath : DEFAULT_APP_STATE.currentPath,
+    editorWidth: typeof state.editorWidth === 'number' ? state.editorWidth : DEFAULT_APP_STATE.editorWidth,
+    fileTreeWidth: typeof state.fileTreeWidth === 'number' ? state.fileTreeWidth : DEFAULT_APP_STATE.fileTreeWidth,
+    exportConfigPanelWidth:
+      typeof state.exportConfigPanelWidth === 'number'
+        ? state.exportConfigPanelWidth
+        : DEFAULT_APP_STATE.exportConfigPanelWidth,
+    imageCaptionFormat:
+      typeof state.imageCaptionFormat === 'string'
+        ? state.imageCaptionFormat
+        : DEFAULT_APP_STATE.imageCaptionFormat,
+  }
+  const ec = sanitizeExportConfig(state.exportConfig)
+  if (ec) base.exportConfig = ec
+  return base
+}
 
 const sanitizePartialAppState = (state = {}) => {
   const nextState = {}
@@ -61,6 +105,8 @@ const sanitizePartialAppState = (state = {}) => {
   if (typeof state.imageCaptionFormat === 'string') {
     nextState.imageCaptionFormat = state.imageCaptionFormat
   }
+  const ec = sanitizeExportConfig(state.exportConfig)
+  if (ec) nextState.exportConfig = ec
 
   return nextState
 }

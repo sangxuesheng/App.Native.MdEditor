@@ -48,7 +48,7 @@ import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Shar
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
 import { saveEditorDraft, loadEditorDraft, clearEditorDraft } from './utils/editorLocalStorage'
-import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting } from './utils/settingsApi'
+import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting, mergeExportConfigWithDefaults } from './utils/settingsApi'
 import { safeParseJsonResponse } from './utils/fetchUtils'
 import { copyToWeChat } from './utils/wechatExporter'
 import { detectCOSE } from './utils/coseClient'
@@ -120,6 +120,43 @@ const loadMermaid = async () => {
   return mermaidModule
 }
 
+// 默认导出配置（用于合并持久化数据）
+const DEFAULT_EXPORT_CONFIG = {
+  theme: 'default',
+  customCSS: '',
+  fontFamily: 'sans-serif',
+  fontSize: '16px',
+  textAlign: 'left',
+  lineHeight: 1.8,
+  themeColor: '',
+  elementStyles: {
+    h1: { color: '', preset: 'default', customCSS: '' },
+    h2: { color: '', preset: 'default', customCSS: '' },
+    h3: { color: '', preset: 'default', customCSS: '' },
+    h4: { color: '', preset: 'default', customCSS: '' },
+    h5: { color: '', preset: 'default', customCSS: '' },
+    h6: { color: '', preset: 'default', customCSS: '' },
+    p: { color: '', preset: 'default', customCSS: '' },
+    strong: { color: '', preset: 'default', customCSS: '' },
+    link: { color: '', preset: 'default', customCSS: '' },
+    ul: { color: '', preset: 'default', customCSS: '' },
+    ol: { color: '', preset: 'default', customCSS: '' },
+    blockquote: { color: '', preset: 'default', customCSS: '' },
+    codespan: { color: '', preset: 'default', customCSS: '' },
+    code_pre: { color: '', preset: 'default', customCSS: '' },
+    hr: { color: '', preset: 'default', customCSS: '' },
+    image: { color: '', preset: 'default', customCSS: '' },
+    bg: { color: '', preset: 'default', customCSS: '' },
+  },
+  codeTheme: 'github',
+  macCodeBlock: true,
+  captionFormat: 'title-first',
+  paragraphIndent: false,
+  paragraphJustify: false,
+  wechatLinkToFootnote: false,
+  includeTOC: false,
+}
+
 // 首屏直接从 localStorage 加载草稿（无 URL 路径时），避免闪烁
 const getInitialEditorState = () => {
   const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
@@ -168,56 +205,7 @@ function App() {
   // 导出配置面板状态
   const [showExportConfigPanel, setShowExportConfigPanel] = useState(false)
   const [previewLayoutVersion, setPreviewLayoutVersion] = useState(0)
-  const [exportConfig, setExportConfig] = useState({
-    // 主题与基础
-    theme: 'default',
-    customCSS: '',
-    fontFamily: 'sans-serif',
-    fontSize: '16px',
-    textAlign: 'left',
-    lineHeight: 1.8,
-    
-    // 主题色（默认为空，不选择）
-    themeColor: '',
-
-    // 细则样式管理（统一管理所有元素的颜色、预设、自定义CSS）
-    elementStyles: {
-      h1:         { color: '', preset: 'default', customCSS: '' },
-      h2:         { color: '', preset: 'default', customCSS: '' },
-      h3:         { color: '', preset: 'default', customCSS: '' },
-      h4:         { color: '', preset: 'default', customCSS: '' },
-      h5:         { color: '', preset: 'default', customCSS: '' },
-      h6:         { color: '', preset: 'default', customCSS: '' },
-      p:          { color: '', preset: 'default', customCSS: '' },
-      strong:     { color: '', preset: 'default', customCSS: '' },
-      link:       { color: '', preset: 'default', customCSS: '' },
-      ul:         { color: '', preset: 'default', customCSS: '' },
-      ol:         { color: '', preset: 'default', customCSS: '' },
-      blockquote: { color: '', preset: 'default', customCSS: '' },
-      codespan:   { color: '', preset: 'default', customCSS: '' },
-      code_pre:   { color: '', preset: 'default', customCSS: '' },
-      hr:         { color: '', preset: 'default', customCSS: '' },
-      image:      { color: '', preset: 'default', customCSS: '' },
-      bg:         { color: '', preset: 'default', customCSS: '' },
-    },
-    
-    // 代码样式
-    codeTheme: 'github',
-    macCodeBlock: true,
-    
-    // 图注格式
-    captionFormat: 'title-first',
-    
-    // 段落格式
-    paragraphIndent: false,
-    paragraphJustify: false,
-    
-    // 微信适配
-    wechatLinkToFootnote: false,
-    
-    // 其他选项
-    includeTOC: false
-  })
+  const [exportConfig, setExportConfig] = useState(() => ({ ...DEFAULT_EXPORT_CONFIG }))
 
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState(null)
@@ -1380,41 +1368,8 @@ function App() {
         preview.setAttribute('data-caption-format', exportConfig.captionFormat || 'title-first')
         preview.setAttribute('data-wechat-link-footnote', exportConfig.wechatLinkToFootnote ? 'true' : 'false')
         
-        // 手动更新图注内容
-        const figures = preview.querySelectorAll('figure.image-figure')
-        figures.forEach((figure) => {
-          const alt = figure.getAttribute('data-alt') || ''
-          const title = figure.getAttribute('data-title') || ''
-          const figcaption = figure.querySelector('figcaption')
-          
-          if (figcaption) {
-            let caption = ''
-            const format = exportConfig.captionFormat || 'title-first'
-            
-            switch (format) {
-              case 'title-first':
-                caption = title || alt
-                break
-              case 'alt-first':
-                caption = alt || title
-                break
-              case 'title-only':
-                caption = title
-                break
-              case 'alt-only':
-                caption = alt
-                break
-              case 'no-caption':
-                caption = ''
-                break
-              default:
-                caption = title || alt
-            }
-            
-            figcaption.textContent = caption
-            figcaption.style.display = caption ? 'block' : 'none'
-          }
-        })
+        // 手动更新图注内容（用户切换图注格式时生效）
+        updateFigureCaptionsInPreview(preview, exportConfig.captionFormat)
         
         // 手动更新外链脚注显示
         const footnotesSection = preview.querySelector('.footnotes-section')
@@ -1680,13 +1635,17 @@ function App() {
 
   editorThemeRef.current = editorTheme
 
-  // 从后端加载共享设置与编辑状态
+  // 从后端加载共享设置与编辑状态（含导出配置主题持久化）
   useEffect(() => {
     const loadInitialState = async () => {
       try {
-        const [settings, persistedState] = await Promise.all([
+        const [settings, persistedState, presetData] = await Promise.all([
           fetchAllSettings(),
           loadPersistedState(),
+          fetch('/api/export-presets/active')
+            .then(res => res.ok ? res.json() : null)
+            .then(data => (data?.ok && data?.preset?.config) ? data : null)
+            .catch(() => null),
         ])
 
         const s = settings || {}
@@ -1705,7 +1664,6 @@ function App() {
         if (typeof s.showHistory === 'boolean') setShowHistory(s.showHistory)
 
         // 方案1：启动时不恢复上次编辑的文件，仅恢复布局等设置
-        // setContent / setCurrentPath 由 initialDocumentHandledRef 统一处理（新建页面或 URL 指定文件）
         setFileTreeWidth(persistedState.fileTreeWidth || DEFAULT_APP_STATE.fileTreeWidth)
         setEditorWidth(persistedState.editorWidth || DEFAULT_APP_STATE.editorWidth)
         setExportConfigPanelWidth(
@@ -1714,6 +1672,13 @@ function App() {
         setImageCaptionFormat(
           persistedState.imageCaptionFormat || DEFAULT_APP_STATE.imageCaptionFormat
         )
+
+        // 导出配置：优先使用持久化的主题等设置，否则使用预设
+        if (persistedState.exportConfig && typeof persistedState.exportConfig === 'object') {
+          setExportConfig(mergeExportConfigWithDefaults(persistedState.exportConfig, DEFAULT_EXPORT_CONFIG))
+        } else if (presetData?.preset?.config) {
+          setExportConfig(mergeExportConfigWithDefaults(presetData.preset.config, DEFAULT_EXPORT_CONFIG))
+        }
       } catch (e) {
         console.error('[App] 加载共享状态失败:', e)
       } finally {
@@ -1722,30 +1687,6 @@ function App() {
     }
 
     loadInitialState()
-  }, [])
-
-  // 从后端加载导出配置预设（仅加载当前激活的一份）
-  useEffect(() => {
-    const loadExportPreset = async () => {
-      try {
-        const res = await fetch('/api/export-presets/active')
-        if (!res.ok) return
-        const data = await safeParseJsonResponse(res, {})
-        if (!data || !data.ok || !data.preset || !data.preset.config) return
-        const apiConfig = data.preset.config
-        // 仅用 API 中已定义的字段覆盖，避免 undefined 覆盖默认值（如 macCodeBlock: true）
-        setExportConfig(prev => {
-          const merged = { ...prev }
-          for (const [k, v] of Object.entries(apiConfig)) {
-            if (v !== undefined) merged[k] = v
-          }
-          return merged
-        })
-      } catch (e) {
-        console.error('[App] 加载导出配置失败:', e)
-      }
-    }
-    loadExportPreset()
   }, [])
 
   // 同步 ref 中的联动开关值，供非 React 事件处理使用
@@ -2220,7 +2161,7 @@ function App() {
     })
   }, [effectiveLayout, detectPreviewImage, findImageInEditor])
 
-  // 编辑状态持久化到数据库
+  // 编辑状态持久化到数据库（含导出配置主题等，实现主题设置持久化）
   const persistenceState = {
     content,
     currentPath,
@@ -2228,6 +2169,7 @@ function App() {
     fileTreeWidth,
     exportConfigPanelWidth,
     imageCaptionFormat,
+    exportConfig,
   }
   
   // 启用自动保存（防抖 500ms）
@@ -5306,8 +5248,32 @@ function App() {
     return processedHtml + footnotesHtml
   }
 
+  // 根据 captionFormat 更新预览区内所有 figure 的图注内容（供 renderMarkdown 和 useEffect 共用）
+  const updateFigureCaptionsInPreview = useCallback((previewEl, captionFormat) => {
+    if (!previewEl) return
+    const format = captionFormat || 'title-first'
+    const figures = previewEl.querySelectorAll('figure.image-figure')
+    figures.forEach((figure) => {
+      const alt = figure.getAttribute('data-alt') || ''
+      const title = figure.getAttribute('data-title') || ''
+      const figcaption = figure.querySelector('figcaption')
+      if (!figcaption) return
+      let caption = ''
+      switch (format) {
+        case 'title-first': caption = title || alt; break
+        case 'alt-first': caption = alt || title; break
+        case 'title-only': caption = title; break
+        case 'alt-only': caption = alt; break
+        case 'no-caption': caption = ''; break
+        default: caption = title || alt
+      }
+      figcaption.textContent = caption
+      figcaption.style.display = caption ? 'block' : 'none'
+    })
+  }, [])
+
   // DOM diff 更新函数：智能更新预览区，避免不必要的 DOM 重建
-  const updatePreviewDOM = useCallback((container, newHTML, mermaidCache) => {
+  const updatePreviewDOM = useCallback((container, newHTML, mermaidCache, onUpdated) => {
     // 保存滚动位置
     const scrollTop = container.scrollTop
     
@@ -5352,6 +5318,9 @@ function App() {
           container.scrollTop = scrollTop
         })
       }
+      
+      // DOM 更新完成后执行回调（用于图注更新，解决首次打开时图注不显示的时序问题）
+      onUpdated?.()
     })
   }, [])
   
@@ -5455,7 +5424,10 @@ function App() {
       html = postProcessHtml(html)
 
       // 使用 DOM diff 更新，而不是直接替换 innerHTML
-      updatePreviewDOM(previewRef.current, html, renderedMermaidCache)
+      // 在 DOM 更新完成后立即更新图注，避免首次打开时因 useEffect 时序导致图注不显示
+      updatePreviewDOM(previewRef.current, html, renderedMermaidCache, () => {
+        updateFigureCaptionsInPreview(previewRef.current, exportConfig.captionFormat)
+      })
 
       // 恢复图片的 style 属性（因为 rehypeRaw 会过滤掉）
       // 从原始内容中提取图片的 style 属性
@@ -5592,7 +5564,7 @@ function App() {
         console.warn(`⚠️ 渲染时间较长 (${renderTime.toFixed(2)}ms)，建议优化文档内容`)
       }
     }
-  }, [mermaidLoaded, markdownProcessor, postProcessHtml])
+  }, [mermaidLoaded, markdownProcessor, postProcessHtml, exportConfig.captionFormat, updateFigureCaptionsInPreview, updatePreviewDOM])
 
   // 使用 debounce 优化 Markdown 渲染性能
   const debouncedContent = useDebounce(content, 300) // 300ms 防抖，平衡实时性与稳定性
