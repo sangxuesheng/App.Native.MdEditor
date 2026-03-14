@@ -165,7 +165,7 @@ function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTabl
   const insertUnorderedList = () => onInsert('- ', '', 'line')
   const insertOrderedList = () => onInsert('1. ', '', 'line')
   const insertTaskList = () => onInsert('- [ ] ', '', 'line')
-  const insertLink = () => onInsert('[', '](https://)', 'wrap')
+  const insertLink = () => onInsert('[链接](https://)', '', 'insert')
   const insertImage = () => onInsert('![', '](https://)', 'wrap')
   const insertCodeBlock = () => onInsert('```\n', '\n```', 'wrap')
   const insertInlineCode = () => onInsert('`', '`', 'wrap')

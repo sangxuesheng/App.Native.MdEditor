@@ -47,8 +47,11 @@ import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } fr
 import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
+import { saveEditorDraft, loadEditorDraft, clearEditorDraft } from './utils/editorLocalStorage'
 import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting } from './utils/settingsApi'
+import { safeParseJsonResponse } from './utils/fetchUtils'
 import { copyToWeChat } from './utils/wechatExporter'
+import { detectCOSE } from './utils/coseClient'
 import { DEFAULT_DOCUMENT_CONTENT } from './constants/defaultDocument'
 import { AppUiProvider } from './context/AppUiContext'
 
@@ -117,13 +120,22 @@ const loadMermaid = async () => {
   return mermaidModule
 }
 
+// 首屏直接从 localStorage 加载草稿（无 URL 路径时），避免闪烁
+const getInitialEditorState = () => {
+  const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+  if (params.get('path')) return { content: DEFAULT_APP_STATE.content, currentPath: '' }
+  const draft = loadEditorDraft()
+  if (draft?.content) return { content: draft.content, currentPath: draft.currentPath || '' }
+  return { content: DEFAULT_DOCUMENT_CONTENT, currentPath: '' }
+}
+
 function App() {
   // 首屏加载动画 - 立即显示，避免白屏
   const { isLoading, loadingMessage } = useMobileFirstScreenLoader()
   
-  const [content, setContent] = useState(DEFAULT_APP_STATE.content)
+  const [content, setContent] = useState(() => getInitialEditorState().content)
   const [showImageManager, setShowImageManager] = useState(false)
-  const [currentPath, setCurrentPath] = useState(DEFAULT_APP_STATE.currentPath)
+  const [currentPath, setCurrentPath] = useState(() => getInitialEditorState().currentPath)
   const [status, setStatus] = useState('就绪')
   const [statusType, setStatusType] = useState('normal') // normal, success, error
   const [showTableDialog, setShowTableDialog] = useState(false)
@@ -1717,7 +1729,7 @@ function App() {
       try {
         const res = await fetch('/api/export-presets/active')
         if (!res.ok) return
-        const data = await res.json()
+        const data = await safeParseJsonResponse(res, {})
         if (!data || !data.ok || !data.preset || !data.preset.config) return
         const apiConfig = data.preset.config
         // 仅用 API 中已定义的字段覆盖，避免 undefined 覆盖默认值（如 macCodeBlock: true）
@@ -2884,6 +2896,9 @@ function App() {
       if (data.ok) {
         // 不在这里保存历史版本，由调用方决定
         
+        // 清除 localStorage 草稿（已保存到文件）
+        clearEditorDraft()
+        
         // 更新上次保存的内容（用于自动保存优化）
         lastSavedContentRef.current = saveContent
         lastSavedPathRef.current = path
@@ -2980,6 +2995,14 @@ function App() {
     }
   }, [content, currentPath, getAutoSaveInterval])
 
+  // 编辑区 localStorage 草稿备份（防抖 2 秒，刷新/关闭前可恢复）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveEditorDraft(content, currentPath)
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [content, currentPath])
+
   // 当文件加载或切换到新建页面时，更新上次保存的内容（仅 currentPath 变化时，避免每次输入都覆盖）
   useEffect(() => {
     lastSavedContentRef.current = content
@@ -3000,7 +3023,7 @@ function App() {
     const loadRootDirs = async () => {
       try {
         const response = await fetch('/api/files?path=/')
-        const data = await response.json()
+        const data = await safeParseJsonResponse(response, {})
         if (data.ok && data.items) {
           setRootDirs(data.items)
         }
@@ -3077,22 +3100,49 @@ function App() {
     initialDocumentHandledRef.current = true
     const params = new URLSearchParams(window.location.search)
     const path = params.get('path')
+    const openSync = params.get('open') === 'sync'
+
+    const runPublishFlow = async () => {
+      const hasExtension = await detectCOSE(2000)
+      if (hasExtension) {
+        setShowSyncDialog(true)
+      } else {
+        showToast('请安装 COSE 扩展以使用发布功能', 'warning', 5000)
+      }
+      const url = new URL(window.location.href)
+      url.searchParams.delete('open')
+      window.history.replaceState({}, '', url.pathname + url.search + (url.hash || ''))
+    }
+
     if (path) {
-      void loadFile(path)
+      loadFile(path).then((ok) => {
+        if (openSync && ok) runPublishFlow()
+      })
     } else {
-      // 无 URL 路径时：始终以新建页面开始，使用空白文档模板
-      void clearPersistedContent()
-      setContent(DEFAULT_DOCUMENT_CONTENT)
-      setCurrentPath('')
-      lastSavedContentRef.current = DEFAULT_DOCUMENT_CONTENT
-      lastSavedPathRef.current = ''
+      // 无 URL 路径时：优先从 localStorage 恢复草稿，否则使用空白文档模板
+      const draft = loadEditorDraft()
+      if (draft && draft.content !== '') {
+        setContent(draft.content)
+        setCurrentPath(draft.currentPath || '')
+        lastSavedContentRef.current = draft.content
+        lastSavedPathRef.current = draft.currentPath || ''
+        setStatus('已恢复本地草稿')
+      } else {
+        void clearPersistedContent()
+        setContent(DEFAULT_DOCUMENT_CONTENT)
+        setCurrentPath('')
+        lastSavedContentRef.current = DEFAULT_DOCUMENT_CONTENT
+        lastSavedPathRef.current = ''
+      }
+      if (openSync) runPublishFlow()
     }
   }, [initialStateLoaded])
 
   const loadFile = useCallback(async (path) => {
     try {
-      // 清除自动保存的内容（因为要加载新文件）
+      // 清除自动保存的内容与 localStorage 草稿（因为要加载新文件）
       await clearPersistedContent()
+      clearEditorDraft()
       
       setStatus('正在加载...')
       const response = await fetch(`/api/file?path=${encodeURIComponent(path)}`)
@@ -3237,8 +3287,9 @@ function App() {
   const [initialFileName, setInitialFileName] = useState('')
 
   const handleNewFileConfirm = useCallback((fileContent) => {
-    // 清除自动保存的内容（因为要创建新文件）
+    // 清除自动保存的内容与 localStorage 草稿（因为要创建新文件）
     void clearPersistedContent()
+    clearEditorDraft()
     
     // 直接加载模板内容到编辑器，模板内容视为「已保存」状态，未修改时不弹保存提示
     lastSavedContentRef.current = fileContent
@@ -3310,12 +3361,12 @@ function App() {
         const image = result.images[0]
         const markdown = `![图片](${image.url})`
         
-        // 插入到编辑器
+        // 插入到编辑器，上下各留一行空格
         const editor = editorRef.current
         const selection = editor.getSelection()
         editor.executeEdits('paste-image', [{
           range: selection,
-          text: markdown,
+          text: `\n\n${markdown}\n\n`,
           forceMoveMarkers: true
         }])
         
@@ -5808,17 +5859,19 @@ function App() {
   }, []) // 添加依赖数组
 
   const handleImageInsert = useCallback((markdown) => {
-    if (editorRef.current) {
-      const editor = editorRef.current
-      const selection = editor.getSelection()
-      const op = {
-        range: selection,
-        text: markdown,
-        forceMoveMarkers: true
-      }
-      editor.executeEdits('insert-image', [op])
-      editor.focus()
+    if (!editorRef.current || !markdown) return
+    const editor = editorRef.current
+    const model = editor.getModel()
+    if (!model) return
+    let range = editor.getSelection()
+    if (!range) {
+      const end = model.getPositionAt(model.getValueLength())
+      range = { startLineNumber: end.lineNumber, startColumn: end.column, endLineNumber: end.lineNumber, endColumn: end.column }
     }
+    // 上下各留一行空格
+    const text = `\n\n${markdown}\n\n`
+    editor.executeEdits('insert-image', [{ range, text, forceMoveMarkers: true }])
+    editor.focus()
   }, [])
 
   const handleInsertText = useCallback((text) => {
@@ -5918,13 +5971,13 @@ function App() {
               
               if (result.ok && result.images && result.images.length > 0) {
                 const image = result.images[0]
-                const markdown = `![图片](\${image.url})`
+                const markdown = `![图片](${image.url})`
                 
-                // 插入到编辑器
+                // 插入到编辑器，上下各留一行空格
                 const selection = editor.getSelection()
                 editor.executeEdits('paste-image', [{
                   range: selection,
-                  text: markdown,
+                  text: `\n\n${markdown}\n\n`,
                   forceMoveMarkers: true
                 }])
                 
@@ -6015,10 +6068,11 @@ function App() {
           const result = await response.json()
           
           if (result.ok && result.images && result.images.length > 0) {
-            // 生成 Markdown 图片链接
+            // 生成 Markdown 图片链接，上下各留一行空格
             const markdownImages = result.images.map(image => 
               `![${image.filename}](${image.url})`
             ).join('\n')
+            const text = `\n\n${markdownImages}\n\n`
             
             // 获取鼠标位置对应的编辑器位置
             const position = editor.getTargetAtClientPoint(e.clientX, e.clientY)
@@ -6032,7 +6086,7 @@ function App() {
                   position.position.lineNumber,
                   position.position.column
                 ),
-                text: markdownImages + '\n',
+                text,
                 forceMoveMarkers: true
               }])
             } else {
@@ -6040,7 +6094,7 @@ function App() {
               const selection = editor.getSelection()
               editor.executeEdits('drop-image', [{
                 range: selection,
-                text: markdownImages + '\n',
+                text,
                 forceMoveMarkers: true
               }])
             }
@@ -6144,7 +6198,7 @@ function App() {
     })
 
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyK, () => {
-      handleToolbarInsert('[', '](https://)', 'wrap')
+      handleToolbarInsert('[链接](https://)', '', 'insert')
     })
 
     // 搜索和替换快捷键
@@ -6318,6 +6372,43 @@ function App() {
   const handleShowAbout = () => {
     updateShowAbout(true)
   }
+
+  // 发布：飞牛桌面下先提醒保存、开新窗口并打开文件，再检测扩展；非飞牛桌面直接检测扩展
+  const handlePublish = useCallback(async () => {
+    const isFnOSDesktop = typeof window !== 'undefined' && window.self !== window.top
+
+    if (isFnOSDesktop) {
+      // 飞牛桌面：需有已保存的文件路径
+      if (!currentPath) {
+        showToast('请先打开或保存文件后再发布', 'warning', 4000)
+        return
+      }
+      if (hasUnsavedChanges()) {
+        const confirmed = await requestConfirm({
+          title: '请先保存文件',
+          message: '检测到未保存的更改，请先保存文件后再发布。是否现在保存？',
+          confirmText: '保存',
+          cancelText: '取消',
+          confirmVariant: 'primary',
+        })
+        if (!confirmed) return
+        await handleSaveClick()
+        // 保存后再次检查（用户可能取消另存为）
+        if (hasUnsavedChanges()) return
+      }
+      const url = `${window.location.origin}/?path=${encodeURIComponent(currentPath)}&open=sync`
+      window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    // 非飞牛桌面：直接检测扩展并打开发布弹窗
+    const hasExtension = await detectCOSE(2000)
+    if (hasExtension) {
+      setShowSyncDialog(true)
+    } else {
+      showToast('请安装 COSE 扩展以使用发布功能', 'warning', 5000)
+    }
+  }, [showToast, currentPath, hasUnsavedChanges, requestConfirm, handleSaveClick])
 
   // 文件历史处理函数
   const handleShowHistory = async () => {
@@ -6745,7 +6836,7 @@ function App() {
         break
         
       case 'link':
-        handleToolbarInsert('[', '](https://)', 'wrap')
+        handleToolbarInsert('[链接](https://)', '', 'insert')
         break
         
       case 'quote':
@@ -6791,7 +6882,7 @@ function App() {
         break
         
       case 'insert-link':
-        handleToolbarInsert('[', '](https://)', 'wrap')
+        handleToolbarInsert('[链接](https://)', '', 'insert')
         break
         
       case 'insert-codeblock':
@@ -6844,7 +6935,7 @@ function App() {
     onInsertHeading: (level) => handleToolbarInsert('#'.repeat(level) + ' ', '', 'heading'),
     onInsertBold: () => handleToolbarInsert('**', '**', 'wrap'),
     onInsertItalic: () => handleToolbarInsert('*', '*', 'wrap'),
-    onInsertLink: () => handleToolbarInsert('[', '](https://)', 'wrap'),
+    onInsertLink: () => handleToolbarInsert('[链接](https://)', '', 'insert'),
     onInsertImage: () => setShowImageManager(true),
     onInsertCode: handleInsertCode,
     onInsertTable: () => setShowTableDialog(true),
@@ -6861,7 +6952,7 @@ function App() {
     onShowShortcuts: handleShowShortcuts,
     onShowAbout: handleShowAbout,
     onShowHistory: handleShowHistory,
-    onPublish: () => setShowSyncDialog(true),
+    onPublish: handlePublish,
     imageCaptionFormat,
     onImageCaptionFormatChange: handleImageCaptionFormatChange,
     recentFiles,

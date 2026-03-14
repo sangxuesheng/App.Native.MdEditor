@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { AIService } from '../../utils/ai/aiService'
 import { aiStorage } from '../../utils/ai/aiStorage'
-import { DEFAULT_CONFIG } from '../../constants/aiConfig'
+import { DEFAULT_CONFIG, AI_SERVICES } from '../../constants/aiConfig'
+
+function getEffectiveConfig(config) {
+  if (!config?.type) return config
+  const service = AI_SERVICES.find((s) => s.value === config.type)
+  const apiKey = config.apiKeys?.[config.type] ?? config.apiKey ?? ''
+  const endpoint = config.endpoints?.[config.type] ?? service?.endpoint ?? config.endpoint ?? ''
+  return { ...config, apiKey, endpoint }
+}
 
 export function useAIChat() {
   const [messages, setMessages] = useState([])
@@ -12,8 +20,9 @@ export function useAIChat() {
   
   const aiServiceRef = useRef(null)
   const abortControllerRef = useRef(null)
+  const hasInitialConfigLoad = useRef(false)
 
-  // 初始化 AI 服务
+  // 初始化 AI 服务并加载已保存配置
   useEffect(() => {
     let cancelled = false
     Promise.all([
@@ -22,22 +31,30 @@ export function useAIChat() {
     ]).then(([savedConfig, savedMessages]) => {
       if (cancelled) return
       const effective = savedConfig
-        ? { ...DEFAULT_CONFIG, ...savedConfig, customModels: { ...(DEFAULT_CONFIG.customModels || {}), ...(savedConfig.customModels || {}) } }
+        ? {
+            ...DEFAULT_CONFIG,
+            ...savedConfig,
+            customModels: { ...(DEFAULT_CONFIG.customModels || {}), ...(savedConfig.customModels || {}) },
+            verifiedModelsByService: { ...(DEFAULT_CONFIG.verifiedModelsByService || {}), ...(savedConfig.verifiedModelsByService || {}) },
+            fetchedModelsByService: { ...(DEFAULT_CONFIG.fetchedModelsByService || {}), ...(savedConfig.fetchedModelsByService || {}) },
+          }
         : DEFAULT_CONFIG
-      if (savedConfig) setConfig(effective)
-      aiServiceRef.current = new AIService(effective)
+      setConfig(effective)
+      aiServiceRef.current = new AIService(getEffectiveConfig(effective))
       if (Array.isArray(savedMessages) && savedMessages.length > 0) {
         setMessages(savedMessages)
       }
+      hasInitialConfigLoad.current = true
     })
     return () => { cancelled = true }
   }, [])
 
-  // 保存配置到数据库
+  // 保存配置到数据库；对话使用当前 config.type 对应的 apiKey/endpoint
   useEffect(() => {
+    if (!hasInitialConfigLoad.current) return
     aiStorage.saveConfig(config)
     if (aiServiceRef.current) {
-      aiServiceRef.current.updateConfig(config)
+      aiServiceRef.current.updateConfig(getEffectiveConfig(config))
     }
   }, [config])
 
@@ -102,41 +119,56 @@ export function useAIChat() {
       // 发送请求
       await aiServiceRef.current.sendMessage(
         recentMessages,
-        // onChunk
+        // onChunk（必须不可变更新，否则会重复追加）
         (chunk, type = 'content') => {
           setMessages((prev) => {
-            const updated = [...prev]
-            const lastMsg = updated[updated.length - 1]
-            if (!lastMsg) return prev // 防止流式响应早于 state 更新到达导致 lastMsg 为空
+            const lastIdx = prev.length - 1
+            const lastMsg = prev[lastIdx]
+            if (!lastMsg) return prev
             if (type === 'reasoning') {
-              lastMsg.reasoning = (lastMsg.reasoning || '') + chunk
-            } else {
-              lastMsg.content = (lastMsg.content || '') + chunk
+              return prev.map((msg, i) =>
+                i === lastIdx ? { ...msg, reasoning: (msg.reasoning || '') + chunk } : msg
+              )
             }
-            return updated
+            return prev.map((msg, i) =>
+              i === lastIdx ? { ...msg, content: (msg.content || '') + chunk } : msg
+            )
           })
         },
-        // onComplete
+        // onComplete：发送成功则把当前模型加入「可连接」列表，便于切换模型只显示可用的
         () => {
           setMessages((prev) => {
-            const updated = [...prev]
-            const lastMsg = updated[updated.length - 1]
-            if (lastMsg) lastMsg.done = true
-            return updated
+            const lastIdx = prev.length - 1
+            if (lastIdx < 0) return prev
+            return prev.map((msg, i) =>
+              i === lastIdx ? { ...msg, done: true } : msg
+            )
           })
           setIsStreaming(false)
+          setConfig((prev) => {
+            if (!prev?.type || !prev?.model) return prev
+            const verified = prev.verifiedModelsByService || {}
+            const list = verified[prev.type] || []
+            if (list.includes(prev.model)) return prev
+            return {
+              ...prev,
+              verifiedModelsByService: {
+                ...verified,
+                [prev.type]: [...list, prev.model],
+              },
+            }
+          })
         },
         // onError
         (error) => {
           setMessages((prev) => {
-            const updated = [...prev]
-            const lastMsg = updated[updated.length - 1]
-            if (lastMsg) {
-              lastMsg.content = `❌ 错误: ${error.message}`
-              lastMsg.done = true
-              lastMsg.error = true
-            }
-            return updated
+            const lastIdx = prev.length - 1
+            if (lastIdx < 0) return prev
+            return prev.map((msg, i) =>
+              i === lastIdx
+                ? { ...msg, content: `❌ 错误: ${error.message}`, done: true, error: true }
+                : msg
+            )
           })
           setIsStreaming(false)
         }
@@ -194,9 +226,9 @@ export function useAIChat() {
     return Object.values(conversations).sort((a, b) => b.timestamp - a.timestamp)
   }, [])
 
-  const testConnection = useCallback(async () => {
+  const testConnection = useCallback(async (overrides) => {
     if (aiServiceRef.current) {
-      return aiServiceRef.current.testConnection()
+      return aiServiceRef.current.testConnection(overrides)
     }
     return { success: true, message: '连接成功' }
   }, [])

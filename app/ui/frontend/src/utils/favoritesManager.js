@@ -2,6 +2,7 @@
  * 收藏夹管理器
  * 负责管理用户收藏的文件和文件夹
  */
+import { safeParseJsonResponse } from './fetchUtils'
 
 const MAX_FAVORITES = 50
 
@@ -12,7 +13,7 @@ const MAX_FAVORITES = 50
 export async function getFavorites() {
   try {
     const res = await fetch('/api/favorites')
-    const data = await res.json()
+    const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return []
     return Array.isArray(data.items) ? data.items.slice(0, MAX_FAVORITES) : []
   } catch (error) {
@@ -35,7 +36,7 @@ export async function addFavorite(path, type = 'file') {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, name: getFileName(path), type }),
     })
-    const data = await res.json()
+    const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return false
     return !!data.favorited
   } catch (error) {
@@ -57,7 +58,7 @@ export async function removeFavorite(path) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path }),
     })
-    const data = await res.json()
+    const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return false
     return !data.favorited
   } catch (error) {
@@ -89,7 +90,7 @@ export async function toggleFavorite(path, type = 'file') {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, name: getFileName(path), type }),
     })
-    const data = await res.json()
+    const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return false
     return !!data.favorited
   } catch (error) {
@@ -118,7 +119,7 @@ export async function updateFavoritesOrder(favorites) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items }),
     })
-    const data = await res.json()
+    const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return false
     return true
   } catch (error) {
@@ -133,7 +134,7 @@ export async function updateFavoritesOrder(favorites) {
 export async function clearFavorites() {
   try {
     const res = await fetch('/api/favorites/clear', { method: 'POST' })
-    const data = await res.json()
+    const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return false
     return true
   } catch (error) {

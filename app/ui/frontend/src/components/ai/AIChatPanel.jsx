@@ -1,9 +1,10 @@
 import React from 'react'
-import { X, Settings, Plus, FolderOpen, MessageSquare, Image as ImageIcon, Trash2, Loader2, Hand, Send, Square, Check, TextQuote } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { X, Settings, Plus, FolderOpen, MessageSquare, Image as ImageIcon, Trash2, Loader2, Hand, Send, Square, Check, TextQuote, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import ChatMessage from './ChatMessage'
 import QuickCommand from './QuickCommand'
 import Resizer from '../Resizer'
-import { DEFAULT_QUICK_COMMANDS } from '../../constants/aiConfig'
+import { AI_SERVICES, DEFAULT_QUICK_COMMANDS } from '../../constants/aiConfig'
 import { formatHistoryTime } from '../../utils/fileHistoryManagerV2'
 
 const INPUT_HEIGHT_MIN = 80
@@ -13,6 +14,8 @@ const QUOTE_START = '【引用】'
 const QUOTE_END = '【/引用】'
 
 export default function AIChatPanel({
+  config,
+  onConfigChange,
   messages,
   isStreaming,
   quoteFullContent,
@@ -36,9 +39,50 @@ export default function AIChatPanel({
   const [showConversations, setShowConversations] = React.useState(false)
   const [conversations, setConversations] = React.useState([])
   const [loadingConversations, setLoadingConversations] = React.useState(false)
+  const [showModelSwitcher, setShowModelSwitcher] = React.useState(false)
+  const [modelSearch, setModelSearch] = React.useState('')
+  const [modelSwitcherPosition, setModelSwitcherPosition] = React.useState({ top: 0, left: 0 })
+  const [modelSwitcherPositionReady, setModelSwitcherPositionReady] = React.useState(false)
   const [inputAreaHeight, setInputAreaHeight] = React.useState(INPUT_HEIGHT_DEFAULT)
   const messagesEndRef = React.useRef(null)
   const inputRef = React.useRef(null)
+  const modelSwitcherRef = React.useRef(null)
+  const modelSwitcherButtonRef = React.useRef(null)
+  const modelSwitcherPopoverRef = React.useRef(null)
+
+  const currentService = AI_SERVICES.find((s) => s.value === config?.type)
+  // 所有已启用服务商下已启用的模型（与 AIConfigPanel 一致；当前使用的服务在对话区此处选择）
+  const connectableModels = React.useMemo(() => {
+    const disabled = new Set(config?.disabledProviders || [])
+    const verified = config?.verifiedModelsByService || {}
+    return AI_SERVICES.flatMap((s) => {
+      if (disabled.has(s.value)) return []
+      const list = verified[s.value] || []
+      if (s.value !== 'builtin' && list.length === 0) return []
+      return list.map((model) => ({ serviceType: s.value, serviceLabel: s.label, model }))
+    })
+  }, [config?.disabledProviders, config?.verifiedModelsByService])
+  const filteredModels = React.useMemo(() => {
+    if (!modelSearch.trim()) return connectableModels
+    const q = modelSearch.trim().toLowerCase()
+    return connectableModels.filter(
+      (item) =>
+        item.model.toLowerCase().includes(q) || item.serviceLabel.toLowerCase().includes(q)
+    )
+  }, [connectableModels, modelSearch])
+
+  // 按服务商分组，用于分组展示
+  const groupedByService = React.useMemo(() => {
+    const map = new Map()
+    for (const item of filteredModels) {
+      const key = item.serviceType
+      if (!map.has(key)) map.set(key, { serviceType: item.serviceType, serviceLabel: item.serviceLabel, models: [] })
+      map.get(key).models.push(item.model)
+    }
+    return Array.from(map.values())
+  }, [filteredModels])
+
+  const currentModel = config?.model || ''
 
   const handleInputResize = React.useCallback((delta) => {
     setInputAreaHeight((h) => Math.min(INPUT_HEIGHT_MAX, Math.max(INPUT_HEIGHT_MIN, h - delta)))
@@ -54,6 +98,39 @@ export default function AIChatPanel({
         .finally(() => setLoadingConversations(false))
     }
   }, [showConversations, onGetAllConversations])
+
+  // 浮框位置：与图表类型框一致，固定显示在输入框上方（按钮上方）
+  React.useLayoutEffect(() => {
+    if (!showModelSwitcher) {
+      setModelSwitcherPositionReady(false)
+      return
+    }
+    if (!modelSwitcherButtonRef.current) return
+    const rect = modelSwitcherButtonRef.current.getBoundingClientRect()
+    const dropdownHeight = 320
+    const dropdownWidth = 280
+    // 始终显示在对话输入框上方（按钮上方），与图表类型框一致
+    const top = Math.max(8, rect.top - dropdownHeight - 8)
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - dropdownWidth - 8))
+    setModelSwitcherPosition({ top, left })
+    setModelSwitcherPositionReady(true)
+  }, [showModelSwitcher])
+
+  // 点击外部关闭模型切换弹窗（点击按钮或浮框内部不关）
+  React.useEffect(() => {
+    if (!showModelSwitcher) return
+    const onDocClick = (e) => {
+      const inButton = modelSwitcherButtonRef.current?.contains(e.target)
+      const inPopover = modelSwitcherPopoverRef.current?.contains(e.target)
+      if (!inButton && !inPopover) setShowModelSwitcher(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('touchstart', onDocClick, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('touchstart', onDocClick)
+    }
+  }, [showModelSwitcher])
 
   // 自动滚动到底部
   React.useEffect(() => {
@@ -82,11 +159,25 @@ export default function AIChatPanel({
     setQuotedBlocks([])
   }
 
-  // 处理快捷指令（从编辑器实时获取选中文本）
+  // 处理快捷指令：将提示词作为引用块插入，不写入编辑区
   const handleQuickCommand = (command) => {
     const text = (getSelectedText ? getSelectedText() : '') || ''
     const prompt = command.template.replace('{{sel}}', text)
-    setInput(prompt)
+    setQuotedBlocks((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID?.() ?? `q-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        content: prompt,
+        sourceIndex: null,
+      },
+    ])
+    setInput('')
+    // 内容较长时自动展开输入区，便于查看引用块
+    const lineCount = (prompt.match(/\n/g) || []).length + 1
+    if (lineCount > 6) {
+      const neededHeight = Math.min(INPUT_HEIGHT_MAX, 120 + lineCount * 22)
+      setInputAreaHeight((h) => Math.max(h, neededHeight))
+    }
     inputRef.current?.focus()
   }
 
@@ -258,6 +349,77 @@ export default function AIChatPanel({
               {quoteFullContent ? <Check size={14} /> : <TextQuote size={14} />}
               <span>引用全文</span>
             </button>
+            {config && onConfigChange && (
+              <div className="ai-model-switcher-wrap" ref={modelSwitcherRef}>
+                <button
+                  ref={modelSwitcherButtonRef}
+                  type="button"
+                  className="ai-model-switcher-btn"
+                  onClick={() => { setShowModelSwitcher((v) => !v); setModelSearch('') }}
+                  title="切换模型"
+                >
+                  <span className="ai-model-switcher-label">{currentModel || '选择模型'}</span>
+                  {showModelSwitcher ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+                {showModelSwitcher && modelSwitcherPositionReady && createPortal(
+                  <div
+                    role="dialog"
+                    aria-label="切换模型"
+                    className={`ai-model-switcher-dropdown ${document.querySelector('.app')?.classList.contains('theme-light') ? 'theme-light' : 'theme-dark'}`}
+                    style={{
+                      position: 'fixed',
+                      top: modelSwitcherPosition.top,
+                      left: modelSwitcherPosition.left,
+                      zIndex: 9999,
+                      width: 280,
+                      maxHeight: 320,
+                    }}
+                  >
+                    <div
+                      ref={modelSwitcherPopoverRef}
+                      className="ai-model-switcher-popover ai-model-switcher-popover-fixed"
+                    >
+                      <div className="ai-model-switcher-search">
+                        <Search size={16} />
+                        <input
+                          type="text"
+                          placeholder="搜索模型"
+                          value={modelSearch}
+                          onChange={(e) => setModelSearch(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="ai-model-switcher-list">
+                        {groupedByService.length === 0 ? (
+                          <div className="ai-model-switcher-empty">无匹配模型</div>
+                        ) : (
+                          groupedByService.map((group) => (
+                            <div key={group.serviceType} className="ai-model-switcher-group">
+                              <div className="ai-model-switcher-group-title">{group.serviceLabel}</div>
+                              {group.models.map((model) => (
+                                <button
+                                  key={`${group.serviceType}:${model}`}
+                                  type="button"
+                                  className={`ai-model-switcher-item${config?.type === group.serviceType && currentModel === model ? ' active' : ''}`}
+                                  onClick={() => {
+                                    onConfigChange({ type: group.serviceType, model })
+                                    setShowModelSwitcher(false)
+                                  }}
+                                >
+                                  <span className="ai-model-switcher-item-label">{model}</span>
+                                  {config?.type === group.serviceType && currentModel === model && <Check size={16} />}
+                                </button>
+                              ))}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
+                )}
+              </div>
+            )}
             <button
               className="ai-send-btn"
               onClick={isStreaming ? onStopGeneration : handleSend}

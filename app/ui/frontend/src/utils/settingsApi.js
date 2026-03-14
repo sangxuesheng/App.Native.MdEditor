@@ -1,3 +1,5 @@
+import { safeParseJsonResponse } from './fetchUtils'
+
 const SETTINGS_ENDPOINT = '/api/settings'
 const APP_STATE_ENDPOINT = '/api/app-state'
 
@@ -65,7 +67,7 @@ const sanitizePartialAppState = (state = {}) => {
 
 export async function fetchAllSettings() {
   const response = await fetch(SETTINGS_ENDPOINT)
-  const data = await response.json()
+  const data = await safeParseJsonResponse(response, { ok: false })
 
   if (!response.ok || !data?.ok) {
     throw new Error(data?.message || '读取设置失败')
@@ -81,7 +83,7 @@ export async function persistSetting(key, value) {
     body: JSON.stringify({ key, value }),
   })
 
-  const data = await response.json().catch(() => ({}))
+  const data = await safeParseJsonResponse(response, { ok: false })
   if (!response.ok || !data?.ok) {
     throw new Error(data?.message || '保存设置失败')
   }
@@ -112,7 +114,7 @@ export async function saveImageManagerSettings(settings) {
 
 export async function loadAppState() {
   const response = await fetch(APP_STATE_ENDPOINT)
-  const data = await response.json()
+  const data = await safeParseJsonResponse(response, { ok: false })
 
   if (!response.ok || !data?.ok) {
     throw new Error(data?.message || '读取编辑状态失败')
@@ -144,7 +146,7 @@ export async function saveAppState(state, options = {}) {
     keepalive: !!options.keepalive,
   })
 
-  const data = await response.json().catch(() => ({}))
+  const data = await safeParseJsonResponse(response, { ok: false })
   if (!response.ok || !data?.ok) {
     throw new Error(data?.message || '保存编辑状态失败')
   }

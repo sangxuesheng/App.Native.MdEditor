@@ -994,14 +994,13 @@ const FileTree = forwardRef(({
       <div key={node.path} className="tree-node" data-path={node.path}>
         <div
           className={`tree-node-content ${isActive ? 'active' : ''} ${isFocusedDirectory ? 'focused-directory' : ''} ${isTouchPreview ? 'touch-preview' : ''} ${hasLongPressFeedback ? 'long-press-feedback' : ''} ${isMenuOpen ? 'menu-open' : ''}`}
-          style={{ paddingLeft: `${level * 16 + (hasChildren ? 4 : 8)}px` }}
+          style={{ paddingLeft: `${level * 16 + (hasChildren ? 4 : 8)}px`, userSelect: 'none' }}
           onClick={(e) => handleFileClick(e, node)}
           onContextMenu={(e) => handleContextMenu(e, node)}
           onPointerDown={(e) => handleNodePointerDown(e, node)}
           onPointerMove={handleNodePointerMove}
           onPointerUp={handleNodePointerEnd}
           onPointerCancel={handleNodePointerEnd}
-          onSelectStart={(e) => e.preventDefault()}
           onDragStart={(e) => e.preventDefault()}
         >
           {hasChildren && (

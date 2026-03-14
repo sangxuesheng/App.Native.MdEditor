@@ -1,352 +1,1142 @@
 import React from 'react'
-import { X, TestTube, Info, Plus, Trash2 } from 'lucide-react'
+import { X, TestTube, Info, Plus, Trash2, Search, HelpCircle, Lock, Eye, EyeOff, MessageSquare, Image as ImageIcon, Pencil, RefreshCw } from 'lucide-react'
 import AnimatedSelect from '../AnimatedSelect'
 import ElasticSlider from '../ElasticSlider'
-import { AI_SERVICES, DEFAULT_CONFIG } from '../../constants/aiConfig'
+import { AI_SERVICES, AI_SERVICE_CATEGORIES, DEFAULT_CONFIG } from '../../constants/aiConfig'
+import { AI_IMAGE_SERVICES, DEFAULT_IMAGE_CONFIG, isImageModel } from '../../constants/aiImageConfig'
 
-export default function AIConfigPanel({ config, onConfigChange, onClose, onTestConnection }) {
+const API_KEY_MASK = '••••••••••••' // 已保存的 API Key 在页面上仅显示星号，不展示明文
+
+const SIZE_LABELS = {
+  '1024x1024': '正方形 (1024×1024)',
+  '512x512': '小图 (512×512)',
+  '768x768': '中图 (768×768)',
+  '1024x768': '横版 4:3 (1024×768)',
+  '768x1024': '竖版 4:3 (768×1024)',
+  '1280x720': '横版 16:9 (1280×720)',
+  '720x1280': '竖版 16:9 (720×1280)',
+  '1920x1080': '全高清横版 (1920×1080)',
+  '1080x1920': '全高清竖版 (1080×1920)',
+  '1024x1792': '竖版 (1024×1792)',
+  '1792x1024': '横版 (1792×1024)',
+  '256x256': '缩略图 (256×256)',
+}
+
+export default function AIConfigPanel({
+  config,
+  onConfigChange,
+  onClose,
+  onTestConnection,
+  imageConfig,
+  onImageConfigChange,
+  onTestConnectionImage,
+  initialModelListTab = 'chat',
+}) {
   const [testing, setTesting] = React.useState(false)
   const [testResult, setTestResult] = React.useState(null)
-  const [customModelInput, setCustomModelInput] = React.useState('')
+  const [showAddCustomModelDialog, setShowAddCustomModelDialog] = React.useState(false)
+  const [addModelIdInput, setAddModelIdInput] = React.useState('')
+  const [addModelDisplayNameInput, setAddModelDisplayNameInput] = React.useState('')
+  const [configSearch, setConfigSearch] = React.useState('') // 顶部搜索：同时过滤服务商与模型
+  const [showApiKey, setShowApiKey] = React.useState(false) // 对话 API Key 是否显示明文（否则显示星号）
+  const [showImageApiKey, setShowImageApiKey] = React.useState(false) // 文生图 API Key 是否显示明文
+  const [viewingService, setViewingService] = React.useState(config?.type || 'builtin')
+  const [modelListTab, setModelListTab] = React.useState(initialModelListTab) // 模型列表下：'chat' | 'image'
+  const [imageCustomModelInput, setImageCustomModelInput] = React.useState('')
+  const [showAddImageModelDialog, setShowAddImageModelDialog] = React.useState(false)
+  const [addImageModelIdInput, setAddImageModelIdInput] = React.useState('')
+  const [addImageModelDisplayNameInput, setAddImageModelDisplayNameInput] = React.useState('')
+  const [imageTesting, setImageTesting] = React.useState(false)
+  const [imageTestResult, setImageTestResult] = React.useState(null)
+  const [editingChatModel, setEditingChatModel] = React.useState(null) // 正在编辑的对话自定义模型名
+  const [editingChatModelValue, setEditingChatModelValue] = React.useState('')
+  const [editingImageModelInList, setEditingImageModelInList] = React.useState(null) // 图片标签下列表中正在编辑的模型
+  const [editingImageModelInListValue, setEditingImageModelInListValue] = React.useState('')
+  const [editingImageFormModel, setEditingImageFormModel] = React.useState(null) // 文生图主表单中正在编辑的自定义模型
+  const [editingImageFormModelValue, setEditingImageFormModelValue] = React.useState('')
+  const [imageTestModelSelect, setImageTestModelSelect] = React.useState('') // 文生图连通性检查选用模型
+  const [fetchingModels, setFetchingModels] = React.useState(false) // 正在拉取模型列表
+  const [fetchModelsError, setFetchModelsError] = React.useState(null) // 拉取失败提示
+  const mainContentRef = React.useRef(null)
 
-  const currentService = AI_SERVICES.find((s) => s.value === config.type)
-  const builtinModels = currentService?.models || []
-  const customModels = Array.isArray(config.customModels?.[config.type]) ? config.customModels[config.type] : []
+  const handleClose = () => {
+    setShowApiKey(false)
+    setShowImageApiKey(false)
+    onClose()
+  }
+
+  /** 仅保存（掩码 API Key），不关闭面板 */
+  const handleSave = () => {
+    setShowApiKey(false)
+    setShowImageApiKey(false)
+  }
+
+  React.useEffect(() => {
+    setModelListTab(initialModelListTab)
+  }, [initialModelListTab])
+
+  // 侧栏仅切换“正在查看/编辑”的服务，不改变对话当前使用的 config.type
+  React.useEffect(() => {
+    setViewingService((prev) => (config?.type != null ? config.type : prev))
+  }, [config?.type])
+
+  const currentService = AI_SERVICES.find((s) => s.value === viewingService)
+  // 对话模型：内置用预设，其他从拉取结果中排除文生图模型
+  const builtinModels = React.useMemo(() => {
+    if (viewingService === 'builtin') return currentService?.models || []
+    const fetched = config.fetchedModelsByService?.[viewingService] || []
+    return fetched.filter((m) => !isImageModel(m))
+  }, [viewingService, currentService?.models, config.fetchedModelsByService])
+  const customModels = Array.isArray(config.customModels?.[viewingService]) ? config.customModels[viewingService] : []
   const allModels = React.useMemo(() => {
     const seen = new Set()
     return [...builtinModels, ...customModels].filter((m) => m && !seen.has(m) && seen.add(m))
   }, [builtinModels, customModels])
 
-  const handleTest = async () => {
-    setTesting(true)
-    setTestResult(null)
-    const result = await onTestConnection()
-    setTestResult(result)
-    setTesting(false)
+  const getChatModelDisplayLabel = (modelId) =>
+    (config.customModelLabels?.[viewingService]?.[modelId] || modelId).trim() || modelId
+
+  const verifiedSet = React.useMemo(() => {
+    const list = config.verifiedModelsByService?.[viewingService] || []
+    return new Set(list)
+  }, [config.verifiedModelsByService, viewingService])
+
+  const configSearchLower = configSearch.trim().toLowerCase()
+  const disabledSet = React.useMemo(
+    () => new Set(config.disabledProviders || []),
+    [config.disabledProviders]
+  )
+  const enabledValueSet = React.useMemo(() => {
+    const verified = config.verifiedModelsByService || {}
+    return new Set(
+      AI_SERVICES.filter(
+        (s) =>
+          !disabledSet.has(s.value) &&
+          (s.value === 'builtin' || (verified[s.value]?.length > 0))
+      ).map((s) => s.value)
+    )
+  }, [config.verifiedModelsByService, disabledSet])
+  const isProviderEnabled = !disabledSet.has(viewingService)
+  const setProviderEnabled = (on) => {
+    const list = config.disabledProviders || []
+    const next = on ? list.filter((t) => t !== viewingService) : [...new Set([...list, viewingService])]
+    onConfigChange({ disabledProviders: next })
   }
 
-  const handleAddCustomModel = () => {
-    const name = customModelInput.trim()
-    if (!name || allModels.includes(name)) return
-    const next = { ...(config.customModels || {}), [config.type]: [...customModels, name] }
-    setCustomModelInput('')
-    onConfigChange({ customModels: next, model: name })
+  /** 已启用：内置或已有已验证模型的服务，用于顶部展示 */
+  const enabledSidebarServices = React.useMemo(() => {
+    return AI_SERVICES.filter(
+      (s) =>
+        enabledValueSet.has(s.value) &&
+        (!configSearchLower || s.label.toLowerCase().includes(configSearchLower))
+    )
+  }, [enabledValueSet, configSearchLower])
+
+  /** 按分类整理：只包含当前搜索匹配且在 AI_SERVICES 中存在的服务（顺序见 AI_SERVICE_CATEGORIES） */
+  const categorizedSidebarItems = React.useMemo(() => {
+    return AI_SERVICE_CATEGORIES.map((cat) => {
+      const services = cat.values
+        .map((value) => AI_SERVICES.find((s) => s.value === value))
+        .filter(Boolean)
+        .filter((s) => !configSearchLower || s.label.toLowerCase().includes(configSearchLower))
+      return { ...cat, services }
+    }).filter((cat) => cat.services.length > 0)
+  }, [configSearchLower])
+
+  const filteredModels = React.useMemo(() => {
+    if (!configSearch.trim()) return allModels
+    const q = configSearch.trim().toLowerCase()
+    return allModels.filter((m) => m.toLowerCase().includes(q))
+  }, [allModels, configSearch])
+
+  const chatModelCount = React.useMemo(() => {
+    const verified = config?.verifiedModelsByService || {}
+    return AI_SERVICES.filter(
+      (s) =>
+        !disabledSet.has(s.value) &&
+        (s.value === 'builtin' || (verified[s.value]?.length > 0))
+    ).reduce((n, s) => n + (verified[s.value]?.length || 0), 0)
+  }, [config?.verifiedModelsByService, disabledSet])
+
+  const imageModelCount = React.useMemo(() => {
+    if (!imageConfig?.type) return 0
+    const svc = AI_IMAGE_SERVICES.find((s) => s.value === imageConfig.type)
+    let source
+    if (imageConfig.type === 'builtin') {
+      source = svc?.models || []
+    } else {
+      const fetched = config?.fetchedModelsByService?.[imageConfig.type] || []
+      source = fetched.filter((m) => isImageModel(m))
+    }
+    const custom = Array.isArray(imageConfig.customModels?.[imageConfig.type]) ? imageConfig.customModels[imageConfig.type].length : 0
+    return source.length + custom
+  }, [imageConfig?.type, imageConfig?.customModels, config?.fetchedModelsByService])
+
+  /** 当前选中的服务商下：对话模型数、图片模型数、合计（用于模型列表标题与标签） */
+  const chatModelCountForViewing = allModels.length
+  const imageModelCountForViewing = React.useMemo(() => {
+    const svc = AI_IMAGE_SERVICES.find((s) => s.value === viewingService)
+    let source
+    if (viewingService === 'builtin') {
+      source = svc?.models || []
+    } else {
+      const fetched = config?.fetchedModelsByService?.[viewingService] || []
+      source = fetched.filter((m) => isImageModel(m))
+    }
+    const custom = Array.isArray(imageConfig?.customModels?.[viewingService]) ? imageConfig.customModels[viewingService].length : 0
+    return source.length + custom
+  }, [imageConfig?.customModels, viewingService, config?.fetchedModelsByService])
+  const totalModelCountForViewing = chatModelCountForViewing + imageModelCountForViewing
+
+  const verifiedListForViewing = config.verifiedModelsByService?.[viewingService] || []
+  const testModelOptions = React.useMemo(() => {
+    const seen = new Set()
+    return [...verifiedListForViewing, ...allModels].filter((m) => m && !seen.has(m) && seen.add(m))
+  }, [verifiedListForViewing, allModels])
+  const [testModelSelect, setTestModelSelect] = React.useState('')
+  React.useEffect(() => {
+    const first = testModelOptions[0]
+    setTestModelSelect((prev) => (testModelOptions.includes(prev) ? prev : first || ''))
+  }, [viewingService, testModelOptions])
+
+  const getViewingApiKey = () =>
+    config.apiKeys?.[viewingService] ?? config.apiKey ?? ''
+  const getViewingEndpoint = () =>
+    config.endpoints?.[viewingService] ?? currentService?.endpoint ?? config.endpoint ?? ''
+
+  const handleTest = async (overrideModel) => {
+    const modelToTest = overrideModel ?? testModelSelect
+    if (!modelToTest) return
+    setTesting(true)
+    setTestResult(null)
+    const result = await onTestConnection({
+      type: viewingService,
+      apiKey: getViewingApiKey(),
+      endpoint: getViewingEndpoint(),
+      model: modelToTest,
+    })
+    setTestResult(result)
+    setTesting(false)
+    if (result?.success && viewingService && modelToTest) {
+      const verified = config.verifiedModelsByService || {}
+      const list = verified[viewingService] || []
+      if (!list.includes(modelToTest)) {
+        onConfigChange({
+          verifiedModelsByService: {
+            ...verified,
+            [viewingService]: [...list, modelToTest],
+          },
+        })
+      }
+    }
+  }
+
+  const handleOpenAddCustomModelDialog = () => {
+    setAddModelIdInput('')
+    setAddModelDisplayNameInput('')
+    setShowAddCustomModelDialog(true)
+  }
+
+  const handleConfirmAddCustomModel = () => {
+    const id = addModelIdInput.trim()
+    if (!id || allModels.includes(id)) return
+    const next = { ...(config.customModels || {}), [viewingService]: [...customModels, id] }
+    const labels = config.customModelLabels || {}
+    const serviceLabels = { ...(labels[viewingService] || {}) }
+    if (addModelDisplayNameInput.trim()) serviceLabels[id] = addModelDisplayNameInput.trim()
+    const nextLabels = { ...labels, [viewingService]: serviceLabels }
+    onConfigChange({ customModels: next, customModelLabels: nextLabels })
+    setShowAddCustomModelDialog(false)
+  }
+
+  const toggleModelEnabled = (model, e) => {
+    e.stopPropagation()
+    if (!viewingService) return
+    const verified = config.verifiedModelsByService || {}
+    const list = verified[viewingService] || []
+    const nextList = list.includes(model)
+      ? list.filter((m) => m !== model)
+      : [...list, model]
+    onConfigChange({
+      verifiedModelsByService: { ...verified, [viewingService]: nextList },
+    })
   }
 
   const handleRemoveCustomModel = (model) => {
     const next = customModels.filter((m) => m !== model)
-    const nextCustom = { ...(config.customModels || {}), [config.type]: next }
+    const nextCustom = { ...(config.customModels || {}), [viewingService]: next }
+    const labels = config.customModelLabels || {}
+    const serviceLabels = { ...(labels[viewingService] || {}) }
+    delete serviceLabels[model]
+    const nextLabels = { ...labels, [viewingService]: serviceLabels }
     const remaining = [...builtinModels, ...next]
-    const newModel = config.model === model ? (remaining[0] || '') : config.model
-    onConfigChange({ customModels: nextCustom, model: newModel })
+    const newModel =
+      config.type === viewingService && config.model === model ? (remaining[0] || '') : config.model
+    onConfigChange({
+      customModels: nextCustom,
+      customModelLabels: nextLabels,
+      ...(config.type === viewingService && { model: newModel }),
+    })
   }
 
-  // 测试结果 3 秒后自动消失
+  /** 仅修改展示名称，模型 ID 创建后不可修改 */
+  const handleRenameChatCustom = (modelId, newDisplayName) => {
+    const trimmed = newDisplayName.trim()
+    const labels = config.customModelLabels || {}
+    const serviceLabels = { ...(labels[viewingService] || {}) }
+    if (trimmed) serviceLabels[modelId] = trimmed
+    else delete serviceLabels[modelId]
+    const nextLabels = { ...labels, [viewingService]: serviceLabels }
+    onConfigChange({ customModelLabels: nextLabels })
+    setEditingChatModel(null)
+  }
+
+  const selectService = (type) => {
+    if (!AI_SERVICES.some((s) => s.value === type)) return
+    setViewingService(type)
+    setFetchModelsError(null)
+    mainContentRef.current?.scrollTo({ top: 0 })
+  }
+
+  /** 在线拉取模型列表，保存到 config.fetchedModelsByService，增量合并新模型 */
+  const handleFetchModels = async () => {
+    if (viewingService === 'builtin') return
+    const endpoint = getViewingEndpoint()
+    if (!endpoint || !endpoint.startsWith('http')) {
+      setFetchModelsError('请先填写 API 代理地址')
+      return
+    }
+    setFetchingModels(true)
+    setFetchModelsError(null)
+    try {
+      const res = await fetch('/api/ai/models/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint, apiKey: getViewingApiKey() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        setFetchModelsError(data?.message || '拉取失败')
+        return
+      }
+      const fetched = Array.isArray(data.models) ? data.models : []
+      const existing = config.fetchedModelsByService?.[viewingService] || []
+      const merged = [...new Set([...existing, ...fetched])]
+      onConfigChange({
+        fetchedModelsByService: {
+          ...(config.fetchedModelsByService || {}),
+          [viewingService]: merged,
+        },
+      })
+      setFetchModelsError(null)
+    } catch (e) {
+      setFetchModelsError(e?.message || '拉取失败')
+    } finally {
+      setFetchingModels(false)
+    }
+  }
+
+  const currentImageService = imageConfig && AI_IMAGE_SERVICES.find((s) => s.value === imageConfig.type)
+  /** 当前侧栏服务商对应的文生图服务（用于图片子标签的尺寸等） */
+  const imageServiceForViewing = AI_IMAGE_SERVICES.find((s) => s.value === viewingService)
+  const imageBuiltinModels = currentImageService?.models || []
+  const imageCustomModels = Array.isArray(imageConfig?.customModels?.[imageConfig?.type]) ? imageConfig.customModels[imageConfig.type] : []
+  const imageAllModels = React.useMemo(() => {
+    const seen = new Set()
+    return [...imageBuiltinModels, ...imageCustomModels].filter((m) => m && !seen.has(m) && seen.add(m))
+  }, [imageBuiltinModels, imageCustomModels])
+
+  const imageTestModelOptions = imageAllModels
+  React.useEffect(() => {
+    if (!imageTestModelOptions.length) return
+    setImageTestModelSelect((prev) => (imageTestModelOptions.includes(prev) ? prev : imageTestModelOptions[0] || ''))
+  }, [imageConfig?.type, imageAllModels])
+
+  const handleImageAddCustomModel = () => {
+    const name = imageCustomModelInput.trim()
+    if (!name || !imageConfig?.type || !onImageConfigChange) return
+    if (imageAllModels.includes(name)) return
+    const custom = imageConfig.customModels || {}
+    const list = custom[imageConfig.type] || []
+    onImageConfigChange({ customModels: { ...custom, [imageConfig.type]: [...list, name] }, model: name })
+    setImageCustomModelInput('')
+  }
+
+  const handleImageRemoveCustomModel = (model) => {
+    if (!imageConfig?.type || !onImageConfigChange) return
+    const custom = { ...(imageConfig.customModels || {}), [imageConfig.type]: (imageConfig.customModels?.[imageConfig.type] || []).filter((m) => m !== model) }
+    const remaining = [...imageBuiltinModels, ...(custom[imageConfig.type] || [])]
+    const newModel = imageConfig.model === model ? (remaining[0] || '') : imageConfig.model
+    onImageConfigChange({ customModels: custom, model: newModel })
+  }
+
+  const handleRenameImageFormCustom = (oldName, newName) => {
+    const trimmed = newName.trim()
+    if (!trimmed || !imageConfig?.type || !onImageConfigChange) {
+      setEditingImageFormModel(null)
+      return
+    }
+    if (trimmed === oldName) {
+      setEditingImageFormModel(null)
+      return
+    }
+    const list = imageConfig.customModels?.[imageConfig.type] || []
+    if (list.includes(trimmed)) {
+      setEditingImageFormModel(null)
+      return
+    }
+    const next = list.map((m) => (m === oldName ? trimmed : m))
+    const custom = { ...(imageConfig.customModels || {}), [imageConfig.type]: next }
+    onImageConfigChange({
+      customModels: custom,
+      ...(imageConfig.model === oldName && { model: trimmed }),
+    })
+    setEditingImageFormModel(null)
+  }
+
+  const removeImageCustomInList = (model) => {
+    if (!onImageConfigChange || !imageConfig) return
+    const custom = imageConfig.customModels || {}
+    const list = (custom[viewingService] || []).filter((m) => m !== model)
+    const nextCustom = { ...custom, [viewingService]: list }
+    const labels = imageConfig.customModelLabels || {}
+    const serviceLabels = { ...(labels[viewingService] || {}) }
+    delete serviceLabels[model]
+    const nextLabels = { ...labels, [viewingService]: serviceLabels }
+    const svc = AI_IMAGE_SERVICES.find((s) => s.value === viewingService)
+    const builtin = svc?.models || []
+    const remaining = [...builtin, ...list]
+    const newModel = imageConfig.type === viewingService && imageConfig.model === model ? (remaining[0] || '') : imageConfig.model
+    onImageConfigChange({
+      customModels: nextCustom,
+      customModelLabels: nextLabels,
+      ...(imageConfig.type === viewingService && { model: newModel }),
+    })
+  }
+
+  /** 仅修改文生图自定义模型的展示名称，模型 ID 创建后不可修改 */
+  const handleRenameImageModelInList = (modelId, newDisplayName) => {
+    const trimmed = newDisplayName.trim()
+    if (!onImageConfigChange || !imageConfig) {
+      setEditingImageModelInList(null)
+      return
+    }
+    const labels = imageConfig.customModelLabels || {}
+    const serviceLabels = { ...(labels[viewingService] || {}) }
+    if (trimmed) serviceLabels[modelId] = trimmed
+    else delete serviceLabels[modelId]
+    const nextLabels = { ...labels, [viewingService]: serviceLabels }
+    onImageConfigChange({ customModelLabels: nextLabels })
+    setEditingImageModelInList(null)
+  }
+
+  const handleImageTest = async (overrideModel) => {
+    if (!onTestConnectionImage) return
+    setImageTesting(true)
+    setImageTestResult(null)
+    const overrides = overrideModel != null ? { model: overrideModel } : {}
+    if (viewingService) {
+      overrides.endpoint = config.endpoints?.[viewingService] ?? imageConfig?.endpoint
+      overrides.apiKey = getViewingApiKey() || imageConfig?.apiKey
+    }
+    const result = await onTestConnectionImage(overrides)
+    setImageTestResult(result)
+    setImageTesting(false)
+    if (result?.success && overrideModel && viewingService && imageConfig?.type === viewingService) {
+      const verified = imageConfig.verifiedImageModelsByService || {}
+      const list = verified[viewingService] ?? imageModelFullListForViewing
+      if (!list.includes(overrideModel)) {
+        onImageConfigChange({
+          verifiedImageModelsByService: { ...verified, [viewingService]: [...list, overrideModel] },
+        })
+      }
+    }
+  }
+
+  const handleOpenAddImageModelDialog = () => {
+    setAddImageModelIdInput('')
+    setAddImageModelDisplayNameInput('')
+    setShowAddImageModelDialog(true)
+  }
+
+  /** 在模型列表-图片标签下通过弹窗添加文生图模型（当前服务商） */
+  const handleConfirmAddImageModel = () => {
+    const id = addImageModelIdInput.trim()
+    if (!id || !onImageConfigChange || imageModelFullListForViewing.includes(id)) return
+    const svc = AI_IMAGE_SERVICES.find((s) => s.value === viewingService)
+    const custom = imageConfig?.customModels || {}
+    const list = custom[viewingService] || []
+    const nextCustom = { ...custom, [viewingService]: [...list, id] }
+    const labels = imageConfig?.customModelLabels || {}
+    const serviceLabels = { ...(labels[viewingService] || {}) }
+    if (addImageModelDisplayNameInput.trim()) serviceLabels[id] = addImageModelDisplayNameInput.trim()
+    const nextLabels = { ...labels, [viewingService]: serviceLabels }
+    if (imageConfig?.type === viewingService) {
+      onImageConfigChange({ customModels: nextCustom, customModelLabels: nextLabels, model: id })
+    } else {
+      onImageConfigChange({
+        type: viewingService,
+        endpoint: svc?.endpoint ?? '',
+        model: id,
+        size: svc?.sizes?.[0] || '1024x1024',
+        customModels: nextCustom,
+        customModelLabels: nextLabels,
+      })
+    }
+    setShowAddImageModelDialog(false)
+  }
+
+  /** 模型列表-图片标签：当前服务商下的自定义模型列表（用于判断是否显示编辑/删除） */
+  const imageCustomModelsForViewing = React.useMemo(
+    () => Array.from(new Set(imageConfig?.customModels?.[viewingService] || [])),
+    [imageConfig?.customModels, viewingService]
+  )
+
+  const getImageModelDisplayLabel = (modelId) =>
+    (imageConfig?.customModelLabels?.[viewingService]?.[modelId] || modelId)?.trim() || modelId
+
+  /** 模型列表-图片标签：当前服务商下全部文生图模型。内置用预设，其他从拉取结果中仅保留文生图模型 */
+  const imageModelFullListForViewing = React.useMemo(() => {
+    if (!imageConfig) return []
+    const svc = AI_IMAGE_SERVICES.find((s) => s.value === viewingService)
+    let source
+    if (viewingService === 'builtin') {
+      source = svc?.models || []
+    } else {
+      const fetched = config.fetchedModelsByService?.[viewingService] || []
+      source = fetched.filter((m) => isImageModel(m))
+    }
+    const custom = Array.isArray(imageConfig.customModels?.[viewingService]) ? imageConfig.customModels[viewingService] : []
+    return [...source, ...custom].filter(Boolean)
+  }, [imageConfig, viewingService, config.fetchedModelsByService])
+
+  /** 切换到图片子标签时，将文生图当前服务商同步为侧栏所选 */
+  React.useEffect(() => {
+    if (modelListTab !== 'image' || !imageConfig || !onImageConfigChange || imageConfig.type === viewingService) return
+    const svc = AI_IMAGE_SERVICES.find((s) => s.value === viewingService)
+    const firstModel = imageModelFullListForViewing[0] || imageConfig.model || ''
+    const firstSize = svc?.sizes?.[0] || imageConfig.size || '1024x1024'
+    onImageConfigChange({ type: viewingService, model: firstModel, size: firstSize })
+  }, [modelListTab, viewingService, imageConfig?.type, onImageConfigChange, imageModelFullListForViewing])
+
+  /** 模型列表-图片标签：当前服务商的文生图模型列表（含顶部搜索过滤） */
+  const imageModelListForViewing = React.useMemo(() => {
+    if (!configSearch.trim()) return imageModelFullListForViewing
+    const q = configSearch.trim().toLowerCase()
+    return imageModelFullListForViewing.filter((m) => m.toLowerCase().includes(q))
+  }, [imageModelFullListForViewing, configSearch])
+
+  /** 当前服务商下已启用的文生图模型集合（未配置时视为全部启用） */
+  const verifiedImageSetForViewing = React.useMemo(() => {
+    const list = imageConfig?.verifiedImageModelsByService?.[viewingService]
+    const full = imageModelFullListForViewing
+    if (!full.length) return new Set()
+    if (list == null || list.length === 0) return new Set(full)
+    return new Set(list)
+  }, [imageConfig?.verifiedImageModelsByService, viewingService, imageModelFullListForViewing])
+
+  const toggleImageModelEnabled = (model, e) => {
+    e.stopPropagation()
+    if (!onImageConfigChange || !imageConfig) return
+    const verified = imageConfig.verifiedImageModelsByService || {}
+    const current = verified[viewingService] ?? imageModelFullListForViewing
+    const nextList = current.includes(model)
+      ? current.filter((m) => m !== model)
+      : [...current, model]
+    onImageConfigChange({
+      verifiedImageModelsByService: { ...verified, [viewingService]: nextList },
+    })
+  }
+
   React.useEffect(() => {
     if (!testResult) return
     const t = setTimeout(() => setTestResult(null), 3000)
     return () => clearTimeout(t)
   }, [testResult])
 
+  React.useEffect(() => {
+    if (!imageTestResult) return
+    const t = setTimeout(() => setImageTestResult(null), 3000)
+    return () => clearTimeout(t)
+  }, [imageTestResult])
+
   return (
     <div className="ai-config-panel">
       <div className="ai-config-header">
         <h3>AI 配置</h3>
-        <button className="ai-icon-btn" onClick={onClose}>
+        <button className="ai-icon-btn" onClick={handleClose} title="关闭">
           <X size={18} />
         </button>
       </div>
 
-      <div className="ai-config-content">
-        <p className="ai-config-description">
-          使用 AI 助手帮助您编写和优化内容
-        </p>
-
-        {/* 服务类型 */}
-        <div className="config-field">
-          <label>服务类型</label>
-          <AnimatedSelect
-            value={config.type}
-            onChange={(value) => {
-              const service = AI_SERVICES.find((s) => s.value === value)
-              onConfigChange({
-                type: value,
-                endpoint: service.endpoint,
-                model: service.models[0],
-              })
-            }}
-            options={AI_SERVICES.map((service) => ({
-              value: service.value,
-              label: service.label,
-            }))}
-          />
-        </div>
-
-        {/* API 端点 */}
-        <div className="config-field">
-          <label>API 端点</label>
+      <div className="ai-config-topbar">
+        <div className="ai-config-search-wrap">
+          <Search size={16} />
           <input
             type="text"
-            value={config.endpoint}
-            onChange={(e) => onConfigChange({ endpoint: e.target.value })}
-            placeholder="https://api.example.com/v1"
+            placeholder="搜索服务商或模型..."
+            value={configSearch}
+            onChange={(e) => setConfigSearch(e.target.value)}
           />
-          <div className="config-hint">
-            <Info size={12} />
-            <span>可使用代理或自建中转服务</span>
-          </div>
         </div>
+      </div>
 
-        {/* API Key（需要时显示） */}
-        {currentService?.needsApiKey && (
-          <div className="config-field">
-            <label>API Key</label>
-            <input
-              type="password"
-              value={config.apiKey || ''}
-              onChange={(e) => onConfigChange({ apiKey: e.target.value })}
-              placeholder="sk-..."
-            />
-          </div>
-        )}
-
-        {/* 模型名称 */}
-        <div className="config-field">
-          <label>模型名称</label>
-          {config.type === 'custom' ? (
-            <>
-              <input
-                type="text"
-                value={config.model}
-                onChange={(e) => onConfigChange({ model: e.target.value })}
-                placeholder="输入模型名称，如：gpt-3.5-turbo"
-              />
-              <div className="config-custom-models">
-                <div className="config-custom-models-add">
-                  <input
-                    type="text"
-                    value={customModelInput}
-                    onChange={(e) => setCustomModelInput(e.target.value)}
-                    placeholder="添加常用模型"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddCustomModel()}
-                  />
-                  <button
-                    type="button"
-                    className="ai-btn ai-btn-secondary ai-btn-sm"
-                    onClick={handleAddCustomModel}
-                    disabled={!customModelInput.trim()}
-                    title="添加"
-                  >
-                    <Plus size={14} />
-                    添加
-                  </button>
-                </div>
-                {customModels.length > 0 && (
-                  <div className="config-custom-models-list">
-                    {customModels.map((m) => (
-                      <span key={m} className="config-custom-model-tag">
-                        <span
-                          className="config-custom-model-tag-label"
-                          onClick={() => onConfigChange({ model: m })}
-                          title="点击使用"
-                        >
-                          {m}
-                        </span>
-                        <button
-                          type="button"
-                          className="ai-icon-btn ai-icon-btn-sm"
-                          onClick={() => handleRemoveCustomModel(m)}
-                          title="移除"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          ) : config.type === 'doubao' ? (
-            <>
-              <input
-                type="text"
-                value={config.model}
-                onChange={(e) => onConfigChange({ model: e.target.value })}
-                placeholder="ep-xxxx（推理接入点 ID）"
-              />
-              <div className="config-custom-models">
-                <div className="config-custom-models-add">
-                  <input
-                    type="text"
-                    value={customModelInput}
-                    onChange={(e) => setCustomModelInput(e.target.value)}
-                    placeholder="添加常用接入点 ID"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddCustomModel()}
-                  />
-                  <button
-                    type="button"
-                    className="ai-btn ai-btn-secondary ai-btn-sm"
-                    onClick={handleAddCustomModel}
-                    disabled={!customModelInput.trim()}
-                    title="添加"
-                  >
-                    <Plus size={14} />
-                    添加
-                  </button>
-                </div>
-                {customModels.length > 0 && (
-                  <div className="config-custom-models-list">
-                    {customModels.map((m) => (
-                      <span key={m} className="config-custom-model-tag">
-                        <span
-                          className="config-custom-model-tag-label"
-                          onClick={() => onConfigChange({ model: m })}
-                          title="点击使用"
-                        >
-                          {m}
-                        </span>
-                        <button
-                          type="button"
-                          className="ai-icon-btn ai-icon-btn-sm"
-                          onClick={() => handleRemoveCustomModel(m)}
-                          title="移除"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="config-hint">
-                <Info size={12} />
-                <span>{currentService?.modelHint}</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <AnimatedSelect
-                value={config.model}
-                onChange={(value) => onConfigChange({ model: value })}
-                options={allModels.map((model) => ({
-                  value: model,
-                  label: model,
-                }))}
-              />
-              <div className="config-custom-models">
-                <div className="config-custom-models-add">
-                  <input
-                    type="text"
-                    value={customModelInput}
-                    onChange={(e) => setCustomModelInput(e.target.value)}
-                    placeholder="输入模型名称并添加"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddCustomModel()}
-                  />
-                  <button
-                    type="button"
-                    className="ai-btn ai-btn-secondary ai-btn-sm"
-                    onClick={handleAddCustomModel}
-                    disabled={!customModelInput.trim()}
-                    title="添加自定义模型"
-                  >
-                    <Plus size={14} />
-                    添加
-                  </button>
-                </div>
-                {customModels.length > 0 && (
-                  <div className="config-custom-models-list">
-                    {customModels.map((m) => (
-                      <span key={m} className="config-custom-model-tag">
-                        <span
-                          className="config-custom-model-tag-label"
-                          onClick={() => onConfigChange({ model: m })}
-                          title="点击使用"
-                        >
-                          {m}
-                        </span>
-                        <button
-                          type="button"
-                          className="ai-icon-btn ai-icon-btn-sm"
-                          onClick={() => handleRemoveCustomModel(m)}
-                          title="移除"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {currentService?.modelHint && (
-                <div className="config-hint">
-                  <Info size={12} />
-                  <span>{currentService.modelHint}</span>
+      <div className="ai-config-body">
+        <aside className="ai-config-sidebar">
+          {enabledSidebarServices.length > 0 && (
+                <div className="ai-config-sidebar-group">
+                  <div className="ai-config-sidebar-group-title">已启用</div>
+                  {enabledSidebarServices.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      className={`ai-config-sidebar-item${viewingService === s.value ? ' active' : ''}`}
+                      onClick={() => selectService(s.value)}
+                    >
+                      <span className="ai-config-sidebar-dot enabled" />
+                      <span>{s.label}</span>
+                    </button>
+                  ))}
                 </div>
               )}
+              {categorizedSidebarItems.map((cat) => (
+                <div key={cat.id} className="ai-config-sidebar-group">
+                  <div className="ai-config-sidebar-group-title">{cat.label}</div>
+                  {cat.services.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      className={`ai-config-sidebar-item${viewingService === s.value ? ' active' : ''}`}
+                      onClick={() => selectService(s.value)}
+                    >
+                      <span
+                        className={`ai-config-sidebar-dot${enabledValueSet.has(s.value) ? ' enabled' : ''}`}
+                      />
+                      <span>{s.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+        </aside>
+
+        <div className="ai-config-main" ref={mainContentRef}>
+          <div className="ai-config-main-header">
+            <div className="ai-config-main-header-title-wrap">
+              <h4 className="ai-config-main-title">{currentService?.label ?? '服务'}</h4>
+              {currentService?.helpUrl ? (
+                <a
+                  href={currentService.helpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ai-icon-btn"
+                  title={`查看 ${currentService.label} API 文档`}
+                >
+                  <HelpCircle size={18} />
+                </a>
+              ) : null}
+            </div>
+            <div className="ai-config-main-header-actions">
+              <button
+                type="button"
+                className={`ai-config-provider-toggle${isProviderEnabled ? ' on' : ''}`}
+                onClick={() => setProviderEnabled(!isProviderEnabled)}
+                title={isProviderEnabled ? '已启用，点击关闭' : '已关闭，点击启用'}
+              >
+                <span className="ai-config-provider-toggle-track">
+                  <span className="ai-config-provider-toggle-thumb" />
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="ai-config-main-form">
+            {currentService?.needsApiKey && (
+              <div className="config-field config-field-vertical">
+                <label className="config-field-label">API Key</label>
+                <p className="config-field-desc">请填写你的 {currentService?.label} API Key，如无请先至服务商控制台获取。保存后仅显示星号，点击「显示」可查看或编辑。</p>
+                <div className="config-input-with-icon">
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    value={showApiKey ? getViewingApiKey() : (getViewingApiKey() ? API_KEY_MASK : '')}
+                    onChange={(e) =>
+                      onConfigChange({
+                        apiKeys: { ...(config.apiKeys || {}), [viewingService]: e.target.value },
+                      })
+                    }
+                    onFocus={() => { if (getViewingApiKey() && !showApiKey) setShowApiKey(true) }}
+                    readOnly={!showApiKey && !!getViewingApiKey()}
+                    placeholder={`${currentService?.label} API Key`}
+                  />
+                  <button
+                    type="button"
+                    className="ai-icon-btn"
+                    onClick={() => setShowApiKey((v) => !v)}
+                    title={showApiKey ? '隐藏' : '显示'}
+                  >
+                    {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="config-field config-field-vertical">
+              <label className="config-field-label">API 代理地址</label>
+              <p className="config-field-desc">必须包含 http(s)://</p>
+              <input
+                type="text"
+                value={getViewingEndpoint()}
+                onChange={(e) =>
+                  onConfigChange({
+                    endpoints: { ...(config.endpoints || {}), [viewingService]: e.target.value },
+                  })
+                }
+                placeholder="https://api.example.com/v1"
+              />
+            </div>
+
+            <div className="config-field config-field-vertical config-connectivity">
+              <label className="config-field-label">连通性检查</label>
+              <p className="config-field-desc">测试 API Key 与代理地址是否正确填写</p>
+              <div className="config-connectivity-row">
+                <div className="config-connectivity-select">
+                  <AnimatedSelect
+                    value={testModelSelect}
+                    onChange={(value) => setTestModelSelect(value)}
+                    options={testModelOptions.map((m) => ({ value: m, label: m }))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="ai-btn ai-btn-secondary"
+                  onClick={() => handleTest()}
+                  disabled={testing}
+                >
+                  <TestTube size={14} />
+                  {testing ? '检查中...' : '检查'}
+                </button>
+              </div>
+            </div>
+
+            <div className="config-security-note">
+              <Lock size={14} />
+              <span>
+                您的秘钥与代理地址等将使用{' '}
+                <a
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href="https://datatracker.ietf.org/doc/html/draft-ietf-avt-srtp-aes-gcm-01"
+                  style={{ marginInline: 4 }}
+                >
+                  AES-GCM
+                </a>{' '}
+                加密算法进行加密
+              </span>
+            </div>
+
+            {testResult && (
+              <div className={`test-result ${testResult.success ? 'success' : 'error'}`}>
+                {testResult.message}
+              </div>
+            )}
+          </div>
+
+          <div className="ai-config-models">
+            <div className="ai-config-models-header">
+              <span className="ai-config-models-title">模型列表</span>
+              <span className="ai-config-models-count">
+                共 {totalModelCountForViewing} 个模型
+              </span>
+              {viewingService !== 'builtin' && (
+                <button
+                  type="button"
+                  className="ai-btn ai-btn-secondary ai-btn-sm ai-config-fetch-models-btn"
+                  onClick={handleFetchModels}
+                  disabled={fetchingModels}
+                  title="从服务商 API 在线拉取模型列表，拉取后保存到数据库，后续无需再拉取；再次拉取可增量添加新模型"
+                >
+                  <RefreshCw size={14} className={fetchingModels ? 'spin' : ''} />
+                  {fetchingModels ? '拉取中...' : '获取模型列表'}
+                </button>
+              )}
+            </div>
+            {fetchModelsError && (
+              <div className="test-result error" style={{ marginBottom: 8 }}>
+                {fetchModelsError}
+              </div>
+            )}
+            <div className="ai-config-models-tabs">
+              <button
+                type="button"
+                className={`ai-config-models-tab${modelListTab === 'chat' ? ' active' : ''}`}
+                onClick={() => setModelListTab('chat')}
+              >
+                <MessageSquare size={16} />
+                <span>对话 ({chatModelCountForViewing})</span>
+              </button>
+              <button
+                type="button"
+                className={`ai-config-models-tab${modelListTab === 'image' ? ' active' : ''}`}
+                onClick={() => setModelListTab('image')}
+              >
+                <ImageIcon size={16} />
+                <span>图片 ({imageModelCountForViewing})</span>
+              </button>
+            </div>
+            {modelListTab === 'chat' && (
+              <>
+                <div className="ai-config-models-list">
+                  {filteredModels.length === 0 ? (
+                    <div className="ai-config-models-empty">
+                      {viewingService !== 'builtin' && !(config.fetchedModelsByService?.[viewingService]?.length)
+                        ? '暂无模型，请点击上方「获取模型列表」在线拉取'
+                        : '无匹配模型'}
+                    </div>
+                  ) : (
+                    filteredModels.map((model) => {
+                      const isCustomChat = customModels.includes(model)
+                      const isEditing = editingChatModel === model
+                      return (
+                        <div
+                          key={isEditing ? `edit-${model}` : model}
+                          className={`ai-config-model-item${config.type === viewingService && config.model === model ? ' active' : ''}`}
+                        >
+                          {isEditing ? (
+                            <input
+                              className="config-custom-model-edit-input ai-config-model-edit-inline"
+                              value={editingChatModelValue}
+                              onChange={(e) => setEditingChatModelValue(e.target.value)}
+                              onBlur={() => handleRenameChatCustom(model, editingChatModelValue)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameChatCustom(model, editingChatModelValue)
+                                if (e.key === 'Escape') setEditingChatModel(null)
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <span className="ai-config-model-name" title={model}>
+                              {getChatModelDisplayLabel(model)}
+                            </span>
+                          )}
+                          {!isEditing && (
+                            <div className="ai-config-model-item-actions">
+                              <button
+                                type="button"
+                                className="ai-icon-btn ai-icon-btn-sm ai-config-model-check-btn"
+                                onClick={(e) => { e.stopPropagation(); handleTest(model) }}
+                                disabled={testing}
+                                title="连通性检查"
+                              >
+                                <TestTube size={14} />
+                              </button>
+                              {isCustomChat && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="ai-icon-btn ai-icon-btn-sm"
+                                    onClick={() => { setEditingChatModel(model); setEditingChatModelValue(getChatModelDisplayLabel(model)) }}
+                                    title="修改展示名称"
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ai-icon-btn ai-icon-btn-sm"
+                                    onClick={() => handleRemoveCustomModel(model)}
+                                    title="删除"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                className={`ai-config-model-toggle${verifiedSet.has(model) ? ' on' : ''}`}
+                                onClick={(e) => toggleModelEnabled(model, e)}
+                                title={verifiedSet.has(model) ? '已启用，点击关闭' : '点击启用'}
+                              >
+                                <span className="ai-config-model-toggle-track">
+                                  <span className="ai-config-model-toggle-thumb" />
+                                </span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+                <div className="config-custom-models">
+                  <div className="config-custom-models-add">
+                    <button
+                      type="button"
+                      className="ai-btn ai-btn-secondary ai-btn-sm"
+                      onClick={handleOpenAddCustomModelDialog}
+                      title="创建自定义 AI 模型"
+                    >
+                      <Plus size={14} />
+                      添加
+                    </button>
+                  </div>
+                  {showAddCustomModelDialog && (
+                    <div className="ai-config-dialog-overlay" onClick={() => setShowAddCustomModelDialog(false)}>
+                      <div className="ai-config-dialog ai-config-add-model-dialog" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="ai-config-dialog-title">创建自定义 AI 模型</h3>
+                        <div className="config-field config-field-vertical">
+                          <label className="config-field-label">* 模型 ID</label>
+                          <input
+                            type="text"
+                            className="config-input"
+                            value={addModelIdInput}
+                            onChange={(e) => setAddModelIdInput(e.target.value)}
+                            placeholder="请输入模型 id,例如 gpt-4o 或 claude-3.5-sonnet"
+                            autoFocus
+                          />
+                          <p className="config-hint">创建后不可修改,调用AI时将作为模型 id 使用</p>
+                        </div>
+                        <div className="config-field config-field-vertical">
+                          <label className="config-field-label">模型展示名称</label>
+                          <input
+                            type="text"
+                            className="config-input"
+                            value={addModelDisplayNameInput}
+                            onChange={(e) => setAddModelDisplayNameInput(e.target.value)}
+                            placeholder="请输入模型的展示名称,例如 ChatGPT、GPT-4等"
+                          />
+                        </div>
+                        <div className="ai-config-dialog-actions">
+                          <button type="button" className="ai-btn ai-btn-secondary" onClick={() => setShowAddCustomModelDialog(false)}>取消</button>
+                          <button
+                            type="button"
+                            className="ai-btn ai-btn-primary"
+                            onClick={handleConfirmAddCustomModel}
+                            disabled={!addModelIdInput.trim() || allModels.includes(addModelIdInput.trim())}
+                          >
+                            确定
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            {modelListTab === 'image' && (
+              <div className="ai-config-models-image-tab">
+                {imageTestResult && (
+                  <div className={`test-result ${imageTestResult.success ? 'success' : 'error'}`} style={{ marginBottom: 8 }}>
+                    {imageTestResult.message}
+                  </div>
+                )}
+                {imageConfig && onImageConfigChange ? (
+                  <>
+                    <div className="ai-config-models-list">
+                      {imageModelListForViewing.length === 0 ? (
+                        <div className="ai-config-models-empty">
+                          {viewingService !== 'builtin' && !(config.fetchedModelsByService?.[viewingService]?.length)
+                            ? '暂无模型，请点击上方「获取模型列表」在线拉取'
+                            : imageConfig.type === viewingService
+                              ? '暂无模型，可在下方添加'
+                              : '当前文生图未选本服务商，添加模型将自动切换到此服务'}
+                        </div>
+                      ) : (
+                        imageModelListForViewing.map((model) => {
+                          const isCustom = imageCustomModelsForViewing.includes(model)
+                          const isEditing = editingImageModelInList === model
+                          return (
+                            <div
+                              key={isEditing ? `edit-${model}` : model}
+                              className={`ai-config-model-item${imageConfig.type === viewingService && imageConfig.model === (isEditing ? model : model) ? ' active' : ''}`}
+                            >
+                              {isEditing ? (
+                                <input
+                                  className="config-custom-model-edit-input ai-config-model-edit-inline"
+                                  value={editingImageModelInListValue}
+                                  onChange={(e) => setEditingImageModelInListValue(e.target.value)}
+                                  onBlur={() => handleRenameImageModelInList(model, editingImageModelInListValue)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleRenameImageModelInList(model, editingImageModelInListValue)
+                                    if (e.key === 'Escape') setEditingImageModelInList(null)
+                                  }}
+                                  autoFocus
+                                />
+                              ) : (
+                                <span className="ai-config-model-name" title={model}>{getImageModelDisplayLabel(model)}</span>
+                              )}
+                              {!isEditing && (
+                                <div className="ai-config-model-item-actions">
+                                  <button
+                                    type="button"
+                                    className="ai-icon-btn ai-icon-btn-sm ai-config-model-check-btn"
+                                    onClick={(e) => { e.stopPropagation(); handleImageTest(model) }}
+                                    disabled={imageTesting || imageConfig?.type !== viewingService}
+                                    title={imageConfig?.type === viewingService ? '连通性检查' : '请先在文生图配置中选中本服务商'}
+                                  >
+                                    <TestTube size={14} />
+                                  </button>
+                                  {isCustom && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="ai-icon-btn ai-icon-btn-sm"
+                                        onClick={() => { setEditingImageModelInList(model); setEditingImageModelInListValue(getImageModelDisplayLabel(model)) }}
+                                        title="修改展示名称"
+                                      >
+                                        <Pencil size={12} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="ai-icon-btn ai-icon-btn-sm"
+                                        onClick={() => removeImageCustomInList(model)}
+                                        title="删除"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className={`ai-config-model-toggle${verifiedImageSetForViewing.has(model) ? ' on' : ''}`}
+                                    onClick={(e) => toggleImageModelEnabled(model, e)}
+                                    title={verifiedImageSetForViewing.has(model) ? '已启用，点击关闭' : '点击启用'}
+                                  >
+                                    <span className="ai-config-model-toggle-track">
+                                      <span className="ai-config-model-toggle-thumb" />
+                                    </span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                    <div className="config-custom-models">
+                      <div className="config-custom-models-add">
+                        <button
+                          type="button"
+                          className="ai-btn ai-btn-secondary ai-btn-sm"
+                          onClick={handleOpenAddImageModelDialog}
+                          title="创建自定义 AI 模型"
+                        >
+                          <Plus size={14} />
+                          添加
+                        </button>
+                      </div>
+                      {showAddImageModelDialog && (
+                        <div className="ai-config-dialog-overlay" onClick={() => setShowAddImageModelDialog(false)}>
+                          <div className="ai-config-dialog ai-config-add-model-dialog" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="ai-config-dialog-title">创建自定义 AI 模型</h3>
+                            <div className="config-field config-field-vertical">
+                              <label className="config-field-label">* 模型 ID</label>
+                              <input
+                                type="text"
+                                className="config-input"
+                                value={addImageModelIdInput}
+                                onChange={(e) => setAddImageModelIdInput(e.target.value)}
+                                placeholder="请输入模型 id, 例如 gpt-4o 或 claude-3.5-sonnet"
+                                autoFocus
+                              />
+                              <p className="config-hint">创建后不可修改, 调用 AI 时将作为模型 id 使用</p>
+                            </div>
+                            <div className="config-field config-field-vertical">
+                              <label className="config-field-label">模型展示名称</label>
+                              <input
+                                type="text"
+                                className="config-input"
+                                value={addImageModelDisplayNameInput}
+                                onChange={(e) => setAddImageModelDisplayNameInput(e.target.value)}
+                                placeholder="请输入模型的展示名称, 例如 ChatGPT、GPT-4 等"
+                              />
+                            </div>
+                            <div className="ai-config-dialog-actions">
+                              <button type="button" className="ai-btn ai-btn-secondary" onClick={() => setShowAddImageModelDialog(false)}>取消</button>
+                              <button
+                                type="button"
+                                className="ai-btn ai-btn-primary"
+                                onClick={handleConfirmAddImageModel}
+                                disabled={!addImageModelIdInput.trim() || imageModelFullListForViewing.includes(addImageModelIdInput.trim())}
+                              >
+                                确定
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="ai-config-models-empty">
+                    <p>暂无文生图配置</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+          {modelListTab === 'chat' && (
+            <>
+              <div className="ai-config-main-form">
+                <p className="config-field-global-hint">以下参数对所有模型生效</p>
+                <div className="config-field">
+                  <label>
+                    温度
+                    <span className="config-value">{config.temperature}</span>
+                  </label>
+                  <ElasticSlider
+                    min={0}
+                    max={20}
+                    value={Math.round((config.temperature ?? DEFAULT_CONFIG.temperature) * 10)}
+                    onChange={(v) => onConfigChange({ temperature: v / 10 })}
+                  />
+                  <div className="config-hint">
+                    <Info size={12} />
+                    <span>控制随机性，0-2，较小值使输出更确定，较大值使其更随机。</span>
+                  </div>
+                </div>
+                <div className="config-field">
+                  <label>
+                    最大 Token 数
+                    <span className="config-value">{config.maxTokens}</span>
+                  </label>
+                  <ElasticSlider
+                    min={256}
+                    max={4096}
+                    value={config.maxTokens ?? DEFAULT_CONFIG.maxTokens}
+                    onChange={(v) => onConfigChange({ maxTokens: Math.round(v / 256) * 256 })}
+                  />
+                  <div className="config-hint">
+                    <Info size={12} />
+                    <span>控制回复长度</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="config-actions">
+                <button
+                  type="button"
+                  className="ai-btn ai-btn-secondary"
+                  onClick={() =>
+                    onConfigChange({
+                      temperature: DEFAULT_CONFIG.temperature,
+                      maxTokens: DEFAULT_CONFIG.maxTokens,
+                    })
+                  }
+                  title="将温度、最大 Token 数恢复为默认值"
+                >
+                  重置为默认参数
+                </button>
+                <button
+                  type="button"
+                  className="ai-btn ai-btn-primary"
+                  onClick={handleSave}
+                >
+                  保存
+                </button>
+              </div>
             </>
           )}
-        </div>
-
-        {/* 温度 */}
-        <div className="config-field">
-          <label>
-            温度
-            <span className="config-value">{config.temperature}</span>
-          </label>
-          <ElasticSlider
-            min={0}
-            max={20}
-            value={Math.round((config.temperature ?? DEFAULT_CONFIG.temperature) * 10)}
-            onChange={(v) => onConfigChange({ temperature: v / 10 })}
-          />
-          <div className="config-hint">
-            <Info size={12} />
-            <span>控制随机性，0-2</span>
           </div>
         </div>
-
-        {/* 最大 Token */}
-        <div className="config-field">
-          <label>
-            最大 Token 数
-            <span className="config-value">{config.maxTokens}</span>
-          </label>
-          <ElasticSlider
-            min={256}
-            max={4096}
-            value={config.maxTokens ?? DEFAULT_CONFIG.maxTokens}
-            onChange={(v) => onConfigChange({ maxTokens: Math.round(v / 256) * 256 })}
-          />
-          <div className="config-hint">
-            <Info size={12} />
-            <span>控制回复长度</span>
-          </div>
-        </div>
-
-        {/* 操作按钮 */}
-        <div className="config-actions">
-          <button className="ai-btn ai-btn-secondary" onClick={() => onConfigChange(DEFAULT_CONFIG)}>
-            清空
-          </button>
-          <button
-            className="ai-btn ai-btn-secondary"
-            onClick={handleTest}
-            disabled={testing}
-          >
-            <TestTube size={16} />
-            {testing ? '测试中...' : '测试连接'}
-          </button>
-          <button className="ai-btn ai-btn-primary" onClick={onClose}>
-            保存
-          </button>
-        </div>
-
-        {testResult && (
-          <div className={`test-result ${testResult.success ? 'success' : 'error'}`}>
-            {testResult.message}
-          </div>
-        )}
       </div>
     </div>
-  )
+  );
 }

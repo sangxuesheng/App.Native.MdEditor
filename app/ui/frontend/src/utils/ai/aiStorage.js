@@ -1,10 +1,11 @@
 // AI 会话存储工具
 // 配置、会话历史、当前会话均存数据库（settings 表）
 import { loadSetting, persistSetting } from '../settingsApi'
+import { safeParseJsonResponse } from '../fetchUtils'
 
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } })
-  const data = await res.json().catch(() => ({}))
+  const data = await safeParseJsonResponse(res, { ok: false })
   if (!res.ok || !data?.ok) throw new Error(data?.message || '请求失败')
   return data
 }

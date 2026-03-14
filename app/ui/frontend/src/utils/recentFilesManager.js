@@ -2,6 +2,7 @@
  * 最近文件管理器
  * 负责记录和管理最近打开的文件列表
  */
+import { safeParseJsonResponse } from './fetchUtils'
 
 const MAX_RECENT_FILES = 20
 
@@ -12,7 +13,7 @@ const MAX_RECENT_FILES = 20
 export async function getRecentFiles() {
   try {
     const res = await fetch('/api/recent-files')
-    const data = await res.json()
+    const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return []
     return Array.isArray(data.items) ? data.items.slice(0, MAX_RECENT_FILES) : []
   } catch (error) {

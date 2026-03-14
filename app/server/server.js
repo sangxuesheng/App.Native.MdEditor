@@ -11,11 +11,63 @@ const http = require('http');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const historyManager = require('./historyManager');
 const imageConverter = require('./imageConverter');
 const { getDb } = require('./db');
 
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
+
+// AES-GCM 加密密钥：优先使用环境变量 AI_CONFIG_ENCRYPTION_KEY（32 字节 hex 或 44 字节 base64），否则使用固定盐派生（仅适合单机）
+const AI_CONFIG_ENC_KEY_LEN = 32;
+function getAiConfigEncryptionKey() {
+  const envKey = process.env.AI_CONFIG_ENCRYPTION_KEY;
+  if (envKey && typeof envKey === 'string') {
+    const buf = Buffer.from(envKey, 'hex');
+    if (buf.length === AI_CONFIG_ENC_KEY_LEN) return buf;
+    const b64 = Buffer.from(envKey, 'base64');
+    if (b64.length === AI_CONFIG_ENC_KEY_LEN) return b64;
+  }
+  return crypto.scryptSync('md-editor-ai-config-default-salt', 'salt', AI_CONFIG_ENC_KEY_LEN);
+}
+
+const IV_LEN = 12;
+const AUTH_TAG_LEN = 16;
+const ENC_PREFIX = 'aes-gcm';
+
+function encryptAesGcm(plaintext) {
+  if (typeof plaintext !== 'string') return null;
+  const key = getAiConfigEncryptionKey();
+  const iv = crypto.randomBytes(IV_LEN);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: AUTH_TAG_LEN });
+  const enc = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    __enc: ENC_PREFIX,
+    iv: iv.toString('base64'),
+    tag: tag.toString('base64'),
+    data: enc.toString('base64'),
+  };
+}
+
+function decryptAesGcm(payload) {
+  if (!payload || payload.__enc !== ENC_PREFIX || !payload.iv || !payload.tag || !payload.data) return null;
+  try {
+    const key = getAiConfigEncryptionKey();
+    const iv = Buffer.from(payload.iv, 'base64');
+    const tag = Buffer.from(payload.tag, 'base64');
+    const data = Buffer.from(payload.data, 'base64');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv, { authTagLength: AUTH_TAG_LEN });
+    decipher.setAuthTag(tag);
+    return decipher.update(data) + decipher.final('utf8');
+  } catch (e) {
+    return null;
+  }
+}
+
+function isEncryptedApiKey(v) {
+  return v && typeof v === 'object' && v.__enc === ENC_PREFIX;
+}
 const STATIC_DIR = path.join(__dirname, '../ui/frontend/dist');
 
 // 共享路径解析：fnOS 用 TRIM_APPNAME 推导 shares，开发环境用相对路径
@@ -89,8 +141,18 @@ function resolveSafePath(requestedPath) {
   throw new Error('PATH_NOT_ALLOWED');
 }
 
+// CORS 允许头（飞牛 NAS 等环境下应用可能被嵌入或反向代理，需支持跨域）
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 function sendJson(res, statusCode, data) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    ...CORS_HEADERS,
+  });
   res.end(JSON.stringify(data));
 }
 
@@ -123,6 +185,13 @@ function readJsonBody(req, res, maxBytes = 1024 * 64) {
 
 const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
+
+  // CORS 预检：OPTIONS 请求直接返回 204
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return;
+  }
 
   // 健康检查
   if (parsed.pathname === '/health') {
@@ -170,7 +239,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 应用设置：GET /api/settings
+  // 应用设置：GET /api/settings（返回时对 aiConfig.apiKey 解密）
   if (parsed.pathname === '/api/settings' && req.method === 'GET') {
     try {
       const db = getDb();
@@ -181,6 +250,20 @@ const server = http.createServer(async (req, res) => {
           settings[row.key] = JSON.parse(row.value);
         } catch {
           settings[row.key] = row.value;
+        }
+      }
+      if (settings.aiConfig && typeof settings.aiConfig === 'object' && settings.aiConfig.apiKey !== undefined) {
+        const ak = settings.aiConfig.apiKey;
+        if (isEncryptedApiKey(ak)) {
+          const plain = decryptAesGcm(ak);
+          settings.aiConfig = { ...settings.aiConfig, apiKey: plain != null ? plain : '' };
+        }
+      }
+      if (settings.aiImageConfig && typeof settings.aiImageConfig === 'object' && settings.aiImageConfig.apiKey !== undefined) {
+        const ak = settings.aiImageConfig.apiKey;
+        if (isEncryptedApiKey(ak)) {
+          const plain = decryptAesGcm(ak);
+          settings.aiImageConfig = { ...settings.aiImageConfig, apiKey: plain != null ? plain : '' };
         }
       }
       sendJson(res, 200, { ok: true, settings });
@@ -211,10 +294,22 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const key = body && body.key;
-      const value = body && Object.prototype.hasOwnProperty.call(body, 'value') ? body.value : undefined;
+      let value = body && Object.prototype.hasOwnProperty.call(body, 'value') ? body.value : undefined;
       if (!key) {
         sendJson(res, 400, { ok: false, code: 'MISSING_KEY', message: '缺少 key 字段' });
         return;
+      }
+      if (key === 'aiConfig' && value && typeof value === 'object' && typeof value.apiKey === 'string' && value.apiKey.length > 0) {
+        if (!isEncryptedApiKey(value.apiKey)) {
+          const encrypted = encryptAesGcm(value.apiKey);
+          if (encrypted) value = { ...value, apiKey: encrypted };
+        }
+      }
+      if (key === 'aiImageConfig' && value && typeof value === 'object' && typeof value.apiKey === 'string' && value.apiKey.length > 0) {
+        if (!isEncryptedApiKey(value.apiKey)) {
+          const encrypted = encryptAesGcm(value.apiKey);
+          if (encrypted) value = { ...value, apiKey: encrypted };
+        }
       }
       try {
         const db = getDb();
@@ -339,6 +434,56 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // AI 模型列表拉取：POST /api/ai/models/fetch（从服务商 API 拉取 /v1/models，OpenAI 兼容格式）
+  if (parsed.pathname === '/api/ai/models/fetch' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req, res, 1024 * 8);
+      const { endpoint, apiKey } = body || {};
+      const ep = (endpoint || '').replace(/\/$/, '');
+      if (!ep || !ep.startsWith('http')) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少有效的 endpoint' });
+        return;
+      }
+      const url = ep.endsWith('/models') ? ep : ep + '/models';
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey && typeof apiKey === 'string' && apiKey.trim()) {
+        headers['Authorization'] = 'Bearer ' + apiKey.trim();
+      }
+      const fetchRes = await fetch(url, { method: 'GET', headers });
+      if (!fetchRes.ok) {
+        const rawText = await fetchRes.text();
+        let errMsg = fetchRes.statusText || '拉取模型列表失败';
+        try {
+          const errData = rawText ? JSON.parse(rawText) : {};
+          errMsg = errData?.error?.message || errData?.message || errMsg;
+        } catch (_) {
+          if (rawText && rawText.length < 300) errMsg = rawText;
+        }
+        if (fetchRes.status === 401 || fetchRes.status === 403) {
+          errMsg = '认证失败：请检查 API Key 是否已填写且有效';
+        }
+        sendJson(res, fetchRes.status, { ok: false, code: 'UPSTREAM_ERROR', message: errMsg });
+        return;
+      }
+      const data = await fetchRes.json().catch(() => ({}));
+      const rawList = data?.data || data?.models || [];
+      const models = Array.isArray(rawList)
+        ? rawList
+          .map((m) => (typeof m === 'string' ? m : m?.id || m?.model || m?.name))
+          .filter(Boolean)
+        : [];
+      sendJson(res, 200, { ok: true, models });
+    } catch (e) {
+      console.error('[api/ai/models/fetch] error:', e.message);
+      sendJson(res, 500, {
+        ok: false,
+        code: 'ERROR',
+        message: e.message || '拉取模型列表失败',
+      });
+    }
+    return;
+  }
+
   // AI 对话代理：POST /api/ai/chat/proxy（解决浏览器直连时的 SSL/CORS 问题）
   if (parsed.pathname === '/api/ai/chat/proxy' && req.method === 'POST') {
     let body;
@@ -350,9 +495,14 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const ep = (endpoint || '').replace(/\/$/, '');
+      const needsKey = /siliconflow\.(cn|com)|api\.openai\.com|deepseek|doubao/i.test(ep);
+      if (needsKey && (!apiKey || typeof apiKey !== 'string' || !apiKey.trim())) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_API_KEY', message: '该服务商需要填写并保存 API Key 后再测试连接' });
+        return;
+      }
       const url = ep.endsWith('/chat/completions') ? ep : ep + '/chat/completions';
       const headers = { 'Content-Type': 'application/json' };
-      if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
+      if (apiKey && typeof apiKey === 'string' && apiKey.trim()) headers['Authorization'] = 'Bearer ' + apiKey.trim();
       const payload = {
         model,
         messages,
@@ -368,15 +518,31 @@ const server = http.createServer(async (req, res) => {
       });
 
       if (!fetchRes.ok) {
-        const rawText = await fetchRes.text();
         let errMsg = fetchRes.statusText || 'AI 服务请求失败';
         try {
-          const errData = JSON.parse(rawText);
-          // 火山方舟/OpenAI 等格式: { error: { message, code, type } }
-          errMsg = errData?.error?.message || errData?.message || errMsg;
-          if (errData?.error?.code) errMsg = `[${errData.error.code}] ${errMsg}`;
-        } catch (_) {
-          if (rawText && rawText.length < 500) errMsg = rawText;
+          const rawText = await fetchRes.text();
+          try {
+            const errData = JSON.parse(rawText);
+            // 火山方舟/OpenAI/DeepSeek 等格式: { error: { message, code, type } } 或 { message }
+            errMsg = errData?.error?.message || errData?.message || errMsg;
+            if (errData?.error?.code) errMsg = `[${errData.error.code}] ${errMsg}`;
+          } catch (_) {
+            if (rawText && rawText.length < 500) errMsg = rawText;
+          }
+        } catch (readErr) {
+          // 读取错误响应体失败时，按状态码给出明确提示，避免误报为 500
+          if (fetchRes.status === 401 || fetchRes.status === 403) {
+            errMsg = '认证失败：API key 错误或已失效，请检查或在 DeepSeek 控制台重新创建 API key';
+          } else if (fetchRes.status === 402) {
+            errMsg = '余额不足，请充值后重试';
+          } else if (fetchRes.status === 429) {
+            errMsg = '请求过于频繁，请稍后重试';
+          }
+        }
+        // 401/403 且消息过于笼统时，改为认证失败说明
+        const isGenericAuth = !errMsg || /^(Unauthorized|Forbidden|Internal Server Error|AI 服务请求失败|认证失败)$/i.test(String(errMsg).trim());
+        if ((fetchRes.status === 401 || fetchRes.status === 403) && isGenericAuth) {
+          errMsg = '认证失败：请检查该服务商的 API Key 是否已填写、已保存且未过期';
         }
         console.error('[api/ai/chat/proxy] upstream error:', fetchRes.status, url, errMsg);
         sendJson(res, fetchRes.status, {
@@ -405,11 +571,18 @@ const server = http.createServer(async (req, res) => {
       }
     } catch (e) {
       const ep = (typeof body?.endpoint === 'string' ? body.endpoint : '').replace(/\/$/, '');
-      console.error('[api/ai/chat/proxy] error:', e.message, ep ? ep + '/chat/completions' : '(no endpoint)', e.cause || '');
+      const detail = e.cause?.message || e.cause?.code || e.message || '';
+      // 详细日志便于在 NAS 上排查：查看 TRIM_PKGVAR/md-editor.log 或应用日志
+      console.error('[api/ai/chat/proxy] error:', e.message, 'endpoint:', ep || '(none)', 'cause:', detail);
+      if (e.stack) console.error('[api/ai/chat/proxy] stack:', e.stack);
+      let msg = e.message || 'AI 服务请求失败（网络异常或代理内部错误）';
+      if (detail && (String(detail).includes('ENOTFOUND') || String(detail).includes('ECONNREFUSED') || String(detail).includes('ETIMEDOUT') || String(detail).includes('fetch'))) {
+        msg = `网络异常：无法连接 AI 服务（${detail}），请检查 NAS 外网或 DNS`;
+      }
       sendJson(res, 500, {
         ok: false,
         code: 'ERROR',
-        message: e.message || 'AI 服务请求失败（网络异常或代理内部错误）',
+        message: msg,
       });
     }
     return;
@@ -419,17 +592,64 @@ const server = http.createServer(async (req, res) => {
   if (parsed.pathname === '/api/ai/image/generate' && req.method === 'POST') {
     try {
       const body = await readJsonBody(req, res, 1024 * 8);
-      const { endpoint, apiKey, model, size, prompt } = body || {};
-      if (!endpoint || !prompt || typeof prompt !== 'string') {
-        sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少 endpoint 或 prompt' });
+      const { endpoint, apiKey, model, size, prompt: promptRaw } = body || {};
+      const prompt = typeof promptRaw === 'string' ? promptRaw.trim() : '';
+      if (!endpoint || typeof endpoint !== 'string' || !endpoint.trim()) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少 API 代理地址，请在配置中填写 endpoint' });
+        return;
+      }
+      if (!prompt) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少提示词 prompt' });
         return;
       }
       const ep = (endpoint || '').replace(/\/$/, '');
       const isFal = ep.includes('fal.run') || ep.includes('fal.ai');
       const isDoubaoAI = ep.includes('doubao-ai.com');
+      const isSiliconFlow = ep.includes('siliconflow.cn') || ep.includes('siliconflow.com');
+      const isBailian = /dashscope(-intl|-us)?\.aliyuncs\.com/i.test(ep);
+      const modelStr = (model && typeof model === 'string') ? model : '';
+      const useSiliconFlowFormat = isSiliconFlow || /FLUX|Kolors|black-forest|siliconflow/i.test(modelStr);
+
+      const apiKeyStr = typeof apiKey === 'string' ? apiKey.trim() : '';
+      if (isSiliconFlow && !apiKeyStr) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_API_KEY', message: '硅基流动需要填写并保存 API Key 后再测试或生成' });
+        return;
+      }
+      if (isBailian && !apiKeyStr) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_API_KEY', message: '阿里云百炼需要填写并保存 API Key 后再测试或生成' });
+        return;
+      }
 
       let url, headers, payload;
-      if (isFal) {
+      if (isBailian) {
+        // 阿里云百炼万相文生图：https://www.alibabacloud.com/help/zh/model-studio/text-to-image-v2-api-reference
+        // 端点格式与 compatible-mode 不同，需使用 /api/v1/services/aigc/multimodal-generation/generation
+        const base = ep.replace(/\/compatible-mode\/v1\/?$/, '').replace(/\/$/, '');
+        url = base + '/api/v1/services/aigc/multimodal-generation/generation';
+        headers = { 'Content-Type': 'application/json' };
+        if (apiKeyStr) headers['Authorization'] = 'Bearer ' + apiKeyStr;
+        const sizeMap = {
+          '1024x1024': '1280*1280', '768x768': '1280*1280', '512x512': '1280*1280',
+          '1024x768': '1472*1104', '768x1024': '1104*1472',
+          '1280x720': '1696*960', '720x1280': '960*1696',
+          '1920x1080': '1696*960', '1080x1920': '960*1696',
+        };
+        const bailianSize = sizeMap[size] || '1280*1280';
+        const wanModel = /wan2\.6|wan2\.5|wan2\.2|z-image/i.test(modelStr) ? modelStr : 'wan2.6-t2i';
+        payload = {
+          model: wanModel,
+          input: {
+            messages: [{ role: 'user', content: [{ text: prompt }] }],
+          },
+          parameters: {
+            prompt_extend: true,
+            watermark: false,
+            n: 1,
+            negative_prompt: '',
+            size: bailianSize,
+          },
+        };
+      } else if (isFal) {
         url = 'https://fal.run/fal-ai/kolors';
         headers = { 'Content-Type': 'application/json' };
         if (apiKey) headers['Authorization'] = 'Key ' + apiKey;
@@ -440,6 +660,28 @@ const server = http.createServer(async (req, res) => {
           '1920x1080': 'landscape_16_9', '1080x1920': 'portrait_16_9',
         };
         payload = { prompt, image_size: sizeMap[size] || 'square_hd' };
+      } else if (useSiliconFlowFormat) {
+        // 硅基流动「创建图片生成请求」文档：必填 model、prompt；image_size 为 widthxheight（Qwen-Image-Edit 不支持）
+        // batch_size/guidance_scale 仅适用于 Kwai-Kolors/Kolors；num_inference_steps 1–100 默认 20；响应 images[].url 有效期 1 小时
+        url = ep + '/images/generations';
+        headers = { 'Content-Type': 'application/json' };
+        if (apiKeyStr) headers['Authorization'] = 'Bearer ' + apiKeyStr;
+        const isKolors = /Kolors|Kwai-Kolors/i.test(modelStr);
+        const isSchnell = /FLUX\.1-schnell|schnell/i.test(modelStr);
+        payload = {
+          model: modelStr || 'black-forest-labs/FLUX.1-schnell',
+          prompt,
+          image_size: size || '1024x1024',
+          num_inference_steps: isSchnell ? 20 : 28,
+        };
+        if (isKolors) {
+          // 与官方示例一致：https://docs.siliconflow.cn/cn/api-reference/images/images-generations
+          payload.batch_size = 1;
+          payload.num_inference_steps = 20;
+          payload.guidance_scale = 7.5;
+        } else {
+          payload.negative_prompt = 'city, street, buildings, urban, neon signs, cars, crowded';
+        }
       } else if (isDoubaoAI) {
         // 豆包 AI 文生图 API: https://doubao-app.com/apidoc/ 仅需 prompt、size
         url = ep + '/images/generations';
@@ -457,17 +699,33 @@ const server = http.createServer(async (req, res) => {
       const data = await fetchRes.json().catch(() => ({}));
 
       if (!fetchRes.ok) {
+        let errMsg = data?.detail || data?.error?.message || data?.message || data?.data || fetchRes.statusText || '图像生成失败';
+        if (typeof errMsg !== 'string') errMsg = String(errMsg || '');
+        errMsg = errMsg.trim();
+        if ((fetchRes.status === 401 || fetchRes.status === 403) && (!errMsg || /^(Unauthorized|Forbidden|Illegal operation)$/i.test(errMsg))) {
+          errMsg = '认证失败或服务限制：请检查 API Key 是否有效；内置免费代理可能不支持文生图，建议使用硅基流动等需 API Key 的服务';
+        } else if (fetchRes.status === 400) {
+          if (!errMsg || /bad\s*request/i.test(errMsg)) {
+            errMsg = '请求参数有误：请检查模型名、出图尺寸或提示词是否符合该服务商 API 要求';
+          }
+          const isBuiltin = /proxy-ai\.doocs\.org/i.test(ep);
+          if (isBuiltin && (!errMsg || errMsg.length < 20)) {
+            errMsg = '内置免费代理可能不支持文生图或已限流，建议切换到硅基流动并填写 API Key 后使用';
+          }
+        }
         sendJson(res, fetchRes.status, {
           ok: false,
           code: 'UPSTREAM_ERROR',
-          message: data?.detail || data?.error?.message || fetchRes.statusText || '图像生成失败',
+          message: errMsg || '图像生成失败',
         });
         return;
       }
 
       let imgUrl, b64;
-      if (isFal && data?.images?.[0]?.url) {
+      if (data?.images?.[0]?.url) {
         imgUrl = data.images[0].url;
+      } else if (data?.output?.choices?.[0]?.message?.content?.[0]?.image) {
+        imgUrl = data.output.choices[0].message.content[0].image;
       } else {
         const first = data?.data?.[0];
         imgUrl = first?.url;
@@ -1608,7 +1866,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404); res.end('Not Found'); return;
   }
 
-  // 图片 URL 抓取保存：POST /api/image/fetch-url
+  // 图片 URL 抓取保存：POST /api/image/fetch-url  { url, alt }，支持 http(s) 与 data: 格式，不压缩
   if (parsed.pathname === '/api/image/fetch-url' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
@@ -1620,13 +1878,25 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // 下载远程图片
-        const https = require('https');
-        const http = require('http');
-        const client = url.startsWith('https') ? https : http;
+        let buffer;
+        let contentType = '';
 
-        const download = () => new Promise((resolve, reject) => {
-          client.get(url, { timeout: 15000 }, (response) => {
+        if (url.startsWith('data:')) {
+          const match = url.match(/^data:([^;]+);base64,(.+)$/);
+          if (!match) {
+            sendJson(res, 400, { ok: false, message: 'data URL 格式无效' });
+            return;
+          }
+          contentType = match[1];
+          buffer = Buffer.from(match[2], 'base64');
+        } else {
+          // 下载远程图片
+          const https = require('https');
+          const http = require('http');
+          const client = url.startsWith('https') ? https : http;
+
+          const download = () => new Promise((resolve, reject) => {
+            client.get(url, { timeout: 15000 }, (response) => {
             if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
               // 跟随重定向（最多一次）
               const redirectUrl = response.headers.location;
@@ -1645,17 +1915,21 @@ const server = http.createServer(async (req, res) => {
             response.on('error', reject);
           }).on('error', reject);
         });
-
-        const { buffer, contentType } = await download();
+          const downloaded = await download();
+          buffer = downloaded.buffer;
+          contentType = downloaded.contentType;
+        }
 
         // 确定扩展名
         let ext = '.jpg';
-        if (contentType.includes('png')) ext = '.png';
-        else if (contentType.includes('gif')) ext = '.gif';
-        else if (contentType.includes('webp')) ext = '.webp';
-        else if (contentType.includes('svg')) ext = '.svg';
-        else {
-          // 从 URL 猜
+        if (contentType && contentType.includes('png')) ext = '.png';
+        else if (contentType && contentType.includes('gif')) ext = '.gif';
+        else if (contentType && contentType.includes('webp')) ext = '.webp';
+        else if (contentType && contentType.includes('svg')) ext = '.svg';
+        else if (url && url.startsWith('data:')) {
+          const m = url.match(/^data:image\/(\w+)/);
+          if (m) ext = '.' + (m[1] === 'jpeg' ? 'jpg' : m[1]);
+        } else if (url) {
           const urlExt = url.split('?')[0].split('.').pop().toLowerCase();
           if (['jpg','jpeg','png','gif','webp','svg'].includes(urlExt)) ext = '.' + (urlExt === 'jpeg' ? 'jpg' : urlExt);
         }

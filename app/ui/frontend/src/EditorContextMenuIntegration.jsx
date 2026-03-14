@@ -339,7 +339,7 @@ const handleContextMenuAction = useCallback(async (action, data) => {
       break
       
     case 'link':
-      handleToolbarInsert('[', '](https://)', 'wrap')
+      handleToolbarInsert('[链接](https://)', '', 'insert')
       break
       
     case 'quote':
@@ -386,7 +386,7 @@ const handleContextMenuAction = useCallback(async (action, data) => {
       break
       
     case 'insert-link':
-      handleToolbarInsert('[', '](https://)', 'wrap')
+      handleToolbarInsert('[链接](https://)', '', 'insert')
       break
       
     case 'insert-codeblock':
