@@ -34,6 +34,19 @@ html, body {
 }
 
 .app {
+  /* CSS 变量定义 */
+  --editor-bg: #ffffff;
+  --text-color: #1f2937;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --border-color: #e5e7eb;
+  --hover-bg: #f3f4f6;
+  --primary-color: #667eea;
+  --primary-hover: #5568d3;
+  --secondary-color: #10b981;
+  --code-bg: #f3f4f6;
+  --code-color: #1f2937;
+  
   width: 100%;
   height: var(--app-viewport-height);
   min-height: 100dvh;
@@ -44,6 +57,21 @@ html, body {
   color: #c9d1d9;
   overflow: hidden;
   position: relative;
+}
+
+/* 暗色主题 CSS 变量 */
+.app.theme-dark {
+  --editor-bg: #1e1e1e;
+  --text-color: #d4d4d4;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --border-color: #3e3e42;
+  --hover-bg: #2d2d30;
+  --primary-color: #667eea;
+  --primary-hover: #5568d3;
+  --secondary-color: #10b981;
+  --code-bg: #252526;
+  --code-color: #d4d4d4;
 }
 
 /* 触摸设备：全局禁止复制，编辑区和预览区除外 */

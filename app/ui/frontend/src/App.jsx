@@ -1533,6 +1533,9 @@ function App() {
     }
   }, [])
   
+  // 实时保存编辑器内容到 ref，供 AI 引用全文使用（避免防抖导致 state 滞后）
+  const editorContentRef = useRef('')
+
   // 防抖的内容更新处理（优化编辑器输入性能）
   const debouncedSetContent = useMemo(
     () => debounce((value) => {
@@ -1547,6 +1550,20 @@ function App() {
       debouncedSetContent.cancel()
     }
   }, [debouncedSetContent])
+
+  // 编辑器 onChange：同步更新 ref（供 AI 引用全文），防抖更新 state
+  const handleEditorChange = useCallback(
+    (value) => {
+      editorContentRef.current = value || ''
+      debouncedSetContent(value)
+    },
+    [debouncedSetContent]
+  )
+
+  // 同步 content 到 ref（文件加载、恢复等场景）
+  useEffect(() => {
+    editorContentRef.current = content
+  }, [content])
   const fileTreeSwipeRef = useRef({
     tracking: false,
     startX: 0,
@@ -1830,6 +1847,14 @@ function App() {
     const model = editor.getModel()
     return model.getValueInRange(selection)
   }, [])
+
+  // 获取编辑器当前全文（用于 AI 引用全文）
+  // 优先从编辑器实例读取，否则用 editorContentRef（onChange 同步更新，无防抖延迟）
+  const getEditorContent = useCallback(() => {
+    const fromEditor = editorRef.current?.getModel()?.getValue()
+    if (fromEditor != null) return fromEditor
+    return editorContentRef.current ?? content
+  }, [content])
 
   // 检测光标处的图片
   const detectImageAtCursor = useCallback(() => {
@@ -5796,6 +5821,19 @@ function App() {
     }
   }, [])
 
+  const handleInsertText = useCallback((text) => {
+    if (editorRef.current && text) {
+      const editor = editorRef.current
+      const selection = editor.getSelection()
+      editor.executeEdits('insert-text', [{
+        range: selection,
+        text,
+        forceMoveMarkers: true
+      }])
+      editor.focus()
+    }
+  }, [])
+
   const applyMonacoTheme = useCallback((monacoInstance = window.monaco) => {
     if (!monacoInstance?.editor) return
     const monacoTheme = editorThemeRef.current === 'dark' ? 'vs-dark' : 'vs'
@@ -7236,7 +7274,7 @@ function App() {
                   defaultLanguage="markdown"
                   theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
                   value={content}
-                  onChange={debouncedSetContent}
+                  onChange={handleEditorChange}
                   onMount={handleEditorMount}
                   options={{
                     fontSize: editorFontSize,
@@ -7341,7 +7379,7 @@ function App() {
                   defaultLanguage="markdown"
                   theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
                   value={content}
-                  onChange={debouncedSetContent}
+                  onChange={handleEditorChange}
                   onMount={handleEditorMount}
                   options={{
                     fontSize: editorFontSize,
@@ -7521,8 +7559,10 @@ function App() {
 
       {/* AI 侧边栏 */}
       <AISidebar
-        editorContent={content}
-        selectedText={""}
+        getEditorContent={getEditorContent}
+        getSelectedText={getSelectedText}
+        onInsertImage={handleImageInsert}
+        onInsertText={handleInsertText}
       />
       </div>
       </AppUiProvider>

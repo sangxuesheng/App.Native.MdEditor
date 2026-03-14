@@ -1,29 +1,35 @@
 import React from 'react'
 import { X, TestTube, Info, Plus, Trash2 } from 'lucide-react'
 import AnimatedSelect from '../AnimatedSelect'
-import ElasticSlider from '../ElasticSlider'
-import { AI_SERVICES, DEFAULT_CONFIG } from '../../constants/aiConfig'
+import { AI_IMAGE_SERVICES, DEFAULT_IMAGE_CONFIG } from '../../constants/aiImageConfig'
 
-export default function AIConfigPanel({ config, onConfigChange, onClose, onTestConnection }) {
+const SIZE_LABELS = {
+  '1024x1024': '正方形 (1024×1024)',
+  '512x512': '小图 (512×512)',
+  '768x768': '中图 (768×768)',
+  '1024x768': '横版 4:3 (1024×768)',
+  '768x1024': '竖版 4:3 (768×1024)',
+  '1280x720': '横版 16:9 (1280×720)',
+  '720x1280': '竖版 16:9 (720×1280)',
+  '1920x1080': '全高清横版 (1920×1080)',
+  '1080x1920': '全高清竖版 (1080×1920)',
+  '1024x1792': '竖版 (1024×1792)',
+  '1792x1024': '横版 (1792×1024)',
+  '256x256': '缩略图 (256×256)',
+}
+
+export default function AIImageConfigPanel({ config, onConfigChange, onClose, onTestConnection }) {
   const [testing, setTesting] = React.useState(false)
   const [testResult, setTestResult] = React.useState(null)
   const [customModelInput, setCustomModelInput] = React.useState('')
 
-  const currentService = AI_SERVICES.find((s) => s.value === config.type)
+  const currentService = AI_IMAGE_SERVICES.find((s) => s.value === config.type)
   const builtinModels = currentService?.models || []
   const customModels = Array.isArray(config.customModels?.[config.type]) ? config.customModels[config.type] : []
   const allModels = React.useMemo(() => {
     const seen = new Set()
     return [...builtinModels, ...customModels].filter((m) => m && !seen.has(m) && seen.add(m))
   }, [builtinModels, customModels])
-
-  const handleTest = async () => {
-    setTesting(true)
-    setTestResult(null)
-    const result = await onTestConnection()
-    setTestResult(result)
-    setTesting(false)
-  }
 
   const handleAddCustomModel = () => {
     const name = customModelInput.trim()
@@ -41,6 +47,14 @@ export default function AIConfigPanel({ config, onConfigChange, onClose, onTestC
     onConfigChange({ customModels: nextCustom, model: newModel })
   }
 
+  const handleTest = async () => {
+    setTesting(true)
+    setTestResult(null)
+    const result = await onTestConnection()
+    setTestResult(result)
+    setTesting(false)
+  }
+
   // 测试结果 3 秒后自动消失
   React.useEffect(() => {
     if (!testResult) return
@@ -51,7 +65,7 @@ export default function AIConfigPanel({ config, onConfigChange, onClose, onTestC
   return (
     <div className="ai-config-panel">
       <div className="ai-config-header">
-        <h3>AI 配置</h3>
+        <h3>AI 文生图</h3>
         <button className="ai-icon-btn" onClick={onClose}>
           <X size={18} />
         </button>
@@ -59,45 +73,37 @@ export default function AIConfigPanel({ config, onConfigChange, onClose, onTestC
 
       <div className="ai-config-content">
         <p className="ai-config-description">
-          使用 AI 助手帮助您编写和优化内容
+          使用 AI 根据文字描述生成图像
         </p>
 
-        {/* 服务类型 */}
         <div className="config-field">
-          <label>服务类型</label>
+          <label>服务商</label>
           <AnimatedSelect
             value={config.type}
             onChange={(value) => {
-              const service = AI_SERVICES.find((s) => s.value === value)
+              const service = AI_IMAGE_SERVICES.find((s) => s.value === value)
+              const models = service?.models || []
               onConfigChange({
                 type: value,
-                endpoint: service.endpoint,
-                model: service.models[0],
+                endpoint: service?.endpoint ?? '',
+                model: models[0] ?? '',
+                size: service?.sizes?.[0] || '1024x1024',
               })
             }}
-            options={AI_SERVICES.map((service) => ({
-              value: service.value,
-              label: service.label,
-            }))}
+            options={AI_IMAGE_SERVICES.map((s) => ({ value: s.value, label: s.label }))}
           />
         </div>
 
-        {/* API 端点 */}
         <div className="config-field">
           <label>API 端点</label>
           <input
             type="text"
-            value={config.endpoint}
+            value={config.endpoint || ''}
             onChange={(e) => onConfigChange({ endpoint: e.target.value })}
-            placeholder="https://api.example.com/v1"
+            placeholder="https://proxy-ai.doocs.org/v1"
           />
-          <div className="config-hint">
-            <Info size={12} />
-            <span>可使用代理或自建中转服务</span>
-          </div>
         </div>
 
-        {/* API Key（需要时显示） */}
         {currentService?.needsApiKey && (
           <div className="config-field">
             <label>API Key</label>
@@ -110,16 +116,67 @@ export default function AIConfigPanel({ config, onConfigChange, onClose, onTestC
           </div>
         )}
 
-        {/* 模型名称 */}
         <div className="config-field">
-          <label>模型名称</label>
-          {config.type === 'custom' ? (
+          <label>模型</label>
+          {(currentService?.models?.length ?? 0) > 0 || customModels.length > 0 ? (
+            <>
+              <AnimatedSelect
+                value={config.model}
+                onChange={(v) => onConfigChange({ model: v })}
+                options={allModels.map((m) => ({ value: m, label: m }))}
+              />
+              <div className="config-custom-models">
+                <div className="config-custom-models-add">
+                  <input
+                    type="text"
+                    value={customModelInput}
+                    onChange={(e) => setCustomModelInput(e.target.value)}
+                    placeholder="输入模型名称并添加"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddCustomModel()}
+                  />
+                  <button
+                    type="button"
+                    className="ai-btn ai-btn-secondary ai-btn-sm"
+                    onClick={handleAddCustomModel}
+                    disabled={!customModelInput.trim()}
+                    title="添加自定义模型"
+                  >
+                    <Plus size={14} />
+                    添加
+                  </button>
+                </div>
+                {customModels.length > 0 && (
+                  <div className="config-custom-models-list">
+                    {customModels.map((m) => (
+                      <span key={m} className="config-custom-model-tag">
+                        <span
+                          className="config-custom-model-tag-label"
+                          onClick={() => onConfigChange({ model: m })}
+                          title="点击使用"
+                        >
+                          {m}
+                        </span>
+                        <button
+                          type="button"
+                          className="ai-icon-btn ai-icon-btn-sm"
+                          onClick={() => handleRemoveCustomModel(m)}
+                          title="移除"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
             <>
               <input
                 type="text"
                 value={config.model}
                 onChange={(e) => onConfigChange({ model: e.target.value })}
-                placeholder="输入模型名称，如：gpt-3.5-turbo"
+                placeholder="输入模型名称"
               />
               <div className="config-custom-models">
                 <div className="config-custom-models-add">
@@ -166,166 +223,30 @@ export default function AIConfigPanel({ config, onConfigChange, onClose, onTestC
                 )}
               </div>
             </>
-          ) : config.type === 'doubao' ? (
-            <>
-              <input
-                type="text"
-                value={config.model}
-                onChange={(e) => onConfigChange({ model: e.target.value })}
-                placeholder="ep-xxxx（推理接入点 ID）"
-              />
-              <div className="config-custom-models">
-                <div className="config-custom-models-add">
-                  <input
-                    type="text"
-                    value={customModelInput}
-                    onChange={(e) => setCustomModelInput(e.target.value)}
-                    placeholder="添加常用接入点 ID"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddCustomModel()}
-                  />
-                  <button
-                    type="button"
-                    className="ai-btn ai-btn-secondary ai-btn-sm"
-                    onClick={handleAddCustomModel}
-                    disabled={!customModelInput.trim()}
-                    title="添加"
-                  >
-                    <Plus size={14} />
-                    添加
-                  </button>
-                </div>
-                {customModels.length > 0 && (
-                  <div className="config-custom-models-list">
-                    {customModels.map((m) => (
-                      <span key={m} className="config-custom-model-tag">
-                        <span
-                          className="config-custom-model-tag-label"
-                          onClick={() => onConfigChange({ model: m })}
-                          title="点击使用"
-                        >
-                          {m}
-                        </span>
-                        <button
-                          type="button"
-                          className="ai-icon-btn ai-icon-btn-sm"
-                          onClick={() => handleRemoveCustomModel(m)}
-                          title="移除"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="config-hint">
-                <Info size={12} />
-                <span>{currentService?.modelHint}</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <AnimatedSelect
-                value={config.model}
-                onChange={(value) => onConfigChange({ model: value })}
-                options={allModels.map((model) => ({
-                  value: model,
-                  label: model,
-                }))}
-              />
-              <div className="config-custom-models">
-                <div className="config-custom-models-add">
-                  <input
-                    type="text"
-                    value={customModelInput}
-                    onChange={(e) => setCustomModelInput(e.target.value)}
-                    placeholder="输入模型名称并添加"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddCustomModel()}
-                  />
-                  <button
-                    type="button"
-                    className="ai-btn ai-btn-secondary ai-btn-sm"
-                    onClick={handleAddCustomModel}
-                    disabled={!customModelInput.trim()}
-                    title="添加自定义模型"
-                  >
-                    <Plus size={14} />
-                    添加
-                  </button>
-                </div>
-                {customModels.length > 0 && (
-                  <div className="config-custom-models-list">
-                    {customModels.map((m) => (
-                      <span key={m} className="config-custom-model-tag">
-                        <span
-                          className="config-custom-model-tag-label"
-                          onClick={() => onConfigChange({ model: m })}
-                          title="点击使用"
-                        >
-                          {m}
-                        </span>
-                        <button
-                          type="button"
-                          className="ai-icon-btn ai-icon-btn-sm"
-                          onClick={() => handleRemoveCustomModel(m)}
-                          title="移除"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {currentService?.modelHint && (
-                <div className="config-hint">
-                  <Info size={12} />
-                  <span>{currentService.modelHint}</span>
-                </div>
-              )}
-            </>
           )}
         </div>
 
-        {/* 温度 */}
         <div className="config-field">
-          <label>
-            温度
-            <span className="config-value">{config.temperature}</span>
-          </label>
-          <ElasticSlider
-            min={0}
-            max={20}
-            value={Math.round((config.temperature ?? DEFAULT_CONFIG.temperature) * 10)}
-            onChange={(v) => onConfigChange({ temperature: v / 10 })}
+          <label>图像尺寸</label>
+          <AnimatedSelect
+            value={config.size}
+            onChange={(v) => onConfigChange({ size: v })}
+            options={(currentService?.sizes || ['1024x1024']).map((s) => ({
+              value: s,
+              label: SIZE_LABELS[s] || s,
+            }))}
           />
-          <div className="config-hint">
-            <Info size={12} />
-            <span>控制随机性，0-2</span>
-          </div>
         </div>
 
-        {/* 最大 Token */}
-        <div className="config-field">
-          <label>
-            最大 Token 数
-            <span className="config-value">{config.maxTokens}</span>
-          </label>
-          <ElasticSlider
-            min={256}
-            max={4096}
-            value={config.maxTokens ?? DEFAULT_CONFIG.maxTokens}
-            onChange={(v) => onConfigChange({ maxTokens: Math.round(v / 256) * 256 })}
-          />
-          <div className="config-hint">
+        {config.type === 'builtin' && (
+          <div className="config-hint" style={{ marginBottom: 16 }}>
             <Info size={12} />
-            <span>控制回复长度</span>
+            <span>默认图像服务免费使用，无需配置 API Key，支持 Kwai-Kolors/Kolors 模型。</span>
           </div>
-        </div>
+        )}
 
-        {/* 操作按钮 */}
         <div className="config-actions">
-          <button className="ai-btn ai-btn-secondary" onClick={() => onConfigChange(DEFAULT_CONFIG)}>
+          <button className="ai-btn ai-btn-secondary" onClick={() => onConfigChange(DEFAULT_IMAGE_CONFIG)}>
             清空
           </button>
           <button
@@ -337,7 +258,7 @@ export default function AIConfigPanel({ config, onConfigChange, onClose, onTestC
             {testing ? '测试中...' : '测试连接'}
           </button>
           <button className="ai-btn ai-btn-primary" onClick={onClose}>
-            保存
+            保存配置
           </button>
         </div>
 

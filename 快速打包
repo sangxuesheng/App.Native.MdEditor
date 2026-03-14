@@ -24,7 +24,8 @@ cd /vol4/1000/开发文件夹/mac
    
    
    
-   cd /vol4/1000/开发文件夹/mac bash build-optimized.sh
+   cd /vol4/1000/开发文件夹/mac
+   bash build-optimized.sh
 
 
 

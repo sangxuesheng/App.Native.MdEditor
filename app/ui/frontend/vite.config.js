@@ -9,19 +9,19 @@ export default defineConfig({
     host: true, // 局域网可访问，手机等设备可连 NAS_IP:3000 做热更新调试
     proxy: {
       '/api': {
-        target: 'http://localhost:18080',
+        target: 'http://127.0.0.1:18080',
         changeOrigin: true
       },
       '/health': {
-        target: 'http://localhost:18080',
+        target: 'http://127.0.0.1:18080',
         changeOrigin: true
       },
       '/images': {
-        target: 'http://localhost:18080',
+        target: 'http://127.0.0.1:18080',
         changeOrigin: true
       },
       '/math-svg': {
-        target: 'http://localhost:18080',
+        target: 'http://127.0.0.1:18080',
         changeOrigin: true
       }
     }

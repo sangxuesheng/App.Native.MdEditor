@@ -39,14 +39,24 @@ export class AIService {
       }
 
       // 发送请求
-      const response = await fetch(url, {
+      const response = await fetch('/api/ai/chat/proxy', {
         method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint,
+          apiKey: apiKey || undefined,
+          model,
+          messages,
+          temperature,
+          maxTokens,
+          stream: true,
+        }),
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        const errData = await response.json().catch(() => ({}))
+        const msg = errData?.message || errData?.error?.message || `${response.status} ${response.statusText}`
+        throw new Error(msg)
       }
 
       // 处理流式响应
@@ -107,42 +117,38 @@ export class AIService {
     }
   }
 
-  // 测试连接
+  // 测试连接（通过后端代理，避免 SSL/CORS 问题）
   async testConnection() {
     const { endpoint, apiKey, model } = this.config
 
     try {
-      const url = endpoint.endsWith('/chat/completions')
-        ? endpoint
-        : `${endpoint}/chat/completions`
-
-      const headers = {
-        'Content-Type': 'application/json',
-      }
-
-      if (apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`
-      }
-
-      const response = await fetch(url, {
+      const response = await fetch('/api/ai/chat/proxy', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          endpoint,
+          apiKey: apiKey || undefined,
           model,
           messages: [{ role: 'user', content: 'ping' }],
           temperature: 0,
-          max_tokens: 1,
+          maxTokens: 1,
           stream: false,
         }),
       })
 
       if (response.ok) {
+        const data = await response.json().catch(() => ({}))
+        if (data?.error) {
+          return { success: false, message: data.error.message || '连接失败' }
+        }
         return { success: true, message: '连接成功' }
       } else {
-        return {
-          success: false,
-          message: `连接失败: ${response.status} ${response.statusText}`,
+        const data = await response.json().catch(() => ({}))
+        let msg = data?.message || `连接失败: ${response.status} ${response.statusText}`
+        if (response.status === 404) {
+          msg = 'AI 对话代理接口未就绪，请执行 bash build-and-deploy.sh --local 更新后端并重启应用'
         }
+        return { success: false, message: msg }
       }
     } catch (error) {
       return {

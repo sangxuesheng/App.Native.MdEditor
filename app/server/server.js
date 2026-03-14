@@ -257,6 +257,238 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // AI 会话历史：GET /api/ai/conversations
+  if (parsed.pathname === '/api/ai/conversations' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('aiConversations');
+      let conversations = {};
+      if (row?.value) {
+        try {
+          conversations = JSON.parse(row.value);
+        } catch {
+          conversations = {};
+        }
+      }
+      sendJson(res, 200, { ok: true, conversations });
+    } catch (e) {
+      console.error('[api/ai/conversations][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取会话历史失败' });
+    }
+    return;
+  }
+
+  // AI 会话历史：POST /api/ai/conversations  { conversations }
+  if (parsed.pathname === '/api/ai/conversations' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req, res, 1024 * 1024 * 2);
+      const conversations = body && typeof body.conversations === 'object' ? body.conversations : {};
+      const db = getDb();
+      const stmt = db.prepare(`
+        INSERT INTO settings (key, value) VALUES (@key, @value)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `);
+      stmt.run({ key: 'aiConversations', value: JSON.stringify(conversations) });
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      if (e.message === 'PAYLOAD_TOO_LARGE' || e.message === 'INVALID_JSON') return;
+      console.error('[api/ai/conversations][POST] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '保存会话历史失败' });
+    }
+    return;
+  }
+
+  // AI 当前会话：GET /api/ai/current-conversation
+  if (parsed.pathname === '/api/ai/current-conversation' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('aiCurrentConversation');
+      let messages = [];
+      if (row?.value) {
+        try {
+          messages = JSON.parse(row.value);
+        } catch {
+          messages = [];
+        }
+      }
+      sendJson(res, 200, { ok: true, messages });
+    } catch (e) {
+      console.error('[api/ai/current-conversation][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取当前会话失败' });
+    }
+    return;
+  }
+
+  // AI 当前会话：POST /api/ai/current-conversation  { messages }
+  if (parsed.pathname === '/api/ai/current-conversation' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req, res, 1024 * 1024 * 2);
+      const messages = Array.isArray(body?.messages) ? body.messages : [];
+      const db = getDb();
+      const stmt = db.prepare(`
+        INSERT INTO settings (key, value) VALUES (@key, @value)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `);
+      stmt.run({ key: 'aiCurrentConversation', value: JSON.stringify(messages) });
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      if (e.message === 'PAYLOAD_TOO_LARGE' || e.message === 'INVALID_JSON') return;
+      console.error('[api/ai/current-conversation][POST] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '保存当前会话失败' });
+    }
+    return;
+  }
+
+  // AI 对话代理：POST /api/ai/chat/proxy（解决浏览器直连时的 SSL/CORS 问题）
+  if (parsed.pathname === '/api/ai/chat/proxy' && req.method === 'POST') {
+    let body;
+    try {
+      body = await readJsonBody(req, res, 1024 * 64);
+      const { endpoint, apiKey, model, messages, temperature, maxTokens, stream } = body || {};
+      if (!endpoint || !model || !Array.isArray(messages)) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少 endpoint、model 或 messages' });
+        return;
+      }
+      const ep = (endpoint || '').replace(/\/$/, '');
+      const url = ep.endsWith('/chat/completions') ? ep : ep + '/chat/completions';
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
+      const payload = {
+        model,
+        messages,
+        temperature: typeof temperature === 'number' ? temperature : 0.7,
+        max_tokens: typeof maxTokens === 'number' ? maxTokens : 1536,
+        stream: !!stream,
+      };
+
+      const fetchRes = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!fetchRes.ok) {
+        const rawText = await fetchRes.text();
+        let errMsg = fetchRes.statusText || 'AI 服务请求失败';
+        try {
+          const errData = JSON.parse(rawText);
+          // 火山方舟/OpenAI 等格式: { error: { message, code, type } }
+          errMsg = errData?.error?.message || errData?.message || errMsg;
+          if (errData?.error?.code) errMsg = `[${errData.error.code}] ${errMsg}`;
+        } catch (_) {
+          if (rawText && rawText.length < 500) errMsg = rawText;
+        }
+        console.error('[api/ai/chat/proxy] upstream error:', fetchRes.status, url, errMsg);
+        sendJson(res, fetchRes.status, {
+          ok: false,
+          code: 'UPSTREAM_ERROR',
+          message: errMsg,
+        });
+        return;
+      }
+
+      if (payload.stream) {
+        res.writeHead(200, {
+          'Content-Type': fetchRes.headers.get('content-type') || 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        });
+        const { Readable } = require('stream');
+        if (fetchRes.body) {
+          Readable.fromWeb(fetchRes.body).pipe(res);
+        } else {
+          res.end();
+        }
+      } else {
+        const data = await fetchRes.json().catch(() => ({}));
+        sendJson(res, 200, data);
+      }
+    } catch (e) {
+      const ep = (typeof body?.endpoint === 'string' ? body.endpoint : '').replace(/\/$/, '');
+      console.error('[api/ai/chat/proxy] error:', e.message, ep ? ep + '/chat/completions' : '(no endpoint)', e.cause || '');
+      sendJson(res, 500, {
+        ok: false,
+        code: 'ERROR',
+        message: e.message || 'AI 服务请求失败（网络异常或代理内部错误）',
+      });
+    }
+    return;
+  }
+
+  // AI 文生图：POST /api/ai/image/generate  { endpoint, apiKey, model, size, prompt }
+  if (parsed.pathname === '/api/ai/image/generate' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req, res, 1024 * 8);
+      const { endpoint, apiKey, model, size, prompt } = body || {};
+      if (!endpoint || !prompt || typeof prompt !== 'string') {
+        sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少 endpoint 或 prompt' });
+        return;
+      }
+      const ep = (endpoint || '').replace(/\/$/, '');
+      const isFal = ep.includes('fal.run') || ep.includes('fal.ai');
+      const isDoubaoAI = ep.includes('doubao-ai.com');
+
+      let url, headers, payload;
+      if (isFal) {
+        url = 'https://fal.run/fal-ai/kolors';
+        headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['Authorization'] = 'Key ' + apiKey;
+        const sizeMap = {
+          '1024x1024': 'square_hd', '512x512': 'square', '768x768': 'portrait_4_3',
+          '1024x768': 'landscape_4_3', '768x1024': 'portrait_4_3',
+          '1280x720': 'landscape_16_9', '720x1280': 'portrait_16_9',
+          '1920x1080': 'landscape_16_9', '1080x1920': 'portrait_16_9',
+        };
+        payload = { prompt, image_size: sizeMap[size] || 'square_hd' };
+      } else if (isDoubaoAI) {
+        // 豆包 AI 文生图 API: https://doubao-app.com/apidoc/ 仅需 prompt、size
+        url = ep + '/images/generations';
+        headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
+        payload = { prompt, size: size || '1024x1024' };
+      } else {
+        url = ep + '/images/generations';
+        headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
+        payload = { model: model || 'dall-e-2', prompt, n: 1, size: size || '1024x1024' };
+      }
+
+      const fetchRes = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+      const data = await fetchRes.json().catch(() => ({}));
+
+      if (!fetchRes.ok) {
+        sendJson(res, fetchRes.status, {
+          ok: false,
+          code: 'UPSTREAM_ERROR',
+          message: data?.detail || data?.error?.message || fetchRes.statusText || '图像生成失败',
+        });
+        return;
+      }
+
+      let imgUrl, b64;
+      if (isFal && data?.images?.[0]?.url) {
+        imgUrl = data.images[0].url;
+      } else {
+        const first = data?.data?.[0];
+        imgUrl = first?.url;
+        b64 = first?.b64_json;
+      }
+
+      if (!imgUrl && !b64) {
+        sendJson(res, 500, { ok: false, code: 'NO_IMAGE', message: '未返回图像数据' });
+        return;
+      }
+      const result = b64
+        ? { ok: true, url: 'data:image/png;base64,' + b64, b64: true }
+        : { ok: true, url: imgUrl, b64: false };
+      sendJson(res, 200, result);
+    } catch (e) {
+      console.error('[api/ai/image/generate] error:', e);
+      sendJson(res, 500, { ok: false, code: 'ERROR', message: e.message || '图像生成失败' });
+    }
+    return;
+  }
+
   // 应用编辑状态：POST /api/app-state  { state, replace }
   if (parsed.pathname === '/api/app-state' && req.method === 'POST') {
     try {
