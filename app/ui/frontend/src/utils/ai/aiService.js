@@ -118,8 +118,15 @@ export class AIService {
   }
 
   // 测试连接（通过后端代理，避免 SSL/CORS 问题）
-  async testConnection() {
-    const { endpoint, apiKey, model } = this.config
+  // overrides: { type, endpoint, apiKey, model } 来自配置面板连通性检查
+  async testConnection(overrides = {}) {
+    const endpoint = overrides.endpoint ?? this.config.endpoint
+    const apiKey = overrides.apiKey ?? this.config.apiKey
+    let model = overrides.model ?? this.config.model
+    // DashScope/百炼：强制使用 qwen-turbo 测试，避免选中音频模型导致 asr 报错
+    if (['aliyun-bailian', 'qwen'].includes(overrides.type)) {
+      model = 'qwen-turbo'
+    }
 
     try {
       const response = await fetch('/api/ai/chat/proxy', {
@@ -145,7 +152,8 @@ export class AIService {
       } else {
         const data = await response.json().catch(() => ({}))
         let msg = data?.message || `连接失败: ${response.status} ${response.statusText}`
-        if (response.status === 404) {
+        // 404 且无后端错误信息时，可能是后端未启动；有 message 时多为上游 endpoint 返回 404
+        if (response.status === 404 && !data?.message) {
           msg = 'AI 对话代理接口未就绪，请执行 bash build-and-deploy.sh --local 更新后端并重启应用'
         }
         return { success: false, message: msg }

@@ -18,6 +18,13 @@ const { getDb } = require('./db');
 
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
 
+// 模型拉取过滤：仅保留对话 + 图片模型，排除音频/ASR/embedding/TTS 等
+const IMAGE_MODEL_PATTERNS = [/flux/i, /kolors/i, /dall-e/i, /wanx/i, /cogview/i, /black-forest/i, /schnell/i, /qwen-image/i, /stable-diffusion/i, /seedream/i, /flux\.1/i, /flux-1/i, /image-edit/i, /wan2\.6|wan2\.5|wan2\.2|z-image/i];
+const EXCLUDED_MODEL_PATTERNS = [/audio/i, /-asr$/i, /embedding/i, /embed/i, /whisper/i, /tts/i, /speech/i, /moderation/i, /transcri/i];
+function isImageModel(id) { return IMAGE_MODEL_PATTERNS.some((p) => p.test(id)); }
+function isExcludedModel(id) { return EXCLUDED_MODEL_PATTERNS.some((p) => p.test(id)); }
+function isChatOrImageModel(id) { return isImageModel(id) || !isExcludedModel(id); }
+
 // AES-GCM 加密密钥：优先使用环境变量 AI_CONFIG_ENCRYPTION_KEY（32 字节 hex 或 44 字节 base64），否则使用固定盐派生（仅适合单机）
 const AI_CONFIG_ENC_KEY_LEN = 32;
 function getAiConfigEncryptionKey() {
@@ -435,16 +442,22 @@ const server = http.createServer(async (req, res) => {
   }
 
   // AI 模型列表拉取：POST /api/ai/models/fetch（从服务商 API 拉取 /v1/models，OpenAI 兼容格式）
+  // 过滤规则：仅保留对话模型 + 图片模型，排除音频/ASR/embedding/TTS 等
   if (parsed.pathname === '/api/ai/models/fetch' && req.method === 'POST') {
     try {
       const body = await readJsonBody(req, res, 1024 * 8);
-      const { endpoint, apiKey } = body || {};
+      const { endpoint, apiKey, serviceType, modelListTab } = body || {};
       const ep = (endpoint || '').replace(/\/$/, '');
       if (!ep || !ep.startsWith('http')) {
         sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少有效的 endpoint' });
         return;
       }
-      const url = ep.endsWith('/models') ? ep : ep + '/models';
+      let url = ep.endsWith('/models') ? ep : ep + '/models';
+      // 硅基流动支持 sub_type=text-to-image 仅拉取文生图模型（文档：type/image, sub_type/text-to-image|image-to-image）
+      const isSiliconFlow = ep.includes('siliconflow.cn') || ep.includes('siliconflow.com');
+      if (isSiliconFlow && modelListTab === 'image') {
+        url += (url.includes('?') ? '&' : '?') + 'sub_type=text-to-image';
+      }
       const headers = { 'Content-Type': 'application/json' };
       if (apiKey && typeof apiKey === 'string' && apiKey.trim()) {
         headers['Authorization'] = 'Bearer ' + apiKey.trim();
@@ -467,12 +480,13 @@ const server = http.createServer(async (req, res) => {
       }
       const data = await fetchRes.json().catch(() => ({}));
       const rawList = data?.data || data?.models || [];
-      const models = Array.isArray(rawList)
+      const allIds = Array.isArray(rawList)
         ? rawList
           .map((m) => (typeof m === 'string' ? m : m?.id || m?.model || m?.name))
           .filter(Boolean)
         : [];
-      sendJson(res, 200, { ok: true, models });
+      const models = allIds.filter(isChatOrImageModel);
+      sendJson(res, 200, { ok: true, models, imageOnly: isSiliconFlow && modelListTab === 'image' });
     } catch (e) {
       console.error('[api/ai/models/fetch] error:', e.message);
       sendJson(res, 500, {
@@ -544,6 +558,14 @@ const server = http.createServer(async (req, res) => {
         if ((fetchRes.status === 401 || fetchRes.status === 403) && isGenericAuth) {
           errMsg = '认证失败：请检查该服务商的 API Key 是否已填写、已保存且未过期';
         }
+        // 400 + asr：选用了语音/音频模型（ASR），期望音频输入，不支持纯文本（不限 endpoint，含代理/中转）
+        if (fetchRes.status === 400 && /asr|dedicated task.*asr/i.test(String(errMsg))) {
+          errMsg = '当前模型为语音/音频模型，不支持纯文本输入。请选择文本对话模型（如 qwen-turbo、qwen-plus）进行连通性测试或对话。';
+        }
+        // 404：上游 API 地址返回未找到，多为 endpoint 配置错误
+        if (fetchRes.status === 404) {
+          errMsg = '您配置的 API 地址返回 404，请检查 endpoint 是否正确（应为完整地址，如 https://api.openai.com/v1 或 https://dashscope.aliyuncs.com/compatible-mode/v1）';
+        }
         console.error('[api/ai/chat/proxy] upstream error:', fetchRes.status, url, errMsg);
         sendJson(res, fetchRes.status, {
           ok: false,
@@ -588,13 +610,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // AI 文生图：POST /api/ai/image/generate  { endpoint, apiKey, model, size, prompt }
+  // AI 文生图：POST /api/ai/image/generate  { endpoint, apiKey, model, size, prompt, seed?, count?, referenceImages? }
   if (parsed.pathname === '/api/ai/image/generate' && req.method === 'POST') {
     try {
-      const body = await readJsonBody(req, res, 1024 * 8);
-      const { endpoint, apiKey, model, size, prompt: promptRaw } = body || {};
+      const body = await readJsonBody(req, res, 1024 * 1024 * 6); // 6MB，支持 base64 参考图
+      const { endpoint, apiKey, model, size, prompt: promptRaw, seed, count, referenceImages } = body || {};
       const prompt = typeof promptRaw === 'string' ? promptRaw.trim() : '';
       if (!endpoint || typeof endpoint !== 'string' || !endpoint.trim()) {
+        console.warn('[api/ai/image/generate] 400: 缺少 endpoint');
         sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少 API 代理地址，请在配置中填写 endpoint' });
         return;
       }
@@ -609,6 +632,9 @@ const server = http.createServer(async (req, res) => {
       const isBailian = /dashscope(-intl|-us)?\.aliyuncs\.com/i.test(ep);
       const modelStr = (model && typeof model === 'string') ? model : '';
       const useSiliconFlowFormat = isSiliconFlow || /FLUX|Kolors|black-forest|siliconflow/i.test(modelStr);
+      const refImg = Array.isArray(referenceImages) && referenceImages.length > 0 ? referenceImages[0] : null;
+      const n = Math.min(Math.max(1, parseInt(count, 10) || 1), 8);
+      const seedNum = seed != null ? parseInt(seed, 10) : undefined;
 
       const apiKeyStr = typeof apiKey === 'string' ? apiKey.trim() : '';
       if (isSiliconFlow && !apiKeyStr) {
@@ -644,11 +670,12 @@ const server = http.createServer(async (req, res) => {
           parameters: {
             prompt_extend: true,
             watermark: false,
-            n: 1,
+            n: Math.min(n, 4),
             negative_prompt: '',
             size: bailianSize,
           },
         };
+        if (typeof seedNum === 'number' && !isNaN(seedNum)) payload.parameters.seed = seedNum;
       } else if (isFal) {
         url = 'https://fal.run/fal-ai/kolors';
         headers = { 'Content-Type': 'application/json' };
@@ -659,60 +686,77 @@ const server = http.createServer(async (req, res) => {
           '1280x720': 'landscape_16_9', '720x1280': 'portrait_16_9',
           '1920x1080': 'landscape_16_9', '1080x1920': 'portrait_16_9',
         };
-        payload = { prompt, image_size: sizeMap[size] || 'square_hd' };
+        payload = { prompt, image_size: sizeMap[size] || 'square_hd', num_images: Math.min(Math.max(1, n), 8) };
+        if (refImg) payload.image = refImg;
+        if (typeof seedNum === 'number' && !isNaN(seedNum)) payload.seed = seedNum;
       } else if (useSiliconFlowFormat) {
-        // 硅基流动「创建图片生成请求」文档：必填 model、prompt；image_size 为 widthxheight（Qwen-Image-Edit 不支持）
-        // batch_size/guidance_scale 仅适用于 Kwai-Kolors/Kolors；num_inference_steps 1–100 默认 20；响应 images[].url 有效期 1 小时
+        // 硅基流动 API：https://docs.siliconflow.cn/cn/api-reference/images/images-generations
+        // Qwen-Image-Edit 不支持 image_size；Kolors 支持 batch_size/guidance_scale；响应 images[].url 有效期 1 小时
         url = ep + '/images/generations';
         headers = { 'Content-Type': 'application/json' };
         if (apiKeyStr) headers['Authorization'] = 'Bearer ' + apiKeyStr;
         const isKolors = /Kolors|Kwai-Kolors/i.test(modelStr);
+        const isQwenImageEdit = /Qwen-Image-Edit|Qwen\/Qwen-Image/i.test(modelStr);
         const isSchnell = /FLUX\.1-schnell|schnell/i.test(modelStr);
+        const refImgs = Array.isArray(referenceImages) ? referenceImages.slice(0, 3) : (refImg ? [refImg] : []);
         payload = {
           model: modelStr || 'black-forest-labs/FLUX.1-schnell',
           prompt,
-          image_size: size || '1024x1024',
-          num_inference_steps: isSchnell ? 20 : 28,
+          num_inference_steps: isQwenImageEdit ? 20 : (isSchnell ? 20 : 28),
         };
-        if (isKolors) {
-          // 与官方示例一致：https://docs.siliconflow.cn/cn/api-reference/images/images-generations
-          payload.batch_size = 1;
+        if (!isQwenImageEdit) {
+          payload.image_size = size || '1024x1024';
+        }
+        if (isQwenImageEdit) {
+          payload.cfg = 4;
+          refImgs.forEach((img, i) => { payload[i === 0 ? 'image' : `image${i + 1}`] = img; });
+        } else if (isKolors) {
+          payload.batch_size = Math.min(Math.max(1, n), 4);
           payload.num_inference_steps = 20;
           payload.guidance_scale = 7.5;
+          if (refImg) payload.image = refImg;
         } else {
           payload.negative_prompt = 'city, street, buildings, urban, neon signs, cars, crowded';
+          if (refImg) payload.image = refImg;
         }
+        if (typeof seedNum === 'number' && !isNaN(seedNum)) payload.seed = seedNum;
       } else if (isDoubaoAI) {
         // 豆包 AI 文生图 API: https://doubao-app.com/apidoc/ 仅需 prompt、size
         url = ep + '/images/generations';
         headers = { 'Content-Type': 'application/json' };
         if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
         payload = { prompt, size: size || '1024x1024' };
+        if (refImg) payload.image = refImg;
+        if (typeof seedNum === 'number' && !isNaN(seedNum)) payload.seed = seedNum;
       } else {
         url = ep + '/images/generations';
         headers = { 'Content-Type': 'application/json' };
         if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
-        payload = { model: model || 'dall-e-2', prompt, n: 1, size: size || '1024x1024' };
+        payload = { model: model || 'dall-e-2', prompt, n: Math.min(n, 4), size: size || '1024x1024' };
+        if (refImg) payload.image = refImg;
+        if (typeof seedNum === 'number' && !isNaN(seedNum)) payload.seed = seedNum;
       }
 
       const fetchRes = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
       const data = await fetchRes.json().catch(() => ({}));
 
       if (!fetchRes.ok) {
-        let errMsg = data?.detail || data?.error?.message || data?.message || data?.data || fetchRes.statusText || '图像生成失败';
+        const upstreamMsg = data?.message || data?.detail || data?.error?.message || (typeof data?.data === 'string' ? data.data : null);
+        let errMsg = upstreamMsg || fetchRes.statusText || '图像生成失败';
         if (typeof errMsg !== 'string') errMsg = String(errMsg || '');
         errMsg = errMsg.trim();
         if ((fetchRes.status === 401 || fetchRes.status === 403) && (!errMsg || /^(Unauthorized|Forbidden|Illegal operation)$/i.test(errMsg))) {
           errMsg = '认证失败或服务限制：请检查 API Key 是否有效；内置免费代理可能不支持文生图，建议使用硅基流动等需 API Key 的服务';
         } else if (fetchRes.status === 400) {
-          if (!errMsg || /bad\s*request/i.test(errMsg)) {
-            errMsg = '请求参数有误：请检查模型名、出图尺寸或提示词是否符合该服务商 API 要求';
-          }
+          console.warn('[api/ai/image/generate] 400 原始响应', JSON.stringify({ model: modelStr, size, upstreamMessage: data?.message, upstreamData: data?.data, upstreamCode: data?.code, upstreamDetail: data?.detail }));
           const isBuiltin = /proxy-ai\.doocs\.org/i.test(ep);
           if (isBuiltin && (!errMsg || errMsg.length < 20)) {
             errMsg = '内置免费代理可能不支持文生图或已限流，建议切换到硅基流动并填写 API Key 后使用';
+          } else if (!errMsg || errMsg.length < 5) {
+            errMsg = '请求参数有误：请检查模型名、出图尺寸或提示词是否符合该服务商 API 要求';
           }
         }
+        console.warn('[api/ai/image/generate] 上游返回', fetchRes.status, errMsg);
         sendJson(res, fetchRes.status, {
           ok: false,
           code: 'UPSTREAM_ERROR',
@@ -721,28 +765,95 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      let imgUrl, b64;
-      if (data?.images?.[0]?.url) {
-        imgUrl = data.images[0].url;
-      } else if (data?.output?.choices?.[0]?.message?.content?.[0]?.image) {
-        imgUrl = data.output.choices[0].message.content[0].image;
-      } else {
-        const first = data?.data?.[0];
-        imgUrl = first?.url;
-        b64 = first?.b64_json;
+      let imgUrls = [];
+      let b64;
+      if (Array.isArray(data?.images) && data.images.length > 0) {
+        imgUrls = data.images.map((img) => img?.url).filter(Boolean);
+      } else if (data?.output?.choices?.[0]?.message?.content) {
+        // 百炼万相等：content 为数组时每项含 image，支持多图；单图时 content 可能为对象
+        const content = data.output.choices[0].message.content;
+        imgUrls = Array.isArray(content)
+          ? content.map((c) => c?.image).filter(Boolean)
+          : (content?.image ? [content.image] : []);
+      } else if (Array.isArray(data?.data) && data.data.length > 0) {
+        imgUrls = data.data.map((d) => {
+          if (d?.url) return d.url;
+          if (d?.b64_json) return 'data:image/png;base64,' + d.b64_json;
+          return null;
+        }).filter(Boolean);
+        b64 = imgUrls.length > 0 && imgUrls[0].startsWith('data:');
       }
 
-      if (!imgUrl && !b64) {
+      if (imgUrls.length === 0) {
         sendJson(res, 500, { ok: false, code: 'NO_IMAGE', message: '未返回图像数据' });
         return;
       }
+      const firstUrl = imgUrls[0];
       const result = b64
-        ? { ok: true, url: 'data:image/png;base64,' + b64, b64: true }
-        : { ok: true, url: imgUrl, b64: false };
+        ? { ok: true, url: firstUrl, urls: imgUrls, b64: true }
+        : { ok: true, url: firstUrl, urls: imgUrls, b64: false };
       sendJson(res, 200, result);
     } catch (e) {
       console.error('[api/ai/image/generate] error:', e);
       sendJson(res, 500, { ok: false, code: 'ERROR', message: e.message || '图像生成失败' });
+    }
+    return;
+  }
+
+  // 文生图历史：GET /api/ai/image/history
+  if (parsed.pathname === '/api/ai/image/history' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const rows = db.prepare('SELECT id, prompt, url, created_at FROM ai_image_history ORDER BY created_at DESC LIMIT 50').all();
+      const items = rows.map(r => ({ id: r.id, prompt: r.prompt, url: r.url, time: r.created_at }));
+      sendJson(res, 200, { ok: true, items });
+    } catch (e) {
+      console.error('[api/ai/image/history][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取历史失败' });
+    }
+    return;
+  }
+
+  // 文生图历史：POST /api/ai/image/history  { prompt, url }
+  if (parsed.pathname === '/api/ai/image/history' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const data = body ? JSON.parse(body) : {};
+        const prompt = data?.prompt;
+        const url = data?.url;
+        if (!prompt || !url) {
+          sendJson(res, 400, { ok: false, message: '缺少 prompt 或 url' });
+          return;
+        }
+        const db = getDb();
+        const stmt = db.prepare('INSERT INTO ai_image_history (prompt, url, created_at) VALUES (?, ?, ?)');
+        const result = stmt.run(prompt, url, Date.now());
+        sendJson(res, 200, { ok: true, id: result.lastInsertRowid });
+      } catch (e) {
+        console.error('[api/ai/image/history][POST] error:', e);
+        sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '保存历史失败' });
+      }
+    });
+    return;
+  }
+
+  // 文生图历史：DELETE /api/ai/image/history/:id
+  const aiImageHistoryDeleteMatch = parsed.pathname.match(/^\/api\/ai\/image\/history\/(\d+)$/);
+  if (aiImageHistoryDeleteMatch && req.method === 'DELETE') {
+    const id = parseInt(aiImageHistoryDeleteMatch[1], 10);
+    if (!id) {
+      sendJson(res, 400, { ok: false, message: '无效的 id' });
+      return;
+    }
+    try {
+      const db = getDb();
+      db.prepare('DELETE FROM ai_image_history WHERE id = ?').run(id);
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      console.error('[api/ai/image/history][DELETE] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '删除失败' });
     }
     return;
   }

@@ -2,8 +2,8 @@ import React from 'react'
 import { X, TestTube, Info, Plus, Trash2, Search, HelpCircle, Lock, Eye, EyeOff, MessageSquare, Image as ImageIcon, Pencil, RefreshCw } from 'lucide-react'
 import AnimatedSelect from '../AnimatedSelect'
 import ElasticSlider from '../ElasticSlider'
-import { AI_SERVICES, AI_SERVICE_CATEGORIES, DEFAULT_CONFIG } from '../../constants/aiConfig'
-import { AI_IMAGE_SERVICES, DEFAULT_IMAGE_CONFIG, isImageModel } from '../../constants/aiImageConfig'
+import { AI_SERVICES, AI_SERVICE_CATEGORIES, DEFAULT_CONFIG, CONNECTIVITY_TEST_DEFAULT_MODELS, CONNECTIVITY_TEST_EXCLUDED_PATTERNS } from '../../constants/aiConfig'
+import { AI_IMAGE_SERVICES, DEFAULT_IMAGE_CONFIG, isImageModel, CONNECTIVITY_TEST_DEFAULT_IMAGE_MODELS } from '../../constants/aiImageConfig'
 
 const API_KEY_MASK = '••••••••••••' // 已保存的 API Key 在页面上仅显示星号，不展示明文
 
@@ -48,13 +48,14 @@ export default function AIConfigPanel({
   const [addImageModelDisplayNameInput, setAddImageModelDisplayNameInput] = React.useState('')
   const [imageTesting, setImageTesting] = React.useState(false)
   const [imageTestResult, setImageTestResult] = React.useState(null)
+  const [rowTestResult, setRowTestResult] = React.useState(null) // 模型列表行内连通性检查结果：{ modelId, result }
+  const [rowImageTestResult, setRowImageTestResult] = React.useState(null) // 图片模型列表行内连通性检查结果
   const [editingChatModel, setEditingChatModel] = React.useState(null) // 正在编辑的对话自定义模型名
   const [editingChatModelValue, setEditingChatModelValue] = React.useState('')
   const [editingImageModelInList, setEditingImageModelInList] = React.useState(null) // 图片标签下列表中正在编辑的模型
   const [editingImageModelInListValue, setEditingImageModelInListValue] = React.useState('')
   const [editingImageFormModel, setEditingImageFormModel] = React.useState(null) // 文生图主表单中正在编辑的自定义模型
   const [editingImageFormModelValue, setEditingImageFormModelValue] = React.useState('')
-  const [imageTestModelSelect, setImageTestModelSelect] = React.useState('') // 文生图连通性检查选用模型
   const [fetchingModels, setFetchingModels] = React.useState(false) // 正在拉取模型列表
   const [fetchModelsError, setFetchModelsError] = React.useState(null) // 拉取失败提示
   const mainContentRef = React.useRef(null)
@@ -189,46 +190,40 @@ export default function AIConfigPanel({
   const totalModelCountForViewing = chatModelCountForViewing + imageModelCountForViewing
 
   const verifiedListForViewing = config.verifiedModelsByService?.[viewingService] || []
+  /** 连通性检查选项（对话）：默认测试模型 + 已验证 + 在线拉取/内置；排除音频/ASR/embedding 等 */
   const testModelOptions = React.useMemo(() => {
+    const defaults = CONNECTIVITY_TEST_DEFAULT_MODELS[viewingService] || []
     const seen = new Set()
-    return [...verifiedListForViewing, ...allModels].filter((m) => m && !seen.has(m) && seen.add(m))
-  }, [verifiedListForViewing, allModels])
+    let list = [...defaults, ...verifiedListForViewing, ...allModels].filter((m) => m && !seen.has(m) && seen.add(m))
+    list = list.filter((m) => !CONNECTIVITY_TEST_EXCLUDED_PATTERNS.some((p) => p.test(m)))
+    return list
+  }, [viewingService, verifiedListForViewing, allModels])
   const [testModelSelect, setTestModelSelect] = React.useState('')
-  React.useEffect(() => {
-    const first = testModelOptions[0]
-    setTestModelSelect((prev) => (testModelOptions.includes(prev) ? prev : first || ''))
-  }, [viewingService, testModelOptions])
 
   const getViewingApiKey = () =>
     config.apiKeys?.[viewingService] ?? config.apiKey ?? ''
   const getViewingEndpoint = () =>
     config.endpoints?.[viewingService] ?? currentService?.endpoint ?? config.endpoint ?? ''
+  /** 图片代理地址：优先用图片专用配置，未配置时默认使用对话的代理地址 */
+  const getViewingImageEndpoint = () =>
+    imageConfig?.endpoints?.[viewingService] ?? getViewingEndpoint() ?? imageConfig?.endpoint ?? AI_IMAGE_SERVICES.find((s) => s.value === viewingService)?.endpoint ?? ''
 
   const handleTest = async (overrideModel) => {
     const modelToTest = overrideModel ?? testModelSelect
     if (!modelToTest) return
     setTesting(true)
-    setTestResult(null)
+    if (overrideModel) setRowTestResult(null)
+    else setTestResult(null)
     const result = await onTestConnection({
       type: viewingService,
       apiKey: getViewingApiKey(),
       endpoint: getViewingEndpoint(),
       model: modelToTest,
     })
-    setTestResult(result)
+    if (overrideModel) setRowTestResult({ modelId: overrideModel, result })
+    else setTestResult(result)
     setTesting(false)
-    if (result?.success && viewingService && modelToTest) {
-      const verified = config.verifiedModelsByService || {}
-      const list = verified[viewingService] || []
-      if (!list.includes(modelToTest)) {
-        onConfigChange({
-          verifiedModelsByService: {
-            ...verified,
-            [viewingService]: [...list, modelToTest],
-          },
-        })
-      }
-    }
+    /* 连通性检查通过后不自动启用模型，由用户自行在模型列表中点击使用按钮 */
   }
 
   const handleOpenAddCustomModelDialog = () => {
@@ -298,7 +293,7 @@ export default function AIConfigPanel({
     mainContentRef.current?.scrollTo({ top: 0 })
   }
 
-  /** 在线拉取模型列表，保存到 config.fetchedModelsByService，增量合并新模型 */
+  /** 在线拉取模型列表，同时更新对话模型和图片模型，保存到 config.fetchedModelsByService，增量合并 */
   const handleFetchModels = async () => {
     if (viewingService === 'builtin') return
     const endpoint = getViewingEndpoint()
@@ -309,10 +304,16 @@ export default function AIConfigPanel({
     setFetchingModels(true)
     setFetchModelsError(null)
     try {
+      // 始终拉取完整列表（对话+图片），不区分当前 tab
       const res = await fetch('/api/ai/models/fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint, apiKey: getViewingApiKey() }),
+        body: JSON.stringify({
+          endpoint,
+          apiKey: getViewingApiKey(),
+          serviceType: viewingService,
+          modelListTab: 'chat', // 拉取完整列表，硅基流动不传 image 则返回全部
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
@@ -345,12 +346,6 @@ export default function AIConfigPanel({
     const seen = new Set()
     return [...imageBuiltinModels, ...imageCustomModels].filter((m) => m && !seen.has(m) && seen.add(m))
   }, [imageBuiltinModels, imageCustomModels])
-
-  const imageTestModelOptions = imageAllModels
-  React.useEffect(() => {
-    if (!imageTestModelOptions.length) return
-    setImageTestModelSelect((prev) => (imageTestModelOptions.includes(prev) ? prev : imageTestModelOptions[0] || ''))
-  }, [imageConfig?.type, imageAllModels])
 
   const handleImageAddCustomModel = () => {
     const name = imageCustomModelInput.trim()
@@ -436,21 +431,34 @@ export default function AIConfigPanel({
     setImageTestResult(null)
     const overrides = overrideModel != null ? { model: overrideModel } : {}
     if (viewingService) {
-      overrides.endpoint = config.endpoints?.[viewingService] ?? imageConfig?.endpoint
+      overrides.endpoint = getViewingImageEndpoint() || config.endpoints?.[viewingService] || imageConfig?.endpoint
       overrides.apiKey = getViewingApiKey() || imageConfig?.apiKey
+    }
+    const result = await onTestConnectionImage(overrides)
+    setImageTesting(false)
+    if (overrideModel) setRowImageTestResult({ modelId: overrideModel, result })
+    /* 连通性检查通过后不自动启用模型，由用户自行在模型列表中点击使用按钮 */
+  }
+
+  /** 表单区图片连通性检查（与 handleTest 对应，用于图片 tab） */
+  const handleImageTestForm = async () => {
+    if (!onTestConnectionImage || !testModelSelect) return
+    setImageTesting(true)
+    setImageTestResult(null)
+    const overrides = {
+      model: testModelSelect,
+      endpoint: getViewingImageEndpoint() || imageConfig?.endpoint,
+      apiKey: getViewingApiKey() || imageConfig?.apiKey,
     }
     const result = await onTestConnectionImage(overrides)
     setImageTestResult(result)
     setImageTesting(false)
-    if (result?.success && overrideModel && viewingService && imageConfig?.type === viewingService) {
-      const verified = imageConfig.verifiedImageModelsByService || {}
-      const list = verified[viewingService] ?? imageModelFullListForViewing
-      if (!list.includes(overrideModel)) {
-        onImageConfigChange({
-          verifiedImageModelsByService: { ...verified, [viewingService]: [...list, overrideModel] },
-        })
-      }
-    }
+  }
+
+  /** 表单区连通性检查：根据 tab 调用对话或图片 API */
+  const handleFormConnectivityTest = () => {
+    if (modelListTab === 'image') handleImageTestForm()
+    else handleTest()
   }
 
   const handleOpenAddImageModelDialog = () => {
@@ -510,6 +518,21 @@ export default function AIConfigPanel({
     return [...source, ...custom].filter(Boolean)
   }, [imageConfig, viewingService, config.fetchedModelsByService])
 
+  /** 连通性检查选项（图片）：默认图片模型 + 已验证 + 当前服务商图片模型列表 */
+  const imageTestModelOptionsForForm = React.useMemo(() => {
+    const defaults = CONNECTIVITY_TEST_DEFAULT_IMAGE_MODELS[viewingService] || []
+    const verified = imageConfig?.verifiedImageModelsByService?.[viewingService] || []
+    const full = imageModelFullListForViewing || []
+    const seen = new Set()
+    return [...defaults, ...verified, ...full].filter((m) => m && !seen.has(m) && seen.add(m))
+  }, [viewingService, imageConfig?.verifiedImageModelsByService, imageModelFullListForViewing])
+  /** 表单连通性检查：根据当前 tab 切换选项 */
+  const formTestModelOptions = modelListTab === 'image' ? imageTestModelOptionsForForm : testModelOptions
+  React.useEffect(() => {
+    const first = formTestModelOptions[0]
+    setTestModelSelect((prev) => (formTestModelOptions.includes(prev) ? prev : first || ''))
+  }, [viewingService, modelListTab, formTestModelOptions])
+
   /** 切换到图片子标签时，将文生图当前服务商同步为侧栏所选 */
   React.useEffect(() => {
     if (modelListTab !== 'image' || !imageConfig || !onImageConfigChange || imageConfig.type === viewingService) return
@@ -559,6 +582,18 @@ export default function AIConfigPanel({
     const t = setTimeout(() => setImageTestResult(null), 3000)
     return () => clearTimeout(t)
   }, [imageTestResult])
+
+  React.useEffect(() => {
+    if (!rowTestResult) return
+    const t = setTimeout(() => setRowTestResult(null), 3000)
+    return () => clearTimeout(t)
+  }, [rowTestResult])
+
+  React.useEffect(() => {
+    if (!rowImageTestResult) return
+    const t = setTimeout(() => setRowImageTestResult(null), 3000)
+    return () => clearTimeout(t)
+  }, [rowImageTestResult])
 
   return (
     <div className="ai-config-panel">
@@ -619,6 +654,7 @@ export default function AIConfigPanel({
               ))}
         </aside>
 
+        <div className="ai-config-right-panel">
         <div className="ai-config-main" ref={mainContentRef}>
           <div className="ai-config-main-header">
             <div className="ai-config-main-header-title-wrap">
@@ -645,6 +681,28 @@ export default function AIConfigPanel({
                 <span className="ai-config-provider-toggle-track">
                   <span className="ai-config-provider-toggle-thumb" />
                 </span>
+              </button>
+            </div>
+          </div>
+
+          {/* 模型标签页：移到顶部，API Key 上方 */}
+          <div className="ai-config-maintabs-wrap">
+            <div className="ai-config-maintabs">
+              <button
+                type="button"
+                className={`ai-config-maintab${modelListTab === 'chat' ? ' active' : ''}`}
+                onClick={() => setModelListTab('chat')}
+              >
+                <MessageSquare size={16} />
+                <span>对话 ({chatModelCountForViewing})</span>
+              </button>
+              <button
+                type="button"
+                className={`ai-config-maintab${modelListTab === 'image' ? ' active' : ''}`}
+                onClick={() => setModelListTab('image')}
+              >
+                <ImageIcon size={16} />
+                <span>图片 ({imageModelCountForViewing})</span>
               </button>
             </div>
           </div>
@@ -682,37 +740,55 @@ export default function AIConfigPanel({
             <div className="config-field config-field-vertical">
               <label className="config-field-label">API 代理地址</label>
               <p className="config-field-desc">必须包含 http(s)://</p>
-              <input
-                type="text"
-                value={getViewingEndpoint()}
-                onChange={(e) =>
-                  onConfigChange({
-                    endpoints: { ...(config.endpoints || {}), [viewingService]: e.target.value },
-                  })
-                }
-                placeholder="https://api.example.com/v1"
-              />
+              {modelListTab === 'chat' ? (
+                <input
+                  type="text"
+                  value={getViewingEndpoint()}
+                  onChange={(e) =>
+                    onConfigChange({
+                      endpoints: { ...(config.endpoints || {}), [viewingService]: e.target.value },
+                    })
+                  }
+                  placeholder={currentService?.endpoint || 'https://api.example.com/v1'}
+                />
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={getViewingImageEndpoint()}
+                    onChange={(e) =>
+                      onImageConfigChange?.({
+                        endpoints: { ...(imageConfig?.endpoints || {}), [viewingService]: e.target.value },
+                      })
+                    }
+                    placeholder={AI_IMAGE_SERVICES.find((s) => s.value === viewingService)?.endpoint || 'https://api.example.com/v1'}
+                  />
+                  <p className="config-hint" style={{ marginTop: 6, fontSize: 12, color: 'var(--muted-color, #8b949e)' }}>
+                    不同服务商可能需要更换图片的代理地址，请参考各服务商文档
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="config-field config-field-vertical config-connectivity">
               <label className="config-field-label">连通性检查</label>
-              <p className="config-field-desc">测试 API Key 与代理地址是否正确填写</p>
+              <p className="config-field-desc">测试 API Key 与代理地址是否正确填写{modelListTab === 'image' ? '（图片接口）' : ''}</p>
               <div className="config-connectivity-row">
                 <div className="config-connectivity-select">
                   <AnimatedSelect
                     value={testModelSelect}
                     onChange={(value) => setTestModelSelect(value)}
-                    options={testModelOptions.map((m) => ({ value: m, label: m }))}
+                    options={formTestModelOptions.map((m) => ({ value: m, label: m }))}
                   />
                 </div>
                 <button
                   type="button"
                   className="ai-btn ai-btn-secondary"
-                  onClick={() => handleTest()}
-                  disabled={testing}
+                  onClick={handleFormConnectivityTest}
+                  disabled={modelListTab === 'image' ? imageTesting : testing}
                 >
                   <TestTube size={14} />
-                  {testing ? '检查中...' : '检查'}
+                  {(modelListTab === 'image' ? imageTesting : testing) ? '检查中...' : '检查'}
                 </button>
               </div>
             </div>
@@ -733,9 +809,9 @@ export default function AIConfigPanel({
               </span>
             </div>
 
-            {testResult && (
-              <div className={`test-result ${testResult.success ? 'success' : 'error'}`}>
-                {testResult.message}
+            {(modelListTab === 'image' ? imageTestResult : testResult) && (
+              <div className={`test-result ${(modelListTab === 'image' ? imageTestResult : testResult)?.success ? 'success' : 'error'}`}>
+                {(modelListTab === 'image' ? imageTestResult : testResult)?.message}
               </div>
             )}
           </div>
@@ -764,24 +840,6 @@ export default function AIConfigPanel({
                 {fetchModelsError}
               </div>
             )}
-            <div className="ai-config-models-tabs">
-              <button
-                type="button"
-                className={`ai-config-models-tab${modelListTab === 'chat' ? ' active' : ''}`}
-                onClick={() => setModelListTab('chat')}
-              >
-                <MessageSquare size={16} />
-                <span>对话 ({chatModelCountForViewing})</span>
-              </button>
-              <button
-                type="button"
-                className={`ai-config-models-tab${modelListTab === 'image' ? ' active' : ''}`}
-                onClick={() => setModelListTab('image')}
-              >
-                <ImageIcon size={16} />
-                <span>图片 ({imageModelCountForViewing})</span>
-              </button>
-            </div>
             {modelListTab === 'chat' && (
               <>
                 <div className="ai-config-models-list">
@@ -819,6 +877,11 @@ export default function AIConfigPanel({
                           )}
                           {!isEditing && (
                             <div className="ai-config-model-item-actions">
+                              {rowTestResult?.modelId === model && (
+                                <span className={`ai-config-model-row-popover ${rowTestResult.result?.success ? 'success' : 'error'}`} title={rowTestResult.result?.message}>
+                                  {rowTestResult.result?.message}
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 className="ai-icon-btn ai-icon-btn-sm ai-config-model-check-btn"
@@ -922,11 +985,6 @@ export default function AIConfigPanel({
             )}
             {modelListTab === 'image' && (
               <div className="ai-config-models-image-tab">
-                {imageTestResult && (
-                  <div className={`test-result ${imageTestResult.success ? 'success' : 'error'}`} style={{ marginBottom: 8 }}>
-                    {imageTestResult.message}
-                  </div>
-                )}
                 {imageConfig && onImageConfigChange ? (
                   <>
                     <div className="ai-config-models-list">
@@ -934,9 +992,11 @@ export default function AIConfigPanel({
                         <div className="ai-config-models-empty">
                           {viewingService !== 'builtin' && !(config.fetchedModelsByService?.[viewingService]?.length)
                             ? '暂无模型，请点击上方「获取模型列表」在线拉取'
-                            : imageConfig.type === viewingService
-                              ? '暂无模型，可在下方添加'
-                              : '当前文生图未选本服务商，添加模型将自动切换到此服务'}
+                            : imageConfig.type !== viewingService
+                              ? '当前文生图未选本服务商，添加模型将自动切换到此服务'
+                              : viewingService !== 'builtin' && (config.fetchedModelsByService?.[viewingService]?.length || 0) > 0 && imageModelFullListForViewing.length === 0
+                                ? '服务商暂无图片相关模型'
+                                : '暂无模型，可在下方添加'}
                         </div>
                       ) : (
                         imageModelListForViewing.map((model) => {
@@ -964,6 +1024,11 @@ export default function AIConfigPanel({
                               )}
                               {!isEditing && (
                                 <div className="ai-config-model-item-actions">
+                                  {rowImageTestResult?.modelId === model && (
+                                    <span className={`ai-config-model-row-popover ${rowImageTestResult.result?.success ? 'success' : 'error'}`} title={rowImageTestResult.result?.message}>
+                                      {rowImageTestResult.result?.message}
+                                    </span>
+                                  )}
                                   <button
                                     type="button"
                                     className="ai-icon-btn ai-icon-btn-sm ai-config-model-check-btn"
@@ -1109,32 +1174,34 @@ export default function AIConfigPanel({
                   </div>
                 </div>
               </div>
-
-              <div className="config-actions">
-                <button
-                  type="button"
-                  className="ai-btn ai-btn-secondary"
-                  onClick={() =>
-                    onConfigChange({
-                      temperature: DEFAULT_CONFIG.temperature,
-                      maxTokens: DEFAULT_CONFIG.maxTokens,
-                    })
-                  }
-                  title="将温度、最大 Token 数恢复为默认值"
-                >
-                  重置为默认参数
-                </button>
-                <button
-                  type="button"
-                  className="ai-btn ai-btn-primary"
-                  onClick={handleSave}
-                >
-                  保存
-                </button>
-              </div>
             </>
           )}
+
           </div>
+        </div>
+        {/* 保存与重置按钮：固定在右侧面板底部，左侧服务列表贯穿全高 */}
+        <div className="ai-config-actions-fixed">
+          <button
+            type="button"
+            className="ai-btn ai-btn-secondary"
+            onClick={() =>
+              onConfigChange({
+                temperature: DEFAULT_CONFIG.temperature,
+                maxTokens: DEFAULT_CONFIG.maxTokens,
+              })
+            }
+            title="将温度、最大 Token 数恢复为默认值"
+          >
+            重置为默认参数
+          </button>
+          <button
+            type="button"
+            className="ai-btn ai-btn-primary"
+            onClick={handleSave}
+          >
+            保存
+          </button>
+        </div>
         </div>
       </div>
     </div>

@@ -103,6 +103,16 @@ function initSchema(db) {
     )
   `).run()
 
+  // 文生图历史记录
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS ai_image_history (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      prompt      TEXT NOT NULL,
+      url         TEXT NOT NULL,
+      created_at  INTEGER NOT NULL
+    )
+  `).run()
+
   // 历史索引（正文仍存文件，索引用于查询/统计）
   db.prepare(`
     CREATE TABLE IF NOT EXISTS history_index (

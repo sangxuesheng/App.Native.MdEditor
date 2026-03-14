@@ -1504,11 +1504,14 @@
   color: #57606a;
 }
 
-/* 主标签：对话 | 文生图 */
+/* 主标签：对话 | 图片，布局参考底部 ai-config-actions-fixed */
+.ai-config-maintabs-wrap {
+  flex-shrink: 0;
+}
 .ai-config-maintabs {
   display: flex;
-  gap: 4px;
-  padding: 0 20px 12px;
+  gap: 12px;
+  padding: 16px 24px;
   border-bottom: 1px solid #30363d;
   flex-shrink: 0;
 }
@@ -1516,18 +1519,20 @@
   border-bottom-color: #d0d7de;
 }
 .ai-config-maintab {
-  display: inline-flex;
+  flex: 1;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
+  padding: 10px 16px;
   font-size: 14px;
   font-weight: 500;
   color: #8b949e;
   background: transparent;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 .ai-config-maintab:hover {
   color: #c9d1d9;
@@ -1536,9 +1541,11 @@
 .ai-config-maintab.active {
   color: #58a6ff;
   background: rgba(88, 166, 255, 0.1);
+  border-color: rgba(88, 166, 255, 0.5);
 }
 .theme-light .ai-config-maintab {
   color: #57606a;
+  border-color: #d0d7de;
 }
 .theme-light .ai-config-maintab:hover {
   color: #24292f;
@@ -1547,14 +1554,37 @@
 .theme-light .ai-config-maintab.active {
   color: #0969da;
   background: rgba(9, 105, 218, 0.08);
+  border-color: rgba(9, 105, 218, 0.5);
 }
 
-/* 主体：左侧边栏 + 右侧主区 */
+/* 主体：左侧服务列表贯穿全高 + 右侧面板（主内容 + 底部固定按钮） */
 .ai-config-body {
   flex: 1;
   display: flex;
   min-height: 0;
   overflow: hidden;
+}
+
+.ai-config-right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ai-config-actions-fixed {
+  flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #30363d;
+  background: #0d1117;
+}
+.theme-light .ai-config-actions-fixed {
+  border-top-color: #d0d7de;
+  background: #ffffff;
 }
 
 .ai-config-sidebar {
@@ -2008,6 +2038,34 @@
   cursor: pointer;
   transition: background 0.15s ease;
   border-bottom: 1px solid #21262d;
+}
+.ai-config-model-row-popover {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+.ai-config-model-row-popover.success {
+  background: rgba(16, 185, 129, 0.9);
+  color: #fff;
+}
+.ai-config-model-row-popover.error {
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}
+.theme-light .ai-config-model-row-popover.success {
+  background: #059669;
+  color: #fff;
+}
+.theme-light .ai-config-model-row-popover.error {
+  background: #dc2626;
+  color: #fff;
 }
 .theme-light .ai-config-model-item {
   color: #24292f;

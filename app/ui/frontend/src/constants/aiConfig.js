@@ -584,6 +584,44 @@ export const AI_SERVICES = [
   },
 ]
 
+/**
+ * 连通性检查时需排除的模型（语音/音频/ASR/embedding 等，不支持纯文本对话）
+ * 各家服务商统一应用，与模型拉取过滤规则一致
+ */
+export const CONNECTIVITY_TEST_EXCLUDED_PATTERNS = [
+  /audio/i, /-asr$/i, /embedding/i, /embed/i, /whisper/i, /tts/i, /speech/i, /moderation/i, /transcri/i,
+]
+
+/**
+ * 连通性检查专用默认模型（与下方模型列表互不互通，仅用于测试 endpoint/apiKey 是否可用）
+ * 下方模型列表通过在线拉取获取，此列表为预设，确保未拉取时也能做连通性测试
+ */
+export const CONNECTIVITY_TEST_DEFAULT_MODELS = {
+  builtin: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  openai: ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4o'],
+  'azure-openai': ['gpt-4o-mini', 'gpt-35-turbo'],
+  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'],
+  google: ['gemini-1.5-flash', 'gemini-pro'],
+  mistral: ['mistral-small-latest', 'open-mistral-7b'],
+  groq: ['llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+  qwen: ['qwen-turbo', 'qwen-plus'],
+  hunyuan: ['hunyuan-lite', 'hunyuan-standard'],
+  doubao: ['doubao-pro-32k', 'doubao-lite-32k'],
+  'doubao-ai': ['doubao-pro-32k', 'doubao-lite-32k'],
+  siliconflow: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V2.5'],
+  '302ai': ['gpt-4o-mini', 'deepseek-chat'],
+  zhipu: ['glm-4-flash', 'glm-4'],
+  baichuan: ['Baichuan2-Turbo', 'Baichuan2-53B'],
+  yi: ['yi-light', 'yi-medium'],
+  moonshot: ['moonshot-v1-8k', 'moonshot-v1-32k'],
+  'aliyun-bailian': ['qwen-turbo', 'qwen-plus'],
+  ollama: ['llama3.2', 'qwen2.5:7b'],
+  'ollama-cloud': ['llama3.2', 'qwen2.5:7b'],
+  openrouter: ['openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
+  custom: ['gpt-4o-mini', 'gpt-3.5-turbo'],
+}
+
 export const DEFAULT_CONFIG = {
   type: 'builtin',
   endpoint: 'https://proxy-ai.doocs.org/v1',

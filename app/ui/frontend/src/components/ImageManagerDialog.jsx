@@ -11,8 +11,8 @@ import {
   saveImageManagerSettings,
 } from '../utils/settingsApi'
 
-function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify }) {
-  const [activeTab, setActiveTab] = useState('upload') // upload, link, library, settings, compression
+function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, initialTab }) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'upload') // upload, link, library, settings, compression
   const [imageUrl, setImageUrl] = useState('')
   const [imageAlt, setImageAlt] = useState('')
   const [imageTitle, setImageTitle] = useState('')
@@ -86,6 +86,13 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify })
       setLoadingLibrary(false)
     }
   }, [])
+
+  // 打开时若指定了 initialTab，切换到该标签页
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [isOpen, initialTab])
 
   // 当切换到图片库标签页时加载图片
   useEffect(() => {

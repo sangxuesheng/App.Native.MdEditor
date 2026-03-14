@@ -5,6 +5,9 @@ import AIConfigPanel from './AIConfigPanel'
 import AIImagePanel from './AIImagePanel'
 import { useAIChat } from '../../hooks/ai/useAIChat'
 import { useAIImage } from '../../hooks/ai/useAIImage'
+import { aiStorage } from '../../utils/ai/aiStorage'
+import { persistSetting } from '../../utils/settingsApi'
+import { AI_IMAGE_SERVICES } from '../../constants/aiImageConfig'
 
 export default function AIDialog({ isOpen, onClose, getEditorContent, getSelectedText, onInsertImage, onInsertText, onOpenImageManager }) {
   const [showConfig, setShowConfig] = React.useState(false)
@@ -14,26 +17,42 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
   const chat = useAIChat()
   const image = useAIImage()
 
+  /** 配置变更时立即持久化到数据库，确保在关闭窗口前完成保存 */
   const handleChatConfigChange = (updates) => {
-    chat.setConfig((prev) => ({ ...prev, ...updates }))
+    chat.setConfig((prev) => {
+      const next = { ...prev, ...updates }
+      aiStorage.saveConfig(next).catch((e) => console.error('[AIDialog] 保存 AI 配置失败:', e))
+      return next
+    })
   }
 
   const handleImageConfigChange = (updates) => {
-    image.setConfig((prev) => ({ ...prev, ...updates }))
+    image.setConfig((prev) => {
+      const next = { ...prev, ...updates }
+      persistSetting('aiImageConfig', next).catch((e) => console.error('[AIDialog] 保存文生图配置失败:', e))
+      return next
+    })
   }
 
-  // 文生图与对话共用 API 配置：endpoint、apiKey、fetchedModelsByService、disabledProviders 优先从对话 config 按服务商读取
+  // 文生图配置：endpoint 优先用 imageConfig.endpoints（按服务商），apiKey 共用 chat；fetchedModelsByService、disabledProviders 从对话读取
   const effectiveImageConfig = React.useMemo(() => {
-    const ep = chat.config.endpoints?.[image.config.type] ?? image.config.endpoint ?? ''
+    const imgEp = image.config.endpoints?.[image.config.type] ?? image.config.endpoint ?? ''
+    const chatEp = chat.config.endpoints?.[image.config.type] ?? ''
+    const fallbackEp = AI_IMAGE_SERVICES.find((s) => s.value === image.config.type)?.endpoint || ''
+    let finalEp = (imgEp && imgEp.trim()) || (chatEp && chatEp.trim()) || (image.config.endpoint && image.config.endpoint.trim()) || fallbackEp
+    const isBuiltinProxy = /proxy-ai\.doocs\.org/i.test(finalEp)
+    if (image.config.type && image.config.type !== 'builtin' && isBuiltinProxy) {
+      finalEp = fallbackEp
+    }
     const ak = chat.config.apiKeys?.[image.config.type] ?? image.config.apiKey ?? ''
     return {
       ...image.config,
-      endpoint: ep && ep.trim() ? ep : (image.config.endpoint || ''),
+      endpoint: finalEp,
       apiKey: ak,
       fetchedModelsByService: chat.config.fetchedModelsByService,
       disabledProviders: chat.config.disabledProviders,
     }
-  }, [image.config, chat.config.endpoints, chat.config.apiKeys, chat.config.fetchedModelsByService, chat.config.disabledProviders])
+  }, [image.config, image.config.endpoints, chat.config.endpoints, chat.config.apiKeys, chat.config.fetchedModelsByService, chat.config.disabledProviders])
 
   const openChatConfig = () => {
     setConfigPanelTab('chat')
@@ -74,9 +93,10 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
             setPrompt={image.setPrompt}
             generating={image.generating}
             resultUrl={image.resultUrl}
+            resultUrls={image.resultUrls}
             error={image.error}
             history={image.history}
-            onGenerate={() => image.generateWithConfig(effectiveImageConfig)}
+            onGenerate={(extra) => image.generateWithConfig(effectiveImageConfig, extra)}
             onCancel={image.cancel}
             onOpenConfig={openImageConfig}
             onClose={onClose}
@@ -85,7 +105,10 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
             onImageConfigChange={handleImageConfigChange}
             onOpenImageManager={() => onOpenImageManager?.('library')}
             onDeleteHistory={image.removeHistoryItem}
-            onSelectHistoryItem={(item) => image.setResultUrl?.(item?.url)}
+            onSelectHistoryItem={(item) => {
+              if (item?.url) image.setResultUrl?.(item.url)
+              image.setResultUrls?.(item?.urls && item.urls.length > 0 ? item.urls : (item?.url ? [item.url] : []))
+            }}
           />
         ) : (
           <AIChatPanel

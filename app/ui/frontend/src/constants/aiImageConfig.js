@@ -162,9 +162,22 @@ export const AI_IMAGE_SERVICES = [
   },
 ]
 
+/** 连通性检查专用默认图片模型（按服务商，用于测试图片 endpoint/apiKey 是否可用） */
+export const CONNECTIVITY_TEST_DEFAULT_IMAGE_MODELS = {
+  builtin: ['Kwai-Kolors/Kolors'],
+  siliconflow: ['black-forest-labs/FLUX.1-schnell', 'black-forest-labs/FLUX.1-dev'], // 硅基流动
+  'aliyun-bailian': ['wan2.6-t2i', 'wan2.5-t2i-preview'],
+  qwen: ['wan2.6-t2i'],
+  openai: ['dall-e-3', 'dall-e-2'],
+  'doubao-ai': ['doubao-seedream-4b'],
+  '302ai': ['black-forest-labs/FLUX.1-schnell'],
+  custom: ['dall-e-2', 'black-forest-labs/FLUX.1-schnell'],
+}
+
 export const DEFAULT_IMAGE_CONFIG = {
   type: 'builtin',
   endpoint: 'https://proxy-ai.doocs.org/v1',
+  endpoints: {}, // 各服务商图片代理地址 { [serviceType]: string }，与对话 endpoints 分离
   apiKey: '',
   model: 'Kwai-Kolors/Kolors',
   size: '1024x1024',

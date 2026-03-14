@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { loadSetting, persistSetting } from '../../utils/settingsApi'
+import { safeParseJsonResponse } from '../../utils/fetchUtils'
 import { DEFAULT_IMAGE_CONFIG } from '../../constants/aiImageConfig'
 
 export function useAIImage() {
@@ -7,10 +8,23 @@ export function useAIImage() {
   const [prompt, setPrompt] = useState('')
   const [generating, setGenerating] = useState(false)
   const [resultUrl, setResultUrl] = useState(null)
+  const [resultUrls, setResultUrls] = useState([])
   const [error, setError] = useState(null)
   const [history, setHistory] = useState([])
   const abortRef = useRef(null)
   const hasInitialConfigLoad = useRef(false)
+
+  // 从数据库加载文生图历史
+  useEffect(() => {
+    fetch('/api/ai/image/history')
+      .then((r) => safeParseJsonResponse(r, { ok: false }))
+      .then((data) => {
+        if (data?.ok && Array.isArray(data?.items)) {
+          setHistory(data.items.map((it) => ({ id: it.id, prompt: it.prompt, url: it.url, time: it.time })))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     loadSetting('aiImageConfig', null).then((saved) => {
@@ -19,6 +33,7 @@ export function useAIImage() {
           ...DEFAULT_IMAGE_CONFIG,
           ...saved,
           customModels: { ...(DEFAULT_IMAGE_CONFIG.customModels || {}), ...(saved.customModels || {}) },
+          endpoints: { ...(DEFAULT_IMAGE_CONFIG.endpoints || {}), ...(saved.endpoints || {}) },
         }
         setConfig(merged)
       }
@@ -35,7 +50,7 @@ export function useAIImage() {
   }, [config])
 
   /** 使用指定配置发起生成（用于与对话共用 API 时传入合并后的 effectiveConfig） */
-  const generateWithConfig = useCallback(async (overrideConfig) => {
+  const generateWithConfig = useCallback(async (overrideConfig, extraParams = {}) => {
     const text = prompt.trim()
     if (!text || generating) return
     const c = overrideConfig || config
@@ -43,19 +58,27 @@ export function useAIImage() {
     setGenerating(true)
     setError(null)
     setResultUrl(null)
+    setResultUrls([])
     abortRef.current = new AbortController()
+
+    const body = {
+      endpoint: c.endpoint,
+      apiKey: c.apiKey || undefined,
+      model: c.model,
+      size: c.size || '1024x1024',
+      prompt: text,
+    }
+    if (extraParams.seed != null) body.seed = extraParams.seed
+    if (extraParams.count != null) body.count = Math.min(Math.max(1, extraParams.count), 8)
+    if (Array.isArray(extraParams.referenceImages) && extraParams.referenceImages.length > 0) {
+      body.referenceImages = extraParams.referenceImages
+    }
 
     try {
       const res = await fetch('/api/ai/image/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: c.endpoint,
-          apiKey: c.apiKey || undefined,
-          model: c.model,
-          size: c.size || '1024x1024',
-          prompt: text,
-        }),
+        body: JSON.stringify(body),
         signal: abortRef.current.signal,
       })
       const raw = await res.text()
@@ -74,20 +97,39 @@ export function useAIImage() {
       }
 
       // 自动保存到图片库（不压缩），插入时使用本地路径
-      let displayUrl = data.url
-      if (data.url) {
+      const urls = Array.isArray(data.urls) && data.urls.length > 0 ? data.urls : (data.url ? [data.url] : [])
+      let displayUrls = [...urls]
+      if (urls.length > 0) {
         try {
-          const saveRes = await fetch('/api/image/fetch-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: data.url, alt: 'AI生成' }),
-          })
-          const saveData = await saveRes.json()
-          if (saveData?.ok && saveData?.url) displayUrl = saveData.url
+          const saved = await Promise.all(
+            urls.map((url) =>
+              fetch('/api/image/fetch-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, alt: 'AI生成' }),
+              }).then((r) => r.json())
+            )
+          )
+          displayUrls = saved.map((s, i) => (s?.ok && s?.url ? s.url : urls[i] || '')).filter(Boolean)
         } catch (_) {}
       }
-      setResultUrl(displayUrl)
-      setHistory((h) => [{ prompt: text, url: displayUrl, time: Date.now() }, ...h.slice(0, 19)])
+      setResultUrl(displayUrls[0] || null)
+      setResultUrls(displayUrls)
+      const newItem = { prompt: text, url: displayUrls[0], urls: displayUrls, time: Date.now() }
+      setHistory((h) => [newItem, ...h.slice(0, 49)])
+      // 保存到数据库（多图时保存第一张）
+      fetch('/api/ai/image/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: text, url: displayUrls[0] }),
+      })
+        .then((r) => safeParseJsonResponse(r, { ok: false }))
+        .then((data) => {
+          if (data?.ok && data?.id) {
+            setHistory((h) => h.map((it, i) => (i === 0 && !it.id ? { ...it, id: data.id } : it)))
+          }
+        })
+        .catch(() => {})
     } catch (err) {
       if (err.name === 'AbortError') return
       let msg = err.message || '生成失败'
@@ -142,6 +184,18 @@ export function useAIImage() {
     }
   }, [config])
 
+  const removeHistoryItem = useCallback(async (idOrItem) => {
+    const id = typeof idOrItem === 'object' ? idOrItem?.id : idOrItem
+    const match = (it) =>
+      id != null ? it.id === id : typeof idOrItem === 'object' && it.prompt === idOrItem.prompt && it.url === idOrItem.url
+    setHistory((h) => h.filter((it) => !match(it)))
+    if (id != null) {
+      try {
+        await fetch(`/api/ai/image/history/${id}`, { method: 'DELETE' })
+      } catch (_) {}
+    }
+  }, [])
+
   return {
     config,
     setConfig,
@@ -149,11 +203,15 @@ export function useAIImage() {
     setPrompt,
     generating,
     resultUrl,
+    setResultUrl,
+    resultUrls,
+    setResultUrls,
     error,
     history,
     generate,
     generateWithConfig,
     cancel,
     testConnection,
+    removeHistoryItem,
   }
 }
