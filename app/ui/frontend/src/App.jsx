@@ -1803,11 +1803,13 @@ function App() {
   }, [])
 
   // 获取编辑器当前全文（用于 AI 引用全文）
-  // 优先从编辑器实例读取，否则用 editorContentRef（onChange 同步更新，无防抖延迟）
+  // 优先从编辑器实例读取，否则用 editorContentRef（onChange 同步更新，无防抖延迟），最后回退到 content 状态
   const getEditorContent = useCallback(() => {
     const fromEditor = editorRef.current?.getModel()?.getValue()
     if (fromEditor != null) return fromEditor
-    return editorContentRef.current ?? content
+    const fromRef = editorContentRef.current
+    if (fromRef != null) return fromRef
+    return content ?? ''
   }, [content])
 
   // 检测光标处的图片

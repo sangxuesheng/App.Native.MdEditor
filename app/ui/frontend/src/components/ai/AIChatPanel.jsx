@@ -36,12 +36,13 @@ export default function AIChatPanel({
 }) {
   const [input, setInput] = React.useState('')
   const [quotedBlocks, setQuotedBlocks] = React.useState([])
+  const [fullContentPreview, setFullContentPreview] = React.useState('')
   const [showConversations, setShowConversations] = React.useState(false)
   const [conversations, setConversations] = React.useState([])
   const [loadingConversations, setLoadingConversations] = React.useState(false)
   const [showModelSwitcher, setShowModelSwitcher] = React.useState(false)
   const [modelSearch, setModelSearch] = React.useState('')
-  const [modelSwitcherPosition, setModelSwitcherPosition] = React.useState({ top: 0, left: 0 })
+  const [modelSwitcherPosition, setModelSwitcherPosition] = React.useState({ bottom: 0, left: 0 })
   const [modelSwitcherPositionReady, setModelSwitcherPositionReady] = React.useState(false)
   const [inputAreaHeight, setInputAreaHeight] = React.useState(INPUT_HEIGHT_DEFAULT)
   const messagesEndRef = React.useRef(null)
@@ -83,10 +84,33 @@ export default function AIChatPanel({
   }, [filteredModels])
 
   const currentModel = config?.model || ''
+  const isCurrentModelAvailable = connectableModels.some((m) => m.model === currentModel)
+  const displayModelLabel = connectableModels.length === 0 || !isCurrentModelAvailable ? '选择模型' : (currentModel || '选择模型')
 
   const handleInputResize = React.useCallback((delta) => {
     setInputAreaHeight((h) => Math.min(INPUT_HEIGHT_MAX, Math.max(INPUT_HEIGHT_MIN, h - delta)))
   }, [])
+
+  const refreshFullContentPreview = React.useCallback(() => {
+    if (!quoteFullContent || !getEditorContent) return
+    try {
+      const content = getEditorContent()
+      const firstLine = (typeof content === 'string' ? content : '').split('\n')[0] || ''
+      const preview = firstLine.length > 50 ? `${firstLine.slice(0, 50)}…` : firstLine
+      setFullContentPreview(preview || '（空）')
+    } catch {
+      setFullContentPreview('（无法获取）')
+    }
+  }, [quoteFullContent, getEditorContent])
+
+  // 引用全文启用时，获取编辑器内容预览
+  React.useEffect(() => {
+    if (quoteFullContent && getEditorContent) {
+      refreshFullContentPreview()
+    } else {
+      setFullContentPreview('')
+    }
+  }, [quoteFullContent, getEditorContent, refreshFullContentPreview])
 
   // 打开历史面板时加载列表
   React.useEffect(() => {
@@ -99,7 +123,7 @@ export default function AIChatPanel({
     }
   }, [showConversations, onGetAllConversations])
 
-  // 浮框位置：与图表类型框一致，固定显示在输入框上方（按钮上方）
+  // 浮框位置：使用 bottom 锚定按钮上方，避免内容较少（如无匹配模型）时下拉框与按钮间距过大
   React.useLayoutEffect(() => {
     if (!showModelSwitcher) {
       setModelSwitcherPositionReady(false)
@@ -107,12 +131,10 @@ export default function AIChatPanel({
     }
     if (!modelSwitcherButtonRef.current) return
     const rect = modelSwitcherButtonRef.current.getBoundingClientRect()
-    const dropdownHeight = 320
     const dropdownWidth = 280
-    // 始终显示在对话输入框上方（按钮上方），与图表类型框一致
-    const top = Math.max(8, rect.top - dropdownHeight - 8)
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - dropdownWidth - 8))
-    setModelSwitcherPosition({ top, left })
+    const bottom = window.innerHeight - rect.top + 8
+    setModelSwitcherPosition({ bottom, left })
     setModelSwitcherPositionReady(true)
   }, [showModelSwitcher])
 
@@ -159,12 +181,17 @@ export default function AIChatPanel({
     setQuotedBlocks([])
   }
 
-  // 处理快捷指令：将提示词作为引用块插入，不写入编辑区
+  // 引用全文启用时，清空其他引用块（只同时引用一个）
+  React.useEffect(() => {
+    if (quoteFullContent) setQuotedBlocks([])
+  }, [quoteFullContent])
+
+  // 处理快捷指令：将提示词作为引用块插入，不写入编辑区（只同时引用一个，会替换已有引用）
   const handleQuickCommand = (command) => {
     const text = (getSelectedText ? getSelectedText() : '') || ''
     const prompt = command.template.replace('{{sel}}', text)
-    setQuotedBlocks((prev) => [
-      ...prev,
+    onToggleQuoteFullContent?.(false)
+    setQuotedBlocks([
       {
         id: crypto.randomUUID?.() ?? `q-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         content: prompt,
@@ -181,11 +208,11 @@ export default function AIChatPanel({
     inputRef.current?.focus()
   }
 
-  // 引用 AI 回复为独立块，插入输入框上方（可点击 × 移除）
+  // 引用 AI 回复为独立块，插入输入框上方（只同时引用一个，会替换已有引用；可点击 × 移除）
   const handleQuoteToInput = (text, sourceIndex) => {
     if (!text) return
-    setQuotedBlocks((prev) => [
-      ...prev,
+    onToggleQuoteFullContent?.(false)
+    setQuotedBlocks([
       {
         id: crypto.randomUUID?.() ?? `q-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         content: text,
@@ -305,8 +332,24 @@ export default function AIChatPanel({
       <div className="ai-input-area" style={{ height: inputAreaHeight, minHeight: INPUT_HEIGHT_MIN }}>
         <div className="ai-input-box">
           <div className="ai-input-content">
-            {quotedBlocks.length > 0 && (
+            {(quoteFullContent || quotedBlocks.length > 0) && (
               <div className="ai-quoted-blocks">
+                {quoteFullContent && (
+                  <div className="ai-quoted-block ai-quoted-block-full">
+                    <TextQuote size={14} className="ai-quoted-block-icon" />
+                    <span className="ai-quoted-block-preview" title={fullContentPreview || undefined}>
+                      引用全文
+                    </span>
+                    <button
+                      type="button"
+                      className="ai-quoted-block-remove"
+                      onClick={() => onToggleQuoteFullContent(false)}
+                      title="取消引用全文"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
                 {quotedBlocks.map((block) => {
                   const firstLine = block.content.split('\n')[0] || ''
                   const preview = firstLine.length > 50 ? `${firstLine.slice(0, 50)}…` : firstLine
@@ -333,6 +376,7 @@ export default function AIChatPanel({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onFocus={refreshFullContentPreview}
                 placeholder="说些什么... (Enter 发送，Shift+Enter 换行)"
                 disabled={isStreaming}
                 rows={3}
@@ -358,7 +402,7 @@ export default function AIChatPanel({
                   onClick={() => { setShowModelSwitcher((v) => !v); setModelSearch('') }}
                   title="切换模型"
                 >
-                  <span className="ai-model-switcher-label">{currentModel || '选择模型'}</span>
+                  <span className="ai-model-switcher-label">{displayModelLabel}</span>
                   {showModelSwitcher ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {showModelSwitcher && modelSwitcherPositionReady && createPortal(
@@ -368,7 +412,7 @@ export default function AIChatPanel({
                     className={`ai-model-switcher-dropdown ${document.querySelector('.app')?.classList.contains('theme-light') ? 'theme-light' : 'theme-dark'}`}
                     style={{
                       position: 'fixed',
-                      top: modelSwitcherPosition.top,
+                      bottom: modelSwitcherPosition.bottom,
                       left: modelSwitcherPosition.left,
                       zIndex: 9999,
                       width: 280,
@@ -423,7 +467,7 @@ export default function AIChatPanel({
             <button
               className="ai-send-btn"
               onClick={isStreaming ? onStopGeneration : handleSend}
-              disabled={(!input.trim() && quotedBlocks.length === 0) || isStreaming}
+              disabled={(!input.trim() && quotedBlocks.length === 0 && !quoteFullContent) || isStreaming}
             >
               {isStreaming ? (
                 <>
