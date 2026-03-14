@@ -44,7 +44,7 @@ import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
-import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu } from 'lucide-react'
+import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2 } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
 import { saveEditorDraft, loadEditorDraft, clearEditorDraft } from './utils/editorLocalStorage'
@@ -135,6 +135,7 @@ function App() {
   
   const [content, setContent] = useState(() => getInitialEditorState().content)
   const [showImageManager, setShowImageManager] = useState(false)
+  const [imageManagerInitialTab, setImageManagerInitialTab] = useState(null) // 'library' | null，打开时指定标签页
   const [currentPath, setCurrentPath] = useState(() => getInitialEditorState().currentPath)
   const [status, setStatus] = useState('就绪')
   const [statusType, setStatusType] = useState('normal') // normal, success, error
@@ -3102,13 +3103,8 @@ function App() {
     const path = params.get('path')
     const openSync = params.get('open') === 'sync'
 
-    const runPublishFlow = async () => {
-      const hasExtension = await detectCOSE(2000)
-      if (hasExtension) {
-        setShowSyncDialog(true)
-      } else {
-        showToast('请安装 COSE 扩展以使用发布功能', 'warning', 5000)
-      }
+    const runPublishFlow = () => {
+      setShowSyncDialog(true)
       const url = new URL(window.location.href)
       url.searchParams.delete('open')
       window.history.replaceState({}, '', url.pathname + url.search + (url.hash || ''))
@@ -6401,13 +6397,8 @@ function App() {
       return
     }
 
-    // 非飞牛桌面：直接检测扩展并打开发布弹窗
-    const hasExtension = await detectCOSE(2000)
-    if (hasExtension) {
-      setShowSyncDialog(true)
-    } else {
-      showToast('请安装 COSE 扩展以使用发布功能', 'warning', 5000)
-    }
+    // 非飞牛桌面：直接打开发布弹窗，由 SyncDialog 内部检测扩展并显示（检测中/未安装引导/平台选择）
+    setShowSyncDialog(true)
   }, [showToast, currentPath, hasUnsavedChanges, requestConfirm, handleSaveClick])
 
   // 文件历史处理函数
@@ -6952,7 +6943,6 @@ function App() {
     onShowShortcuts: handleShowShortcuts,
     onShowAbout: handleShowAbout,
     onShowHistory: handleShowHistory,
-    onPublish: handlePublish,
     imageCaptionFormat,
     onImageCaptionFormatChange: handleImageCaptionFormatChange,
     recentFiles,
@@ -7153,6 +7143,16 @@ function App() {
             {isCompactViewport
               ? (showExportConfigPanel ? '关闭配置' : '配置')
               : (showExportConfigPanel ? '关闭配置' : '导出配置')}
+          </button>
+
+          <button 
+            className="btn-secondary toolbar-action-btn toolbar-publish-btn" 
+            onClick={handlePublish}
+            title="发布到多平台"
+            style={{ height: '32px', padding: '0 16px', fontSize: '13px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Share2 size={16} />
+            发布
           </button>
 
           <button className="btn-primary toolbar-action-btn toolbar-save-btn" onClick={handleSaveClick} disabled={false}>
@@ -7608,7 +7608,11 @@ function App() {
       {showImageManager && (
         <ImageManagerDialog
           isOpen={showImageManager}
-          onClose={() => setShowImageManager(false)}
+          initialTab={imageManagerInitialTab}
+          onClose={() => {
+            setShowImageManager(false)
+            setImageManagerInitialTab(null)
+          }}
           onInsertImage={handleImageInsert}
           theme={editorTheme}
           onNotify={(message, type) => {
@@ -7654,6 +7658,10 @@ function App() {
         getSelectedText={getSelectedText}
         onInsertImage={handleImageInsert}
         onInsertText={handleInsertText}
+        onOpenImageManager={(tab) => {
+          setShowImageManager(true)
+          setImageManagerInitialTab(tab || null)
+        }}
       />
       </div>
       </AppUiProvider>

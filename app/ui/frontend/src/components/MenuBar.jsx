@@ -119,7 +119,6 @@ function MenuBar({
   onSaveAs, 
   onExport,
   onCopyToWeChat,
-  onPublish,
   recentFiles,
   onOpenRecentFile,
   onClearRecentFiles,
@@ -294,12 +293,6 @@ function MenuBar({
         { divider: true },
         { label: '关于', icon: 'about', action: onShowAbout }
       ]
-    },
-    {
-      name: '发布',
-      items: [
-        { label: '发布到多平台', icon: 'export', action: onPublish }
-      ]
     }
   ]
 
@@ -426,16 +419,12 @@ function MenuBar({
         <div key={menu.name} className="menu-item">
           <button
             className={`menu-button ${activeMenu === menu.name ? 'active' : ''}`}
-            onClick={
-              menu.name === '发布'
-                ? () => handleMenuItemClick(onPublish)
-                : () => handleMenuClick(menu.name)
-            }
+            onClick={() => handleMenuClick(menu.name)}
           >
             {menu.name}
           </button>
 
-          {menu.name !== '发布' && activeMenu === menu.name && (
+          {activeMenu === menu.name && (
             <div className="menu-dropdown">
               {menu.items.map((item, index) => {
                 if (item.divider) {

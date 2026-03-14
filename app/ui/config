@@ -3,9 +3,9 @@
     "App.Native.MdEditor2.Application": {
       "title": "Markdown 编辑器 v2",
       "icon": "images/icon-{0}.png",
-      "type": "url",
+      "type": "iframe",
       "protocol": "",
-      "port": "18080",
+      "port": "${wizard_port}",
       "url": "/",
       "allUsers": true
     }
