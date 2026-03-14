@@ -38,7 +38,8 @@ import {
   X,
   Settings,
   File,
-  FileJson
+  FileJson,
+  ExternalLink
 } from 'lucide-react'
 
 /**
@@ -97,6 +98,7 @@ const MenuItemIcon = ({ type }) => {
     'about': <Info style={iconStyle} />,
     'clear': <X style={iconStyle} />,
     'settings': <Settings style={iconStyle} />,
+    'external': <ExternalLink style={iconStyle} />,
   };
   
   return icons[type] || null;
@@ -150,6 +152,7 @@ function MenuBar({
   onShowShortcuts,
   onShowAbout,
   onShowHistory,
+  onOpenInNewWindow,
   imageCaptionFormat,
   onImageCaptionFormatChange,
   disabled,
@@ -293,6 +296,12 @@ function MenuBar({
         { divider: true },
         { label: '关于', icon: 'about', action: onShowAbout }
       ]
+    },
+    {
+      name: '新窗口打开',
+      items: [
+        { label: '新窗口打开', icon: 'external', action: onOpenInNewWindow }
+      ]
     }
   ]
 
@@ -419,12 +428,23 @@ function MenuBar({
         <div key={menu.name} className="menu-item">
           <button
             className={`menu-button ${activeMenu === menu.name ? 'active' : ''}`}
-            onClick={() => handleMenuClick(menu.name)}
+            onClick={
+              menu.name === '新窗口打开'
+                ? () => handleMenuItemClick(onOpenInNewWindow)
+                : () => handleMenuClick(menu.name)
+            }
           >
-            {menu.name}
+            {menu.name === '新窗口打开' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                新窗口
+                <ExternalLink size={14} />
+              </span>
+            ) : (
+              menu.name
+            )}
           </button>
 
-          {activeMenu === menu.name && (
+          {menu.name !== '新窗口打开' && activeMenu === menu.name && (
             <div className="menu-dropdown">
               {menu.items.map((item, index) => {
                 if (item.divider) {

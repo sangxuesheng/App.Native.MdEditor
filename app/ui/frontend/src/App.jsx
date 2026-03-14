@@ -6401,6 +6401,14 @@ function App() {
     setShowSyncDialog(true)
   }, [showToast, currentPath, hasUnsavedChanges, requestConfirm, handleSaveClick])
 
+  // 新窗口打开：在新标签页打开当前应用，若有当前文件则带上 path 参数
+  const handleOpenInNewWindow = useCallback(() => {
+    const params = new URLSearchParams()
+    if (currentPath) params.set('path', currentPath)
+    const url = `${window.location.origin}/?${params.toString()}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }, [currentPath])
+
   // 文件历史处理函数
   const handleShowHistory = async () => {
     if (!currentPath) {
@@ -6943,6 +6951,7 @@ function App() {
     onShowShortcuts: handleShowShortcuts,
     onShowAbout: handleShowAbout,
     onShowHistory: handleShowHistory,
+    onOpenInNewWindow: handleOpenInNewWindow,
     imageCaptionFormat,
     onImageCaptionFormatChange: handleImageCaptionFormatChange,
     recentFiles,
