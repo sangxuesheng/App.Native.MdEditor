@@ -1017,7 +1017,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .export-config-panel {
     width: 100%;
     left: 0;

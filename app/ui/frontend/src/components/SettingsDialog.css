@@ -270,7 +270,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .settings-dialog {
     width: 100% !important;
     height: calc(100vh - 16px) !important;
@@ -325,4 +325,3 @@
     width: 100%;
   }
 }
-

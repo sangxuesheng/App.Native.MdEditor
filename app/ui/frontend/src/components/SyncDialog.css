@@ -541,7 +541,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .sync-platform-row {
     align-items: flex-start;
     flex-wrap: wrap;

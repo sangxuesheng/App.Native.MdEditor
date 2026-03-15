@@ -40,3 +40,16 @@ code {
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
 }
 
+/* iOS Safari/WebView: prevent focus auto-zoom when font-size < 16px */
+@media (pointer: coarse) {
+  input[type="text"],
+  input[type="search"],
+  input[type="password"],
+  input[type="email"],
+  input[type="url"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

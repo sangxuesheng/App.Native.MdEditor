@@ -348,7 +348,7 @@
 }
 
 /* 响应式 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .editor-toolbar {
     padding: 6px 8px;
     scroll-snap-type: x proximity;
@@ -580,7 +580,6 @@
 }
 
 /* ==================== MD3 主题 ==================== */
-
 
 
 

@@ -63,7 +63,7 @@
   --code-inline-bg: #0d1117;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .markdown-help-content {
     max-width: none;
   }
@@ -72,6 +72,5 @@
     margin-bottom: 20px;
   }
 }
-
 
 

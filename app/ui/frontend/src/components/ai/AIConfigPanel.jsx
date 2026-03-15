@@ -9,9 +9,9 @@ const API_KEY_MASK = '••••••••••••' // 已保存的 API 
 
 /** 检测是否为移动端视口 */
 function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth <= 768)
+  const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
   React.useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)')
+    const mq = window.matchMedia('(max-width: 767px)')
     const fn = () => setIsMobile(mq.matches)
     mq.addEventListener('change', fn)
     fn()

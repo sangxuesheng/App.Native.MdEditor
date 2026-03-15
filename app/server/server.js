@@ -2917,6 +2917,16 @@ const server = http.createServer(async (req, res) => {
     // index.html 不缓存，避免手机端拿到旧 HTML 去请求已删除的 hash 资源导致白屏
     if (ext === '.html') {
       headers['Cache-Control'] = 'no-cache, max-age=0, must-revalidate';
+    } else if (parsed.pathname.startsWith('/assets/')) {
+      // Vite hash 资源：长期缓存（移动端二次打开明显加速）
+      headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+    } else if (
+      parsed.pathname.startsWith('/code-themes/') ||
+      parsed.pathname.startsWith('/katex/') ||
+      parsed.pathname.startsWith('/mathjax/')
+    ) {
+      // 稳定静态资源：短期缓存即可，避免频繁重复下载
+      headers['Cache-Control'] = 'public, max-age=86400';
     }
     fs.readFile(staticPath, (err, data) => {
       if (err) {

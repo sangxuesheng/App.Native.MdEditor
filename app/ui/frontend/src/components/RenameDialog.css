@@ -140,7 +140,7 @@
   color: #c9d1d9;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .properties-dialog {
     width: 100%;
     max-width: none;
@@ -163,6 +163,5 @@
     text-align: left;
   }
 }
-
 
 

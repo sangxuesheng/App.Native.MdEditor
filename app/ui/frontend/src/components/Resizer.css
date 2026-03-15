@@ -42,6 +42,19 @@
   bottom: -2px;
 }
 
+@media (pointer: coarse) {
+  /* Touch devices: enlarge hit area without changing the visible bar. */
+  .resizer-vertical .resizer-handle {
+    left: -10px;
+    right: -10px;
+  }
+
+  .resizer-horizontal .resizer-handle {
+    top: -10px;
+    bottom: -10px;
+  }
+}
+
 /* 浅色主题 */
 .app.theme-light .resizer:hover {
   background: #0969da;
@@ -64,4 +77,3 @@
 .app.theme-md3 .resizer:active {
   background: #6750a4;
 }
-

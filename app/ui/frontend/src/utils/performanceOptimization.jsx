@@ -5,8 +5,15 @@
  * 检测设备类型
  */
 export const isMobile = () => {
-  return window.innerWidth < 768 || 
-         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  if (typeof window === 'undefined') return false
+
+  // Treat mobile as phone-sized viewports; avoid classifying iPad as mobile by UA.
+  const mq = window.matchMedia?.('(max-width: 767px)')
+  if (mq?.matches) return true
+
+  // UA fallback: keep large phones in landscape treated as mobile.
+  const ua = navigator?.userAgent || ''
+  return /iPhone|iPod|Android.*Mobile|IEMobile|Opera Mini/i.test(ua)
 }
 
 export const isTablet = () => {

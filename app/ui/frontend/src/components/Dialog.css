@@ -290,7 +290,7 @@
 }
 
 /* 响应式 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .dialog-container {
     width: min(100%, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px));
     max-height: calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 16px);

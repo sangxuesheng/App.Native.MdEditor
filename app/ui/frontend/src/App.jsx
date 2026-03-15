@@ -66,9 +66,13 @@ const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 /** 明暗模式仅存 localStorage，不写数据库，由用户自行设定；手机端跟随系统 */
 const THEME_STORAGE_KEY = 'md-editor-theme'
+// Breakpoints:
+// - mobile single-column: < 768px (<= 767px)
+// - compact (tablet + mobile): <= 1024px
+const MOBILE_SINGLE_COLUMN_MEDIA_QUERY = '(max-width: 767px)'
 const getInitialTheme = () => {
   if (typeof window === 'undefined') return 'light'
-  const isMobile = window.matchMedia?.('(max-width: 768px)')?.matches
+  const isMobile = window.matchMedia?.(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)?.matches
   if (isMobile) {
     return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'
   }
@@ -95,29 +99,54 @@ const createMarkdownProcessor = () => {
     })
 }
 
-// Mermaid 懒加载 - 使用预加载的 CDN
+// Mermaid 懒加载 - 按需动态 import('mermaid')（window.mermaid 作为兼容兜底）
 let mermaidModule = null
+let mermaidLoadPromise = null
 const loadMermaid = async () => {
-  if (!mermaidModule) {
-    // 等待 window.mermaid 可用
-    let attempts = 0
-    while (!window.mermaid && attempts < 50) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-      attempts++
-    }
-    
-    if (!window.mermaid) {
-      throw new Error('Mermaid not available')
-    }
-    
-    mermaidModule = window.mermaid
-    mermaidModule.initialize({ 
+  if (mermaidModule) return mermaidModule
+  if (typeof window === 'undefined') throw new Error('Mermaid not available')
+  if (mermaidLoadPromise) return mermaidLoadPromise
+
+  const initMermaid = (m) => {
+    if (!m?.initialize) throw new Error('Mermaid not available')
+    m.initialize({
       startOnLoad: false,
-      theme: 'default',  // 使用 default 主题，蓝紫色节点
+      theme: 'default', // 使用 default 主题，蓝紫色节点
       securityLevel: 'loose'
     })
+    return m
   }
-  return mermaidModule
+
+  // 兼容：如果外部已提前注入（例如旧版 index.html 或其它入口脚本），直接复用。
+  if (window.mermaid) {
+    mermaidModule = initMermaid(window.mermaid)
+    return mermaidModule
+  }
+
+  // Ensure concurrent callers share a single in-flight load.
+  mermaidLoadPromise = (async () => {
+    // 首选：按需动态加载本地依赖（构建产物也能工作，不依赖 CDN）。
+    try {
+      const mod = await import('mermaid')
+      const m = mod?.default || mod
+      window.mermaid = m
+      mermaidModule = initMermaid(m)
+      return mermaidModule
+    } catch (err) {
+      // 兜底：等待 window.mermaid 被注入（最多 5s），避免直接失败。
+      let attempts = 0
+      while (!window.mermaid && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+      }
+      if (!window.mermaid) throw err
+      mermaidModule = initMermaid(window.mermaid)
+      return mermaidModule
+    } finally {
+      mermaidLoadPromise = null
+    }
+  })()
+  return mermaidLoadPromise
 }
 
 // 默认导出配置（用于合并持久化数据）
@@ -164,6 +193,20 @@ const getInitialEditorState = () => {
   const draft = loadEditorDraft()
   if (draft?.content) return { content: draft.content, currentPath: draft.currentPath || '' }
   return { content: DEFAULT_DOCUMENT_CONTENT, currentPath: '' }
+}
+
+// Content-driven mermaid detection: fast check, no markdown parse.
+const hasMermaid = (content) => {
+  if (!content || typeof content !== 'string') return false
+  // Typical patterns:
+  // - fenced block: ```mermaid or ``` mermaid
+  // - syntax-highlighted HTML from rehype-highlight: language-mermaid
+  if (content.includes('language-mermaid')) return true
+  // Fast substring check first, then a slightly more permissive regex for whitespace.
+  if (content.includes('```') && content.toLowerCase().includes('mermaid')) {
+    return /(^|\n)\s*```+\s*mermaid\b/i.test(content)
+  }
+  return false
 }
 
 function App() {
@@ -1476,6 +1519,21 @@ function App() {
   const previewRef = useRef(null)
   const editorRef = useRef(null)
   const fileTreeRef = useRef(null)
+
+  // Mermaid is content-driven: as soon as content contains Mermaid blocks, start fetching the chunk.
+  // This runs immediately (not idle) and does not require any user interaction.
+  useEffect(() => {
+    if (!hasMermaid(content)) return
+    let cancelled = false
+    loadMermaid()
+      .then(() => {
+        if (!cancelled) setMermaidLoaded(true)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [content])
   
   // 防止编辑区和预览区滚动穿透
   usePreventScrollThrough(previewRef)
@@ -1563,7 +1621,7 @@ function App() {
   })
   const [isSingleColumnViewport, setIsSingleColumnViewport] = useState(() => {
     if (typeof window === 'undefined') return false
-    return window.matchMedia('(max-width: 768px)').matches
+    return window.matchMedia(MOBILE_SINGLE_COLUMN_MEDIA_QUERY).matches
   })
   const [mobileActivePane, setMobileActivePane] = useState('editor')
   const [showMobileOutlinePanel, setShowMobileOutlinePanel] = useState(false)
@@ -2187,7 +2245,7 @@ function App() {
     if (typeof window === 'undefined') return undefined
 
     const compactViewportQuery = window.matchMedia('(max-width: 1024px)')
-    const singleColumnViewportQuery = window.matchMedia('(max-width: 768px)')
+    const singleColumnViewportQuery = window.matchMedia(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)
     const handleCompactViewportChange = (event) => {
       setIsCompactViewport(event.matches)
     }
@@ -2338,7 +2396,7 @@ function App() {
   // 手机端：监听系统明暗模式变化，自动同步
   useEffect(() => {
     const colorSchemeMq = window.matchMedia('(prefers-color-scheme: dark)')
-    const mobileMq = window.matchMedia('(max-width: 768px)')
+    const mobileMq = window.matchMedia(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)
     const handleChange = () => {
       if (mobileMq.matches) {
         setEditorTheme(colorSchemeMq.matches ? 'dark' : 'light')
@@ -2796,7 +2854,7 @@ function App() {
 
     // 明暗模式：手机端跟随系统不持久化，桌面端存 localStorage
     setEditorTheme(newTheme)
-    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+    const isMobile = typeof window !== 'undefined' && window.matchMedia(MOBILE_SINGLE_COLUMN_MEDIA_QUERY).matches
     if (!isMobile) {
       try {
         localStorage.setItem(THEME_STORAGE_KEY, newTheme)
@@ -5345,6 +5403,9 @@ function App() {
     const startTime = performance.now() // 性能监控
 
     try {
+      // Start loading Mermaid in parallel with markdown processing (content-driven, immediate).
+      const mermaidPreload = hasMermaid(contentToRender) ? loadMermaid().catch(() => null) : null
+
       // 保存滚动位置和 Mermaid 缓存
       const scrollTop = previewRef.current.scrollTop
       const renderedMermaidCache = new Map()
@@ -5380,13 +5441,13 @@ function App() {
       let html = String(file)
 
       // 提取 Mermaid 代码块及其内容
-      const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
+      const mermaidRegex = /(^|\n)\s*```+\s*mermaid\s*\r?\n([\s\S]*?)\r?\n\s*```+/g
       let match
       let mermaidIndex = 0
       const mermaidBlocks = []
       
       while ((match = mermaidRegex.exec(contentToRender)) !== null) {
-        const code = match[1]
+        const code = match[2]
         const id = `mermaid-${mermaidIndex++}`
         mermaidBlocks.push({ id, code })
       }
@@ -5482,7 +5543,7 @@ function App() {
           if (!mermaidLoaded) {
             setStatus('正在加载 Mermaid...')
           }
-          const mermaid = await loadMermaid()
+          const mermaid = await (mermaidPreload || loadMermaid())
           setMermaidLoaded(true)
           
           // 等待 DOM 更新完成
@@ -5885,15 +5946,15 @@ function App() {
     applyMonacoTheme(monacoInstance)
     
     // 监听粘贴事件，处理图片粘贴
-    const domNode = editor.getDomNode()
-    if (domNode) {
-      domNode.addEventListener('focusin', () => {
-        if (window.matchMedia('(max-width: 768px)').matches) {
-          setMobileActivePane('editor')
-          setTimeout(() => {
-            domNode.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-            editor.layout()
-          }, 120)
+      const domNode = editor.getDomNode()
+      if (domNode) {
+        domNode.addEventListener('focusin', () => {
+          if (window.matchMedia(MOBILE_SINGLE_COLUMN_MEDIA_QUERY).matches) {
+            setMobileActivePane('editor')
+            setTimeout(() => {
+              domNode.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+              editor.layout()
+            }, 120)
         }
       })
 
@@ -7121,7 +7182,6 @@ function App() {
             className="btn-secondary toolbar-action-btn toolbar-config-btn" 
             onClick={handleToggleExportConfigPanel}
             title="导出配置"
-            style={{ height: '32px', padding: '0 16px', fontSize: '13px', borderRadius: '6px' }}
           >
             {isCompactViewport
               ? (showExportConfigPanel ? '关闭配置' : '配置')
@@ -7132,7 +7192,6 @@ function App() {
             className="btn-secondary toolbar-action-btn toolbar-publish-btn" 
             onClick={handlePublish}
             title="发布到多平台"
-            style={{ height: '32px', padding: '0 16px', fontSize: '13px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Share2 size={16} />
             发布

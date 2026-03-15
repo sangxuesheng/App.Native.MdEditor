@@ -344,7 +344,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .dialog-overlay.compact-panel-overlay.save-as-dialog-overlay {
     align-items: center !important;
     justify-content: center !important;

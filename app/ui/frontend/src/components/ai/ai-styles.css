@@ -46,7 +46,7 @@
 }
 
 /* 移动端适配 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .ai-toggle-btn {
     right: 16px;
     bottom: 16px;
@@ -114,7 +114,7 @@
 }
 
 /* 移动端适配 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .ai-dialog {
     width: 100%;
     height: 100%;
@@ -1027,7 +1027,7 @@
 }
 
 /* 移动端适配 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .ai-toggle-btn {
     right: 16px;
     bottom: 16px;
@@ -1094,7 +1094,7 @@
 }
 
 /* 移动端适配 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .ai-dialog {
     width: 100%;
     height: 100%;
@@ -2182,7 +2182,7 @@
 }
 
 /* ==================== AI 配置面板移动端适配 ==================== */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .ai-config-panel-mobile .ai-config-topbar {
     display: none;
   }
@@ -2774,7 +2774,7 @@
 }
 
 /* 移动端适配 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .ai-toggle-btn {
     right: 16px;
     bottom: 16px;
@@ -2834,7 +2834,7 @@
 }
 
 /* 移动端适配 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .ai-dialog {
     width: 100%;
     height: 100%;
@@ -3744,7 +3744,7 @@
 }
 
 /* 移动端文生图布局（参考移动端绘画生成界面） */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .ai-image-panel-mobile {
     flex-direction: column;
     height: 100%;
@@ -4366,4 +4366,200 @@
   display: inline-block;
   margin-right: 8px;
   vertical-align: middle;
+}
+
+/* ==================== AI Theme Unification Layer ==================== */
+/* The AI stylesheet has accumulated multiple legacy rule blocks for the same selectors.
+ * We keep those for now, but enforce a consistent look-and-feel via a final override layer
+ * that sources colors from App.css tokens (light/dark switch via .app.theme-*) */
+
+.app .ai-dialog {
+  /* Map legacy generic tokens to app-wide AI tokens */
+  --bg-color: var(--ai-surface, #ffffff);
+  --bg-secondary: var(--ai-surface-2, #f6f8fa);
+  --text-color: var(--ai-text, #24292f);
+  --text-secondary: var(--ai-muted, #57606a);
+  --border-color: var(--ai-border, #d0d7de);
+  --hover-bg: var(--ai-hover, #f3f4f6);
+  --primary-color: var(--ai-accent, #086ada);
+  --primary-hover: var(--ai-accent-hover, #0759b8);
+
+  /* AnimatedSelect tokens (used by connectivity test model dropdown) */
+  --bg-primary: var(--ai-surface-2, #f6f8fa);
+  --text-primary: var(--ai-text, #24292f);
+  --primary-color-alpha: rgba(8, 106, 218, 0.14);
+  --select-item-hover-bg: var(--ai-hover, #f3f4f6);
+  --select-item-active-bg: rgba(8, 106, 218, 0.14);
+  --select-item-active-color: var(--ai-text, #24292f);
+}
+
+.app .ai-dialog-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100000;
+  backdrop-filter: blur(4px);
+}
+
+.app .ai-dialog {
+  background: var(--ai-surface, #ffffff);
+  border: 1px solid var(--ai-border, #d0d7de);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.app .ai-chat-panel,
+.app .ai-image-panel,
+.app .ai-config-panel {
+  background: var(--ai-surface, #ffffff);
+  color: var(--ai-text, #24292f);
+}
+
+.app .ai-chat-header,
+.app .ai-image-header,
+.app .ai-config-header {
+  border-bottom-color: var(--ai-border, #d0d7de);
+}
+
+.app .ai-icon-btn:hover {
+  background: var(--ai-hover, #f3f4f6);
+  color: var(--ai-text, #24292f);
+}
+
+.app .ai-btn-primary {
+  background: var(--ai-accent, #086ada);
+}
+
+.app .ai-btn-primary:hover:not(:disabled) {
+  background: var(--ai-accent-hover, #0759b8);
+}
+
+.app.theme-dark .ai-dialog-overlay {
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.app.theme-dark .ai-dialog {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+
+  /* AnimatedSelect tokens (dark) */
+  --bg-primary: var(--ai-surface-2, #161b22);
+  --text-primary: var(--ai-text, #c9d1d9);
+  --primary-color-alpha: rgba(88, 166, 255, 0.18);
+  --select-item-hover-bg: var(--ai-hover, #21262d);
+  --select-item-active-bg: rgba(88, 166, 255, 0.18);
+  --select-item-active-color: var(--ai-text, #c9d1d9);
+}
+
+/* Fix: secondary buttons and native form controls must not fall back to browser default (white) in dark theme */
+.app .ai-dialog .ai-btn-secondary {
+  background: var(--ai-surface-2, #f6f8fa);
+  color: var(--ai-text, #24292f);
+  border: 1px solid var(--ai-border, #d0d7de);
+}
+
+.app .ai-dialog .ai-btn-secondary:hover:not(:disabled) {
+  background: var(--ai-hover, #f3f4f6);
+}
+
+.app .ai-dialog .config-field input[type="text"],
+.app .ai-dialog .config-field input[type="password"],
+.app .ai-dialog .config-field input[type="url"],
+.app .ai-dialog .config-field input[type="number"],
+.app .ai-dialog .config-field select,
+.app .ai-dialog .config-field textarea {
+  background: var(--ai-surface-2, #f6f8fa);
+  color: var(--ai-text, #24292f);
+  border-color: var(--ai-border, #d0d7de);
+}
+
+.app .ai-dialog .config-field input::placeholder,
+.app .ai-dialog .config-field textarea::placeholder {
+  color: var(--ai-muted, #57606a);
+}
+
+.app .ai-dialog .config-field input:focus,
+.app .ai-dialog .config-field select:focus,
+.app .ai-dialog .config-field textarea:focus {
+  border-color: var(--ai-accent, #086ada);
+}
+
+.app.theme-dark .ai-dialog .ai-btn-secondary {
+  background: var(--ai-surface-2, #161b22);
+  color: var(--ai-text, #c9d1d9);
+  border-color: var(--ai-border, #30363d);
+}
+
+.app.theme-dark .ai-dialog .ai-btn-secondary:hover:not(:disabled) {
+  background: var(--ai-hover, #21262d);
+}
+
+.app.theme-dark .ai-dialog .config-field input[type="text"],
+.app.theme-dark .ai-dialog .config-field input[type="password"],
+.app.theme-dark .ai-dialog .config-field input[type="url"],
+.app.theme-dark .ai-dialog .config-field input[type="number"],
+.app.theme-dark .ai-dialog .config-field select,
+.app.theme-dark .ai-dialog .config-field textarea {
+  background: var(--ai-surface-2, #161b22);
+  color: var(--ai-text, #c9d1d9);
+  border-color: var(--ai-border, #30363d);
+}
+
+.app.theme-dark .ai-dialog .config-field input::placeholder,
+.app.theme-dark .ai-dialog .config-field textarea::placeholder {
+  color: var(--ai-muted, #8b949e);
+}
+
+.app.theme-dark .ai-dialog .config-field input:focus,
+.app.theme-dark .ai-dialog .config-field select:focus,
+.app.theme-dark .ai-dialog .config-field textarea:focus {
+  border-color: var(--ai-accent, #58a6ff);
+}
+
+/* Fix: quick command buttons ("润色/翻译...") must not be white in dark theme */
+.app .ai-dialog .ai-quick-commands {
+  background: var(--ai-surface-2, #f6f8fa);
+  border-bottom: 1px solid var(--ai-border, #d0d7de);
+}
+
+.app .ai-dialog .quick-command-btn {
+  background: var(--ai-surface, #ffffff);
+  color: var(--ai-text, #24292f);
+  border: 1px solid var(--ai-border, #d0d7de);
+}
+
+.app .ai-dialog .quick-command-btn:hover:not(:disabled) {
+  background: var(--ai-accent, #086ada);
+  color: #ffffff;
+  border-color: var(--ai-accent, #086ada);
+}
+
+.app.theme-dark .ai-dialog .ai-quick-commands {
+  background: var(--ai-surface, #0d1117);
+  border-bottom-color: var(--ai-border, #30363d);
+}
+
+.app.theme-dark .ai-dialog .quick-command-btn {
+  background: var(--ai-hover, #21262d);
+  color: var(--ai-text, #c9d1d9);
+  border-color: var(--ai-border, #30363d);
+}
+
+.app.theme-dark .ai-dialog .quick-command-btn:hover:not(:disabled) {
+  background: var(--ai-accent, #58a6ff);
+  border-color: var(--ai-accent, #58a6ff);
+}
+
+/* Make the floating AI button align with the app accent instead of a separate purple gradient */
+.app .ai-toggle-btn {
+  background: var(--ai-accent, #086ada);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.35);
+}
+
+.app .ai-toggle-btn:hover {
+  box-shadow: 0 6px 16px rgba(8, 106, 218, 0.5);
+}
+
+.app.theme-dark .ai-toggle-btn {
+  box-shadow: 0 4px 12px rgba(88, 166, 255, 0.25);
+}
+
+.app.theme-dark .ai-toggle-btn:hover {
+  box-shadow: 0 6px 16px rgba(88, 166, 255, 0.4);
 }

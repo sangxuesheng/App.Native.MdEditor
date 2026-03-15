@@ -74,6 +74,28 @@
   background: var(--hover-bg, rgba(0, 0, 0, 0.05));
 }
 
+@media (pointer: coarse) {
+  .search-input-wrapper {
+    height: 40px;
+    border-radius: 8px;
+  }
+
+  .search-icon {
+    padding: 0 10px;
+  }
+
+  .search-input {
+    padding: 0 10px;
+  }
+
+  .search-clear-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+    border-radius: 8px;
+  }
+}
+
 /* 搜索历史下拉框 */
 .search-history-dropdown {
   position: absolute;

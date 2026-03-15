@@ -190,7 +190,7 @@
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .image-preview-dialog {
     width: 95%;
     max-height: 95vh;

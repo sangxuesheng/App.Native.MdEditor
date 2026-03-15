@@ -518,7 +518,7 @@
 }
 
 /* 移动端自适应 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .dialog-overlay.new-file-dialog-overlay {
     padding: calc(12px + var(--safe-area-top)) calc(12px + var(--safe-area-right)) calc(12px + var(--safe-area-bottom)) calc(12px + var(--safe-area-left));
     align-items: center;
@@ -607,4 +607,3 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-

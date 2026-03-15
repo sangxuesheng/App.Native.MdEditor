@@ -28,7 +28,7 @@
 }
 
 /* 响应式调整 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .image-manager-dialog {
     width: 95vw;
     height: 90vh;
@@ -1463,7 +1463,7 @@
 }
 
 /* 移动端：增加插入按钮可点击面积 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .insert-image-btn {
     right: 10px;
     bottom: 10px;
@@ -1848,7 +1848,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .footer-left-actions,
   .footer-right-actions {
     width: 100%;
@@ -1990,7 +1990,7 @@
 }
 
 /* 移动端隐藏按钮 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .img-preview-icon-btn,
   .delete-image-btn,
   .image-overlay {

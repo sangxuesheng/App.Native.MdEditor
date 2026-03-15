@@ -149,7 +149,7 @@
   --border-color: #30363d;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .about-content {
     max-width: none;
   }
@@ -163,7 +163,6 @@
     transform: none;
   }
 }
-
 
 
 

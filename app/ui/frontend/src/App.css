@@ -46,6 +46,16 @@ html, body {
   --secondary-color: #10b981;
   --code-bg: #f3f4f6;
   --code-color: #1f2937;
+
+  /* AI UI tokens (keep AI visually consistent across the app) */
+  --ai-surface: #ffffff;
+  --ai-surface-2: #f6f8fa;
+  --ai-text: #24292f;
+  --ai-muted: #57606a;
+  --ai-border: #d0d7de;
+  --ai-hover: #f3f4f6;
+  --ai-accent: #086ada;
+  --ai-accent-hover: #0759b8;
   
   width: 100%;
   height: var(--app-viewport-height);
@@ -72,6 +82,16 @@ html, body {
   --secondary-color: #10b981;
   --code-bg: #252526;
   --code-color: #d4d4d4;
+
+  /* AI UI tokens (dark) */
+  --ai-surface: #0d1117;
+  --ai-surface-2: #161b22;
+  --ai-text: #c9d1d9;
+  --ai-muted: #8b949e;
+  --ai-border: #30363d;
+  --ai-hover: #21262d;
+  --ai-accent: #58a6ff;
+  --ai-accent-hover: #1f6feb;
 }
 
 /* 触摸设备：全局禁止复制，编辑区和预览区除外 */
@@ -274,6 +294,46 @@ html, body {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+
+/* 顶部工具栏按钮（避免依赖 inline style） */
+.toolbar-action-btn {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.toolbar-publish-btn {
+  gap: 6px;
+}
+
+@media (pointer: coarse) {
+  .btn-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+  }
+
+  .toolbar-action-btn {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+
+  .mobile-outline-trigger-btn,
+  .mobile-outline-close-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .mobile-pane-tab {
+    min-height: 44px;
+  }
 }
 
 /* 主内容区 */
@@ -754,7 +814,7 @@ html, body {
 }
 
 /* 移动端单列布局：编辑区和预览区切换动画 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .mobile-single-column .editor-pane,
   .mobile-single-column .preview-pane {
     will-change: opacity, transform;
@@ -1601,7 +1661,7 @@ img[style*="width"] {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   /* 编辑区与预览区统一启用惯性滚动，与预览区一致的快速滑动体验 */
   .preview-pane {
     -webkit-overflow-scrolling: touch;
@@ -2631,7 +2691,7 @@ mark {
 }
 
 /* 移动端另存为对话框居中显示 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .dialog-overlay.save-as-dialog-overlay {
     align-items: center !important;
     justify-content: center !important;
