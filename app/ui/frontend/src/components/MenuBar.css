@@ -243,6 +243,7 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  /* 移动端由 JS 设置 position:fixed + left/top 实现自适应 */
 }
 
 .compact-menu-section-title {
@@ -300,11 +301,6 @@
 }
 
 @media (max-width: 1024px) {
-  .compact-menu-dropdown {
-    left: 0;
-    right: auto;
-  }
-
   .menu-shortcut {
     margin-left: 12px;
   }
@@ -312,9 +308,14 @@
 
 @media (max-width: 767px) {
   .compact-menu-dropdown {
-    min-width: min(320px, calc(100vw - 16px));
-    max-width: calc(100vw - 16px);
+    min-width: 260px;
+    max-width: min(300px, calc(100vw - 24px));
     max-height: calc(100vh - 120px);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .compact-menu-dropdown::-webkit-scrollbar {
+    display: none;
   }
 }
 

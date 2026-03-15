@@ -373,6 +373,20 @@ html, body {
   }
 }
 
+/* 桌面端：宽度收缩动画，主内容区联动扩展 */
+@keyframes slideOutLeftPanel {
+  from {
+    width: var(--filetree-panel-width);
+    min-width: var(--filetree-panel-width);
+    opacity: 1;
+  }
+  to {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+  }
+}
+
 .editor-preview-container > .file-tree {
   flex-shrink: 0;
   align-self: stretch;
@@ -393,6 +407,16 @@ html, body {
   animation: slideInLeftPanel 0.28s ease-out;
 }
 
+.filetree-side-panel.filetree-closing {
+  overflow: hidden;
+  flex-shrink: 1;
+  animation: slideOutLeftPanel 0.28s ease-in forwards;
+}
+
+.filetree-side-panel.filetree-closing > .file-tree {
+  animation: none;
+}
+
 .filetree-side-panel > .resizer-vertical {
   align-self: stretch;
 }
@@ -403,6 +427,25 @@ html, body {
   flex-shrink: 0;
   min-width: 0;
   gap: 0;
+}
+
+.export-config-side-panel.export-config-closing {
+  overflow: hidden;
+  flex-shrink: 1;
+  animation: slideOutExportConfigPanel 0.28s ease-in forwards;
+}
+
+@keyframes slideOutExportConfigPanel {
+  from {
+    width: var(--export-config-panel-width);
+    min-width: var(--export-config-panel-width);
+    opacity: 1;
+  }
+  to {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+  }
 }
 
 .export-config-side-panel > .resizer-vertical {
@@ -422,6 +465,11 @@ html, body {
   inset: 0;
   background: rgba(0, 0, 0, 0.32);
   z-index: 40;
+  transition: opacity 0.28s ease-in;
+}
+
+.filetree-overlay-backdrop.filetree-closing {
+  opacity: 0 !important;
 }
 
 .filetree-overlay-panel {
@@ -694,6 +742,25 @@ html, body {
   min-height: 0;
   display: flex;
   overflow: hidden;
+}
+
+.mobile-export-config-split-panel.export-config-closing {
+  overflow: hidden;
+  flex-shrink: 1;
+  animation: slideOutExportConfigPanelMobile 0.28s ease-in forwards;
+}
+
+@keyframes slideOutExportConfigPanelMobile {
+  from {
+    flex: 0 0 30%;
+    min-width: 112px;
+    opacity: 1;
+  }
+  to {
+    flex: 0 0 0;
+    min-width: 0;
+    opacity: 0;
+  }
 }
 
 .mobile-export-config-split-panel > .export-config-panel {

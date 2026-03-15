@@ -8,6 +8,8 @@ const SettingsDialog = ({
   fontSize = 14,
   lineHeight = 24,
   fontFamily = 'JetBrains Mono',
+  lineNumbers = true,
+  wordWrap = true,
   syncPreviewWithEditor = true,
   onThemeChange,
   onSave
@@ -17,8 +19,8 @@ const SettingsDialog = ({
     fontSize,
     lineHeight,
     tabSize: 2,
-    wordWrap: true,
-    lineNumbers: true,
+    wordWrap,
+    lineNumbers,
     fontFamily,
     // 编辑与预览联动（编辑滚动时预览是否跟随）
     syncPreviewWithEditor,
@@ -34,10 +36,12 @@ const SettingsDialog = ({
       fontSize,
       lineHeight,
       fontFamily,
+      lineNumbers,
+      wordWrap,
       syncPreviewWithEditor,
     }))
     setHasChanges(false)
-  }, [theme, fontSize, lineHeight, fontFamily, syncPreviewWithEditor]);
+  }, [theme, fontSize, lineHeight, fontFamily, lineNumbers, wordWrap, syncPreviewWithEditor]);
 
   const handleChange = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));

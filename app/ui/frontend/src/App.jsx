@@ -241,6 +241,8 @@ function App() {
   const [editorFontSize, setEditorFontSize] = useState(14)
   const [editorLineHeight, setEditorLineHeight] = useState(24)
   const [editorFontFamily, setEditorFontFamily] = useState('JetBrains Mono')
+  const [editorLineNumbers, setEditorLineNumbers] = useState(true)
+  const [editorWordWrap, setEditorWordWrap] = useState(true)
   const [syncPreviewWithEditor, setSyncPreviewWithEditor] = useState(true)
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
@@ -1666,6 +1668,8 @@ function App() {
   const [isVirtualKeyboardOpen, setIsVirtualKeyboardOpen] = useState(false)
   const [fileTreeSwipeOffset, setFileTreeSwipeOffset] = useState(0)
   const [isFileTreeSwipeDragging, setIsFileTreeSwipeDragging] = useState(false)
+  const [isFileTreeClosing, setIsFileTreeClosing] = useState(false)
+  const [isExportConfigClosing, setIsExportConfigClosing] = useState(false)
   const [editorInstance, setEditorInstance] = useState(null)
   const syncPreviewWithEditorRef = useRef(syncPreviewWithEditor)
   const editorThemeRef = useRef(editorTheme)
@@ -1749,6 +1753,8 @@ function App() {
         if (typeof s.editorFontSize === 'number') setEditorFontSize(s.editorFontSize)
         if (typeof s.editorLineHeight === 'number') setEditorLineHeight(s.editorLineHeight)
         if (typeof s.editorFontFamily === 'string') setEditorFontFamily(s.editorFontFamily)
+        if (typeof s.editorLineNumbers === 'boolean') setEditorLineNumbers(s.editorLineNumbers)
+        if (typeof s.editorWordWrap === 'boolean') setEditorWordWrap(s.editorWordWrap)
         if (typeof s.syncPreviewWithEditor === 'boolean') setSyncPreviewWithEditor(s.syncPreviewWithEditor)
         if (typeof s.layout === 'string') setLayout(s.layout)
         if (typeof s.showFileTree === 'boolean') setShowFileTree(s.showFileTree)
@@ -2652,13 +2658,24 @@ function App() {
     })
   }, [])
 
-  const handleToggleFileTree = useCallback(() => {
-    updateShowFileTree((prev) => !prev)
-  }, [updateShowFileTree])
-
+  const fileTreeClosingTimerRef = useRef(null)
   const handleCloseFileTree = useCallback(() => {
-    updateShowFileTree(false)
-  }, [updateShowFileTree])
+    if (isFileTreeClosing || fileTreeClosingTimerRef.current) return
+    setIsFileTreeClosing(true)
+    fileTreeClosingTimerRef.current = setTimeout(() => {
+      updateShowFileTree(false)
+      setIsFileTreeClosing(false)
+      fileTreeClosingTimerRef.current = null
+    }, 280)
+  }, [updateShowFileTree, isFileTreeClosing])
+
+  const handleToggleFileTree = useCallback(() => {
+    if (showFileTree) {
+      handleCloseFileTree()
+    } else {
+      updateShowFileTree(true)
+    }
+  }, [updateShowFileTree, showFileTree, handleCloseFileTree])
 
   const handleFileTreeTouchStart = useCallback((event) => {
     if (!isCompactViewport || !showFileTree) return
@@ -2881,6 +2898,11 @@ function App() {
     if (showFileTree) {
       setFileTreeSwipeOffset(0)
       setIsFileTreeSwipeDragging(false)
+      setIsFileTreeClosing(false)
+      if (fileTreeClosingTimerRef.current) {
+        clearTimeout(fileTreeClosingTimerRef.current)
+        fileTreeClosingTimerRef.current = null
+      }
       return undefined
     }
 
@@ -2894,16 +2916,45 @@ function App() {
     return undefined
   }, [showFileTree])
 
+  const exportConfigClosingTimerRef = useRef(null)
+  const handleCloseExportConfigPanel = useCallback(() => {
+    if (isExportConfigClosing || exportConfigClosingTimerRef.current) return
+    setIsExportConfigClosing(true)
+    exportConfigClosingTimerRef.current = setTimeout(() => {
+      updateShowExportConfigPanel(false)
+      setIsExportConfigClosing(false)
+      exportConfigClosingTimerRef.current = null
+    }, 280)
+  }, [updateShowExportConfigPanel, isExportConfigClosing])
+
+  const openExportConfigPanel = useCallback(() => {
+    if (exportConfigClosingTimerRef.current) {
+      clearTimeout(exportConfigClosingTimerRef.current)
+      exportConfigClosingTimerRef.current = null
+    }
+    setIsExportConfigClosing(false)
+    updateShowExportConfigPanel(true)
+  }, [updateShowExportConfigPanel])
+
   const handleToggleExportConfigPanel = useCallback(() => {
     if (isAdaptiveSinglePaneViewport) {
       setMobileActivePane('preview')
     }
-    updateShowExportConfigPanel((prev) => !prev)
-  }, [isAdaptiveSinglePaneViewport, updateShowExportConfigPanel])
+    if (showExportConfigPanel) {
+      handleCloseExportConfigPanel()
+    } else {
+      openExportConfigPanel()
+    }
+  }, [isAdaptiveSinglePaneViewport, showExportConfigPanel, handleCloseExportConfigPanel, openExportConfigPanel])
 
-  const handleCloseExportConfigPanel = useCallback(() => {
-    updateShowExportConfigPanel(false)
-  }, [updateShowExportConfigPanel])
+  useEffect(() => {
+    return () => {
+      if (exportConfigClosingTimerRef.current) {
+        clearTimeout(exportConfigClosingTimerRef.current)
+        exportConfigClosingTimerRef.current = null
+      }
+    }
+  }, [])
 
   const toggleEditorTheme = async (forcedTheme) => {
     // 事件处理函数可能会把 click event 作为第一个参数传进来，这里只接受合法主题值
@@ -5097,7 +5148,7 @@ function App() {
     // 微信公众号格式：先显示主题选择对话框
     if (format === 'wechat') {
       // 打开导出配置面板
-      updateShowExportConfigPanel(true)
+      openExportConfigPanel()
       return
     }
 
@@ -5309,7 +5360,7 @@ function App() {
       setStatusType('error')
       console.error('Export error:', error)
     }
-  }, [content, currentPath, generateExportStyles, exportConfig, editorTheme, previewRef])
+  }, [content, currentPath, generateExportStyles, exportConfig, editorTheme, previewRef, openExportConfigPanel])
 
   const handleSettings = useCallback(() => {
     updateShowSettingsDialog(true)
@@ -7158,6 +7209,8 @@ function App() {
           fontSize={editorFontSize}
           lineHeight={editorLineHeight}
           fontFamily={editorFontFamily}
+          lineNumbers={editorLineNumbers}
+          wordWrap={editorWordWrap}
           syncPreviewWithEditor={syncPreviewWithEditor}
           onThemeChange={(t) => toggleEditorTheme(t)}
           onSave={(s) => {
@@ -7169,9 +7222,17 @@ function App() {
               setEditorLineHeight(s.lineHeight)
               persistSetting('editorLineHeight', s.lineHeight)
             }
-            if (s.fontFamily) {
+            if (typeof s.fontFamily === 'string' && s.fontFamily) {
               setEditorFontFamily(s.fontFamily)
               persistSetting('editorFontFamily', s.fontFamily)
+            }
+            if (typeof s.lineNumbers === 'boolean') {
+              setEditorLineNumbers(s.lineNumbers)
+              persistSetting('editorLineNumbers', s.lineNumbers)
+            }
+            if (typeof s.wordWrap === 'boolean') {
+              setEditorWordWrap(s.wordWrap)
+              persistSetting('editorWordWrap', s.wordWrap)
             }
             if (typeof s.syncPreviewWithEditor === 'boolean') {
               setSyncPreviewWithEditor(s.syncPreviewWithEditor)
@@ -7280,18 +7341,18 @@ function App() {
         </div>
       </header>
 
-      <main className={`main-content layout-${effectiveLayout} ${isCompactViewport ? 'is-compact-viewport' : ''} ${isAdaptiveSinglePaneViewport ? 'mobile-single-column' : ''} ${isCompactViewport && showFileTree ? 'filetree-overlay-open' : ''}`}>
-        {isCompactViewport && showFileTree && (
+      <main className={`main-content layout-${effectiveLayout} ${isCompactViewport ? 'is-compact-viewport' : ''} ${isAdaptiveSinglePaneViewport ? 'mobile-single-column' : ''} ${isCompactViewport && (showFileTree || isFileTreeClosing) ? 'filetree-overlay-open' : ''}`}>
+        {isCompactViewport && (showFileTree || isFileTreeClosing) && (
           <div
-            className="filetree-overlay-backdrop"
-            style={{ opacity: 1 - fileTreeSwipeProgress }}
+            className={`filetree-overlay-backdrop ${isFileTreeClosing ? 'filetree-closing' : ''}`}
+            style={{ opacity: isFileTreeClosing ? 0 : 1 - fileTreeSwipeProgress, pointerEvents: isFileTreeClosing ? 'none' : undefined }}
             onClick={handleCloseFileTree}
           />
         )}
-        {isCompactViewport && showFileTree && (
+        {isCompactViewport && (showFileTree || isFileTreeClosing) && (
           <div
-            className="filetree-close-hit-area"
-            style={{ left: `${compactFileTreePanelWidth}px` }}
+            className={`filetree-close-hit-area ${isFileTreeClosing ? 'filetree-closing' : ''}`}
+            style={{ left: `${compactFileTreePanelWidth}px`, pointerEvents: isFileTreeClosing ? 'none' : undefined }}
             onClick={handleCloseFileTree}
           />
         )}
@@ -7334,10 +7395,14 @@ function App() {
           </div>
         )}
         <div className="editor-preview-container">
-          {showFileTree && !isCompactViewport && (
+          {(showFileTree || isFileTreeClosing) && !isCompactViewport && (
             <div
-              className="filetree-side-panel"
-              style={{ width: `${fileTreeWidth + 4}px`, flexShrink: 0 }}
+              className={`filetree-side-panel ${isFileTreeClosing ? 'filetree-closing' : ''}`}
+              style={{
+                width: `${fileTreeWidth + 4}px`,
+                flexShrink: 0,
+                '--filetree-panel-width': `${fileTreeWidth + 4}px`,
+              }}
             >
               <FileTree 
                 ref={fileTreeRef}
@@ -7358,13 +7423,13 @@ function App() {
               <Resizer direction="vertical" onResize={handleFileTreeResize} />
             </div>
           )}
-          {showFileTree && isCompactViewport && (
+          {(showFileTree || isFileTreeClosing) && isCompactViewport && (
             <div
-              className="filetree-overlay-panel"
+              className={`filetree-overlay-panel ${isFileTreeClosing ? 'filetree-closing' : ''}`}
               style={{
                 width: `min(${fileTreeWidth}px, calc(100vw - 24px))`,
-                transform: `translate3d(${fileTreeSwipeOffset}px, 0, 0)`,
-                transition: isFileTreeSwipeDragging ? 'none' : 'transform 180ms ease-out',
+                transform: isFileTreeClosing ? 'translate3d(-100%, 0, 0)' : `translate3d(${fileTreeSwipeOffset}px, 0, 0)`,
+                transition: isFileTreeSwipeDragging ? 'none' : (isFileTreeClosing ? 'transform 280ms ease-in' : 'transform 180ms ease-out'),
               }}
               onTouchStart={handleFileTreeTouchStart}
               onTouchMove={handleFileTreeTouchMove}
@@ -7390,7 +7455,7 @@ function App() {
             </div>
           )}
           <div
-            className={`editor-preview-wrapper${isCompactViewport && showExportConfigPanel ? ' mobile-export-config-split' : ''}`}
+            className={`editor-preview-wrapper${isCompactViewport && (showExportConfigPanel || isExportConfigClosing) ? ' mobile-export-config-split' : ''}`}
             {...(isAdaptiveSinglePaneViewport && !showExportConfigPanel
               ? {
                   onTouchStart: handlePaneSwipeTouchStart,
@@ -7455,7 +7520,7 @@ function App() {
                 theme={editorTheme}
               />
             )}
-            {isCompactViewport && showExportConfigPanel ? (
+            {isCompactViewport && (showExportConfigPanel || isExportConfigClosing) ? (
               <div className="mobile-export-config-split-body">
                 <div className="editor-preview-content">
               {(effectiveLayout === 'vertical' || effectiveLayout === 'editor-only') && (
@@ -7491,7 +7556,7 @@ function App() {
                     fontSize: editorFontSize,
                     lineHeight: editorLineHeight,
                     minimap: { enabled: false },
-                    wordWrap: 'on',
+                    wordWrap: editorWordWrap ? 'on' : 'off',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
                     tabSize: 2,
@@ -7499,7 +7564,7 @@ function App() {
                     fontLigatures: true,
                     contextmenu: false, // 禁用默认右键菜单
                     // 行号配置
-                    lineNumbers: 'on',
+                    lineNumbers: editorLineNumbers ? 'on' : 'off',
                     lineNumbersMinChars: 2,
                     // 代码折叠配置
                     folding: true,
@@ -7552,7 +7617,7 @@ function App() {
           </div>
         )}
                 </div>
-                <div className="mobile-export-config-split-panel">
+                <div className={`mobile-export-config-split-panel ${isExportConfigClosing ? 'export-config-closing' : ''}`}>
                   <ExportConfigPanel
                     config={exportConfig}
                     onChange={handleExportConfigChange}
@@ -7596,14 +7661,14 @@ function App() {
                     fontSize: editorFontSize,
                     lineHeight: editorLineHeight,
                     minimap: { enabled: false },
-                    wordWrap: 'on',
+                    wordWrap: editorWordWrap ? 'on' : 'off',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
                     tabSize: 2,
                     fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
                     fontLigatures: true,
                     contextmenu: false,
-                    lineNumbers: 'on',
+                    lineNumbers: editorLineNumbers ? 'on' : 'off',
                     lineNumbersMinChars: 2,
                     folding: true,
                     showFoldingControls: 'always',
@@ -7658,10 +7723,14 @@ function App() {
           </div>
 
           {/* 导出配置面板 */}
-          {showExportConfigPanel && !isCompactViewport && (
+          {(showExportConfigPanel || isExportConfigClosing) && !isCompactViewport && (
             <div
-              className="export-config-side-panel"
-              style={{ width: `${exportConfigPanelWidth + 4}px`, flexShrink: 0 }}
+              className={`export-config-side-panel ${isExportConfigClosing ? 'export-config-closing' : ''}`}
+              style={{
+                width: `${exportConfigPanelWidth + 4}px`,
+                flexShrink: 0,
+                '--export-config-panel-width': `${exportConfigPanelWidth + 4}px`,
+              }}
             >
               <Resizer direction="vertical" onResize={handleExportConfigPanelResize} />
               <ExportConfigPanel

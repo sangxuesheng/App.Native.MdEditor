@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import './MenuBar.css'
 import {
   FilePlus,
@@ -168,7 +168,41 @@ function MenuBar({
 }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const menuRef = useRef(null)
+  const compactTriggerRef = useRef(null)
+  const compactDropdownRef = useRef(null)
+  const [compactDropdownStyle, setCompactDropdownStyle] = useState(null)
   const compactMenuKey = '__compact__'
+
+  // 移动端下拉栏自适应位置
+  useLayoutEffect(() => {
+    if (activeMenu !== compactMenuKey || !compactTriggerRef.current || !compactDropdownRef.current) {
+      setCompactDropdownStyle(null)
+      return
+    }
+    const trigger = compactTriggerRef.current
+    const dropdown = compactDropdownRef.current
+    const triggerRect = trigger.getBoundingClientRect()
+    const dropdownRect = dropdown.getBoundingClientRect()
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const gap = 4
+    const padding = 12
+
+    let left = triggerRect.left
+    let top = triggerRect.bottom + gap
+
+    if (left + dropdownRect.width > vw - padding) {
+      left = Math.max(padding, vw - dropdownRect.width - padding)
+    }
+    if (left < padding) left = padding
+
+    if (top + dropdownRect.height > vh - padding) {
+      top = triggerRect.top - dropdownRect.height - gap
+    }
+    if (top < padding) top = padding
+
+    setCompactDropdownStyle({ position: 'fixed', left, top })
+  }, [activeMenu])
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -324,9 +358,9 @@ function MenuBar({
     }])
   ]
 
-  const renderCompactMenuContent = () => {
+  const renderCompactMenuContent = (wrapperProps = {}) => {
     return (
-      <div className="menu-dropdown compact-menu-dropdown">
+      <div className="menu-dropdown compact-menu-dropdown" {...wrapperProps}>
         {menuConfig.map((menu, menuIndex) => (
           <div key={menu.name} className="compact-menu-section">
             {menuIndex > 0 && <div className="menu-divider compact-menu-divider" />}
@@ -434,12 +468,16 @@ function MenuBar({
       {compact && (
         <div className="menu-item menu-item-compact">
           <button
+            ref={compactTriggerRef}
             className={`menu-button compact-trigger ${activeMenu === compactMenuKey ? 'active' : ''}`}
             onClick={() => handleMenuClick(compactMenuKey)}
           >
             菜单
           </button>
-          {activeMenu === compactMenuKey && renderCompactMenuContent()}
+          {activeMenu === compactMenuKey && renderCompactMenuContent({
+            ref: compactDropdownRef,
+            style: compactDropdownStyle
+          })}
         </div>
       )}
 
