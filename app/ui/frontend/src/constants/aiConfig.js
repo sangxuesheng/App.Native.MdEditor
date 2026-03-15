@@ -8,7 +8,7 @@ export const AI_SERVICE_CATEGORIES = [
     values: [
       'deepseek', 'moonshot', 'aliyun-bailian', 'wenxin',
       'hunyuan', 'zhipu', 'siliconflow', 'spark', 'sensenova',
-      'stepfun', 'baichuan', 'minimax', 'internlm', '360ai',
+      'stepfun', 'baichuan', 'doubao', 'minimax', 'internlm', '360ai',
       'taichu', 'jina',
     ],
   },
@@ -207,6 +207,15 @@ export const AI_SERVICES = [
     endpoint: 'https://api.hunyuan.cloud.tencent.com/v1',
     needsApiKey: true,
     helpUrl: 'https://cloud.tencent.com/document/product/1729',
+    models: [], // 在线拉取，不默认配置
+  },
+  {
+    value: 'doubao',
+    label: '火山方舟（豆包）',
+    endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
+    needsApiKey: true,
+    helpUrl: 'https://www.volcengine.com/docs/82379',
+    modelHint: 'model 填推理接入点 ID（ep-xxxx）或带日期后缀的模型 ID（如 doubao-pro-32k-241215），在火山方舟控制台创建接入点或从模型广场复制',
     models: [], // 在线拉取，不默认配置
   },
   {
@@ -566,6 +575,7 @@ export const CONNECTIVITY_TEST_DEFAULT_MODELS = {
   groq: ['llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
   qwen: ['qwen-turbo', 'qwen-plus'],
   hunyuan: ['hunyuan-lite', 'hunyuan-turbos-latest', 'hunyuan-a13b'],
+  doubao: ['doubao-pro-32k-241215', 'doubao-lite-32k-250115'],
   siliconflow: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V2.5'],
   '302ai': ['gpt-4o-mini', 'deepseek-chat'],
   zhipu: ['glm-4-flash', 'glm-4'],

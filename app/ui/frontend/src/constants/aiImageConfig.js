@@ -84,6 +84,14 @@ export const AI_IMAGE_SERVICES = [
     sizes: ['1024x1024', '768x768', '768x1024', '1024x768', '1280x720', '720x1280', '768x1280', '1280x768', '1920x1080', '1080x1920'],
   },
   {
+    value: 'doubao',
+    label: '火山方舟（豆包）',
+    endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
+    needsApiKey: true,
+    models: [], // Seedream API 格式不同，暂用自定义
+    sizes: DEFAULT_SIZES,
+  },
+  {
     value: 'siliconflow',
     label: '硅基流动',
     endpoint: 'https://api.siliconflow.cn/v1',
