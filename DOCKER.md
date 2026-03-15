@@ -46,10 +46,13 @@ docker compose down
 - 本地：http://localhost:18080/
 - 局域网：http://<本机IP>:18080/
 
-## 数据目录
+| 宿主机 | 容器内 | 说明 |
+|--------|--------|------|
+| `./data` | `/app/data` | 编辑器的文件树根，Markdown 持久化到此目录 |
 
-- `./data` 挂载为编辑器的文件树根目录
-- 在此目录下新建/编辑的 Markdown 会持久化到宿主机
+- 首次运行前执行 `mkdir -p data` 确保目录存在
+- 在 `data/` 下创建子目录和 `.md` 文件，即可在编辑器中访问
+- 详见 `data/README.md`
 
 ## 与 fnOS 的关系
 

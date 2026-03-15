@@ -18,6 +18,9 @@ RUN npm install --legacy-peer-deps
 
 COPY app/ui/frontend/ .
 
+# Docker 构建时隐藏「新窗口」按钮（Docker 内无多窗口场景）
+ENV VITE_RUN_IN_DOCKER=true
+
 RUN npm run build
 
 # -----------------------------------------------------------------------------

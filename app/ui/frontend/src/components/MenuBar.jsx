@@ -198,6 +198,9 @@ function MenuBar({
     return '刚刚'
   }
 
+  // Docker 构建时隐藏「新窗口」按钮
+  const hideNewWindowButton = import.meta.env.VITE_RUN_IN_DOCKER === 'true'
+
   const menuConfig = [
     {
       name: '文件',
@@ -297,12 +300,12 @@ function MenuBar({
         { label: '关于', icon: 'about', action: onShowAbout }
       ]
     },
-    {
+    ...(hideNewWindowButton ? [] : [{
       name: '新窗口打开',
       items: [
         { label: '新窗口打开', icon: 'external', action: onOpenInNewWindow }
       ]
-    }
+    }])
   ]
 
   const renderCompactMenuContent = () => {

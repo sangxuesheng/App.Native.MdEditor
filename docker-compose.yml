@@ -15,6 +15,6 @@ services:
       # 挂载的 data 目录作为文件树根，可在此新建/编辑 Markdown
       TRIM_DATA_ACCESSIBLE_PATHS: /app/data
     volumes:
-      # 本地目录挂载为编辑器可访问的文件根
+      # 宿主机 ./data 映射到容器 /app/data（文件树根目录）
       - ./data:/app/data
     restart: unless-stopped
