@@ -6,10 +6,10 @@ export const AI_SERVICE_CATEGORIES = [
     id: 'chinaGeneral',
     label: '国内通用大模型',
     values: [
-      'deepseek', 'moonshot', 'aliyun-bailian', 'wenxin', 'tencent-cloud',
-      'hunyuan', 'zhipu', 'siliconflow', 'yi', 'spark', 'sensenova',
-      'stepfun', 'baichuan', 'doubao', 'minimax', 'internlm', '360ai',
-      'taichu', 'jina', 'doubao-ai',
+      'deepseek', 'moonshot', 'aliyun-bailian', 'wenxin',
+      'hunyuan', 'zhipu', 'siliconflow', 'spark', 'sensenova',
+      'stepfun', 'baichuan', 'minimax', 'internlm', '360ai',
+      'taichu', 'jina',
     ],
   },
   {
@@ -210,23 +210,6 @@ export const AI_SERVICES = [
     models: [], // 在线拉取，不默认配置
   },
   {
-    value: 'doubao',
-    label: '火山方舟（豆包）',
-    endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
-    needsApiKey: true,
-    helpUrl: 'https://www.volcengine.com/docs/82379',
-    modelHint: 'model 需填写推理接入点 ID（ep-xxxx），在火山方舟控制台创建接入点后获取',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'doubao-ai',
-    label: '豆包 AI',
-    endpoint: 'https://api.doubao-ai.com/v1',
-    needsApiKey: true,
-    helpUrl: 'https://www.volcengine.com/docs/82379',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
     value: 'siliconflow',
     label: '硅基流动',
     endpoint: 'https://api.siliconflow.cn/v1',
@@ -259,14 +242,6 @@ export const AI_SERVICES = [
     models: [], // 在线拉取，不默认配置
   },
   {
-    value: 'yi',
-    label: '零一万物',
-    endpoint: 'https://api.lingyiwanwu.com/v1',
-    needsApiKey: true,
-    helpUrl: 'https://platform.lingyiwanwu.com/docs',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
     value: 'moonshot',
     label: '月之暗面（Kimi）',
     endpoint: 'https://api.moonshot.cn/v1',
@@ -284,18 +259,10 @@ export const AI_SERVICES = [
   },
   {
     value: 'wenxin',
-    label: 'Wenxin',
-    endpoint: 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop',
+    label: '百度千帆',
+    endpoint: 'https://qianfan.baidubce.com/v2',
     needsApiKey: true,
-    helpUrl: 'https://cloud.baidu.com/doc/WENXINWORKSHOP/index.html',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'tencent-cloud',
-    label: 'TencentCloud',
-    endpoint: 'https://api.hunyuan.cloud.tencent.com/v1',
-    needsApiKey: true,
-    helpUrl: 'https://cloud.tencent.com/document/product/1729',
+    helpUrl: 'https://cloud.baidu.com/product-s/qianfan_home',
     models: [], // 在线拉取，不默认配置
   },
   {
@@ -353,14 +320,6 @@ export const AI_SERVICES = [
     label: 'Jina AI',
     endpoint: 'https://api.jina.ai/v1',
     needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'qianfan',
-    label: '百度千帆',
-    endpoint: 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop',
-    needsApiKey: true,
-    helpUrl: 'https://cloud.baidu.com/doc/WENXINWORKSHOP/index.html',
     models: [], // 在线拉取，不默认配置
   },
   {
@@ -606,16 +565,14 @@ export const CONNECTIVITY_TEST_DEFAULT_MODELS = {
   mistral: ['mistral-small-latest', 'open-mistral-7b'],
   groq: ['llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
   qwen: ['qwen-turbo', 'qwen-plus'],
-  hunyuan: ['hunyuan-lite', 'hunyuan-standard'],
-  doubao: ['doubao-pro-32k', 'doubao-lite-32k'],
-  'doubao-ai': ['doubao-pro-32k', 'doubao-lite-32k'],
+  hunyuan: ['hunyuan-lite', 'hunyuan-turbos-latest', 'hunyuan-a13b'],
   siliconflow: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V2.5'],
   '302ai': ['gpt-4o-mini', 'deepseek-chat'],
   zhipu: ['glm-4-flash', 'glm-4'],
   baichuan: ['Baichuan2-Turbo', 'Baichuan2-53B'],
-  yi: ['yi-light', 'yi-medium'],
   moonshot: ['moonshot-v1-8k', 'moonshot-v1-32k'],
   'aliyun-bailian': ['qwen-turbo', 'qwen-plus'],
+  wenxin: ['ernie-speed-128k', 'ernie-4.0-8k'],
   ollama: ['llama3.2', 'qwen2.5:7b'],
   'ollama-cloud': ['llama3.2', 'qwen2.5:7b'],
   openrouter: ['openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
@@ -632,7 +589,7 @@ export const DEFAULT_CONFIG = {
   customModels: {}, // 各服务商自定义模型 { [serviceType]: string[] }，每项为模型 ID
   customModelLabels: {}, // 自定义模型展示名称 { [serviceType]: { [modelId]: string } }，创建后可修改展示名
   verifiedModelsByService: {}, // 各服务商已验证可连接的模型 { [serviceType]: string[] }，仅这些会出现在对话栏「切换模型」中
-  disabledProviders: [], // 被全局关闭的服务商 type 列表，侧栏「已启用」会排除这些
+  disabledProviders: AI_SERVICES.filter((s) => s.value !== 'builtin').map((s) => s.value), // 默认仅 builtin 启用，其他需手动开启
   fetchedModelsByService: {}, // 各服务商在线拉取的模型列表 { [serviceType]: string[] }，拉取后保存数据库，后续无需再拉取
 }
 

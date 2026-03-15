@@ -107,16 +107,10 @@ export default function AIConfigPanel({
     () => new Set(config.disabledProviders || []),
     [config.disabledProviders]
   )
+  /** 已启用 = 服务商头部开关为 ON（不在 disabledProviders 中），与模型列表内开关无关 */
   const enabledValueSet = React.useMemo(() => {
-    const verified = config.verifiedModelsByService || {}
-    return new Set(
-      AI_SERVICES.filter(
-        (s) =>
-          !disabledSet.has(s.value) &&
-          (s.value === 'builtin' || (verified[s.value]?.length > 0))
-      ).map((s) => s.value)
-    )
-  }, [config.verifiedModelsByService, disabledSet])
+    return new Set(AI_SERVICES.filter((s) => !disabledSet.has(s.value)).map((s) => s.value))
+  }, [disabledSet])
   const isProviderEnabled = !disabledSet.has(viewingService)
   const setProviderEnabled = (on) => {
     const list = config.disabledProviders || []
@@ -124,7 +118,7 @@ export default function AIConfigPanel({
     onConfigChange({ disabledProviders: next })
   }
 
-  /** 已启用：内置或已有已验证模型的服务，用于顶部展示 */
+  /** 已启用：服务商头部开关为 ON 的服务，用于侧栏顶部展示 */
   const enabledSidebarServices = React.useMemo(() => {
     return AI_SERVICES.filter(
       (s) =>
@@ -204,9 +198,12 @@ export default function AIConfigPanel({
     config.apiKeys?.[viewingService] ?? config.apiKey ?? ''
   const getViewingEndpoint = () =>
     config.endpoints?.[viewingService] ?? currentService?.endpoint ?? config.endpoint ?? ''
-  /** 图片代理地址：优先用图片专用配置，未配置时默认使用对话的代理地址 */
+  /** 图片代理地址：优先用图片专用配置，未配置时使用图片服务默认地址（如腾讯混元图片用 hunyuan.tencentcloudapi.com） */
   const getViewingImageEndpoint = () =>
-    imageConfig?.endpoints?.[viewingService] ?? getViewingEndpoint() ?? imageConfig?.endpoint ?? AI_IMAGE_SERVICES.find((s) => s.value === viewingService)?.endpoint ?? ''
+    imageConfig?.endpoints?.[viewingService] ?? AI_IMAGE_SERVICES.find((s) => s.value === viewingService)?.endpoint ?? getViewingEndpoint() ?? imageConfig?.endpoint ?? ''
+  /** 图片 API Key：优先用图片专用（如混元需 SecretId:SecretKey），否则共用对话 */
+  const getViewingImageApiKey = () =>
+    imageConfig?.apiKeys?.[viewingService] ?? imageConfig?.apiKey ?? getViewingApiKey()
 
   const handleTest = async (overrideModel) => {
     const modelToTest = overrideModel ?? testModelSelect
@@ -296,7 +293,7 @@ export default function AIConfigPanel({
   /** 在线拉取模型列表，同时更新对话模型和图片模型，保存到 config.fetchedModelsByService，增量合并 */
   const handleFetchModels = async () => {
     if (viewingService === 'builtin') return
-    const endpoint = getViewingEndpoint()
+    const endpoint = modelListTab === 'image' ? getViewingImageEndpoint() : getViewingEndpoint()
     if (!endpoint || !endpoint.startsWith('http')) {
       setFetchModelsError('请先填写 API 代理地址')
       return
@@ -304,7 +301,6 @@ export default function AIConfigPanel({
     setFetchingModels(true)
     setFetchModelsError(null)
     try {
-      // 始终拉取完整列表（对话+图片），不区分当前 tab
       const res = await fetch('/api/ai/models/fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -312,7 +308,7 @@ export default function AIConfigPanel({
           endpoint,
           apiKey: getViewingApiKey(),
           serviceType: viewingService,
-          modelListTab: 'chat', // 拉取完整列表，硅基流动不传 image 则返回全部
+          modelListTab: modelListTab === 'image' ? 'image' : 'chat',
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -432,12 +428,24 @@ export default function AIConfigPanel({
     const overrides = overrideModel != null ? { model: overrideModel } : {}
     if (viewingService) {
       overrides.endpoint = getViewingImageEndpoint() || config.endpoints?.[viewingService] || imageConfig?.endpoint
-      overrides.apiKey = getViewingApiKey() || imageConfig?.apiKey
+      overrides.apiKey = getViewingImageApiKey()
     }
     const result = await onTestConnectionImage(overrides)
     setImageTesting(false)
     if (overrideModel) setRowImageTestResult({ modelId: overrideModel, result })
-    /* 连通性检查通过后不自动启用模型，由用户自行在模型列表中点击使用按钮 */
+    if (result?.success) {
+      const modelId = overrideModel || overrides.model
+      if (onImageConfigChange && imageConfig && viewingService && modelId) {
+        const verified = imageConfig.verifiedImageModelsByService || {}
+        const list = verified[viewingService] ?? []
+        if (!list.includes(modelId)) {
+          onImageConfigChange({ verifiedImageModelsByService: { ...verified, [viewingService]: [...list, modelId] } })
+        }
+      }
+      if (onConfigChange && config?.disabledProviders?.includes(viewingService)) {
+        onConfigChange({ disabledProviders: config.disabledProviders.filter((t) => t !== viewingService) })
+      }
+    }
   }
 
   /** 表单区图片连通性检查（与 handleTest 对应，用于图片 tab） */
@@ -448,11 +456,23 @@ export default function AIConfigPanel({
     const overrides = {
       model: testModelSelect,
       endpoint: getViewingImageEndpoint() || imageConfig?.endpoint,
-      apiKey: getViewingApiKey() || imageConfig?.apiKey,
+      apiKey: getViewingImageApiKey(),
     }
     const result = await onTestConnectionImage(overrides)
     setImageTestResult(result)
     setImageTesting(false)
+    if (result?.success) {
+      if (onImageConfigChange && imageConfig && viewingService && testModelSelect) {
+        const verified = imageConfig.verifiedImageModelsByService || {}
+        const list = verified[viewingService] ?? []
+        if (!list.includes(testModelSelect)) {
+          onImageConfigChange({ verifiedImageModelsByService: { ...verified, [viewingService]: [...list, testModelSelect] } })
+        }
+      }
+      if (onConfigChange && config?.disabledProviders?.includes(viewingService)) {
+        onConfigChange({ disabledProviders: config.disabledProviders.filter((t) => t !== viewingService) })
+      }
+    }
   }
 
   /** 表单区连通性检查：根据 tab 调用对话或图片 API */
@@ -503,7 +523,7 @@ export default function AIConfigPanel({
   const getImageModelDisplayLabel = (modelId) =>
     (imageConfig?.customModelLabels?.[viewingService]?.[modelId] || modelId)?.trim() || modelId
 
-  /** 模型列表-图片标签：当前服务商下全部文生图模型。内置用预设，其他从拉取结果中仅保留文生图模型 */
+  /** 模型列表-图片标签：当前服务商下全部文生图模型。内置用预设，其他从拉取结果中仅保留文生图模型；有预设时作为兜底 */
   const imageModelFullListForViewing = React.useMemo(() => {
     if (!imageConfig) return []
     const svc = AI_IMAGE_SERVICES.find((s) => s.value === viewingService)
@@ -513,6 +533,9 @@ export default function AIConfigPanel({
     } else {
       const fetched = config.fetchedModelsByService?.[viewingService] || []
       source = fetched.filter((m) => isImageModel(m))
+      if (source.length === 0 && Array.isArray(svc?.models) && svc.models.length > 0) {
+        source = svc.models
+      }
     }
     const custom = Array.isArray(imageConfig.customModels?.[viewingService]) ? imageConfig.customModels[viewingService] : []
     return [...source, ...custom].filter(Boolean)
@@ -711,18 +734,34 @@ export default function AIConfigPanel({
             {currentService?.needsApiKey && (
               <div className="config-field config-field-vertical">
                 <label className="config-field-label">API Key</label>
-                <p className="config-field-desc">请填写你的 {currentService?.label} API Key，如无请先至服务商控制台获取。保存后仅显示星号，点击「显示」可查看或编辑。</p>
+                <p className="config-field-desc">
+                  {modelListTab === 'image' && imageServiceForViewing?.modelHint ? (
+                    <>
+                      {imageServiceForViewing.modelHint.split('SecretId:SecretKey').map((part, i) => (
+                        <React.Fragment key={i}>
+                          {i > 0 && <span className="config-field-desc-highlight">SecretId:SecretKey</span>}
+                          {part}
+                        </React.Fragment>
+                      ))}
+                    </>
+                  ) : (
+                    `请填写你的 ${currentService?.label} API Key，如无请先至服务商控制台获取。保存后仅显示星号，点击「显示」可查看或编辑。`
+                  )}
+                </p>
                 <div className="config-input-with-icon">
                   <input
                     type={showApiKey ? 'text' : 'password'}
-                    value={showApiKey ? getViewingApiKey() : (getViewingApiKey() ? API_KEY_MASK : '')}
-                    onChange={(e) =>
-                      onConfigChange({
-                        apiKeys: { ...(config.apiKeys || {}), [viewingService]: e.target.value },
-                      })
-                    }
-                    onFocus={() => { if (getViewingApiKey() && !showApiKey) setShowApiKey(true) }}
-                    readOnly={!showApiKey && !!getViewingApiKey()}
+                    value={showApiKey ? (modelListTab === 'image' ? getViewingImageApiKey() : getViewingApiKey()) : ((modelListTab === 'image' ? getViewingImageApiKey() : getViewingApiKey()) ? API_KEY_MASK : '')}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (modelListTab === 'image' && onImageConfigChange) {
+                        onImageConfigChange({ apiKeys: { ...(imageConfig?.apiKeys || {}), [viewingService]: val } })
+                      } else {
+                        onConfigChange({ apiKeys: { ...(config.apiKeys || {}), [viewingService]: val } })
+                      }
+                    }}
+                    onFocus={() => { const k = modelListTab === 'image' ? getViewingImageApiKey() : getViewingApiKey(); if (k && !showApiKey) setShowApiKey(true) }}
+                    readOnly={!showApiKey && !!(modelListTab === 'image' ? getViewingImageApiKey() : getViewingApiKey())}
                     placeholder={`${currentService?.label} API Key`}
                   />
                   <button
@@ -764,7 +803,7 @@ export default function AIConfigPanel({
                     placeholder={AI_IMAGE_SERVICES.find((s) => s.value === viewingService)?.endpoint || 'https://api.example.com/v1'}
                   />
                   <p className="config-hint" style={{ marginTop: 6, fontSize: 12, color: 'var(--muted-color, #8b949e)' }}>
-                    不同服务商可能需要更换图片的代理地址，请参考各服务商文档
+                    {imageServiceForViewing?.modelHint || '不同服务商可能需要更换图片的代理地址，请参考各服务商文档'}
                   </p>
                 </>
               )}

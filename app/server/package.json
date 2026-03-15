@@ -2,6 +2,7 @@
   "dependencies": {
     "better-sqlite3": "^11.7.0",
     "heic-convert": "^2.1.0",
-    "mathjax": "^4.1.1"
+    "mathjax": "^4.1.1",
+    "tencentcloud-sdk-nodejs-hunyuan": "^4.1.188"
   }
 }

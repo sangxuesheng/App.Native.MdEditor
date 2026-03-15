@@ -7,6 +7,7 @@ const IMAGE_MODEL_PATTERNS = [
   /schnell/i, /qwen-image/i, /stable-diffusion/i, /seedream/i,
   /flux\.1/i, /flux-1/i, /image-edit/i,
   /wan2\.6|wan2\.5|wan2\.2|z-image/i,
+  /hunyuan-image/i, // 腾讯混元生图
 ]
 
 export function isImageModel(modelId) {
@@ -75,26 +76,12 @@ export const AI_IMAGE_SERVICES = [
   {
     value: 'hunyuan',
     label: '腾讯混元',
-    endpoint: 'https://api.hunyuan.cloud.tencent.com/v1',
+    endpoint: 'https://hunyuan.tencentcloudapi.com',
     needsApiKey: true,
-    models: [], // 混元生图 API 格式不同，暂用自定义
-    sizes: DEFAULT_SIZES,
-  },
-  {
-    value: 'doubao',
-    label: '火山方舟（豆包）',
-    endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
-    needsApiKey: true,
-    models: [], // Seedream API 格式不同，暂用自定义
-    sizes: DEFAULT_SIZES,
-  },
-  {
-    value: 'doubao-ai',
-    label: '豆包 AI',
-    endpoint: 'https://api.doubao-ai.com/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-    sizes: DEFAULT_SIZES,
+    helpUrl: 'https://cloud.tencent.com/document/product/1729/105968',
+    modelHint: 'API Key 填 SecretId:SecretKey（从腾讯云控制台-访问管理-API密钥获取）；hunyuan-image=混元生图，hunyuan-image-lite=文生图轻量版',
+    models: ['hunyuan-image', 'hunyuan-image-lite'],
+    sizes: ['1024x1024', '768x768', '768x1024', '1024x768', '1280x720', '720x1280', '768x1280', '1280x768', '1920x1080', '1080x1920'],
   },
   {
     value: 'siliconflow',
@@ -124,14 +111,6 @@ export const AI_IMAGE_SERVICES = [
     value: 'baichuan',
     label: '百川智能',
     endpoint: 'https://api.baichuan-ai.com/v1',
-    needsApiKey: true,
-    models: [],
-    sizes: DEFAULT_SIZES,
-  },
-  {
-    value: 'yi',
-    label: '零一万物',
-    endpoint: 'https://api.lingyiwanwu.com/v1',
     needsApiKey: true,
     models: [],
     sizes: DEFAULT_SIZES,
@@ -169,8 +148,8 @@ export const CONNECTIVITY_TEST_DEFAULT_IMAGE_MODELS = {
   'aliyun-bailian': ['wan2.6-t2i', 'wan2.5-t2i-preview'],
   qwen: ['wan2.6-t2i'],
   openai: ['dall-e-3', 'dall-e-2'],
-  'doubao-ai': ['doubao-seedream-4b'],
   '302ai': ['black-forest-labs/FLUX.1-schnell'],
+  hunyuan: ['hunyuan-image-lite', 'hunyuan-image'],
   custom: ['dall-e-2', 'black-forest-labs/FLUX.1-schnell'],
 }
 
@@ -178,6 +157,7 @@ export const DEFAULT_IMAGE_CONFIG = {
   type: 'builtin',
   endpoint: 'https://proxy-ai.doocs.org/v1',
   endpoints: {}, // 各服务商图片代理地址 { [serviceType]: string }，与对话 endpoints 分离
+  apiKeys: {}, // 各服务商图片专用 API Key（如腾讯混元图片需 SecretId:SecretKey，与对话不同）
   apiKey: '',
   model: 'Kwai-Kolors/Kolors',
   size: '1024x1024',

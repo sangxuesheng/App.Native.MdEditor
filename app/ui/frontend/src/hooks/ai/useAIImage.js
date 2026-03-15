@@ -34,6 +34,7 @@ export function useAIImage() {
           ...saved,
           customModels: { ...(DEFAULT_IMAGE_CONFIG.customModels || {}), ...(saved.customModels || {}) },
           endpoints: { ...(DEFAULT_IMAGE_CONFIG.endpoints || {}), ...(saved.endpoints || {}) },
+          apiKeys: { ...(DEFAULT_IMAGE_CONFIG.apiKeys || {}), ...(saved.apiKeys || {}) },
         }
         setConfig(merged)
       }
@@ -88,11 +89,16 @@ export function useAIImage() {
       } catch (_) {
         data = { ok: false, message: res.status === 400 ? '请求参数有误，请检查模型与配置' : '生成失败' }
       }
+      const debugInfo = data?.debug ?? data?._debug
+      if (debugInfo) {
+        console.warn('[AI 图片生成] 调试信息:', debugInfo)
+      }
       let errMsg = data?.message || (res.status === 400 ? '请求参数有误，请检查模型与配置' : '生成失败')
       if (typeof errMsg === 'string' && /^\s*bad\s*request\s*$/i.test(errMsg)) {
         errMsg = '请求参数有误：请检查模型名、出图尺寸或 API Key 是否符合该服务商要求'
       }
       if (!data?.ok) {
+        console.log('[AI 图片生成] 失败响应:', { ok: data?.ok, status: res.status, message: errMsg, code: data?.code })
         throw new Error(errMsg)
       }
 
@@ -155,17 +161,38 @@ export function useAIImage() {
     const model = overrides.model ?? config.model
     const endpoint = overrides.endpoint ?? config.endpoint
     const apiKey = overrides.apiKey ?? config.apiKey
+    const reqBody = {
+      endpoint,
+      apiKey: apiKey || undefined,
+      model,
+      size: config.size || '1024x1024',
+      prompt: '一只橘色的小猫坐在窗台上',
+    }
     try {
+      const isHunyuan = /hunyuan|tencentcloudapi\.com/i.test(endpoint || '') || /hunyuan-image/i.test(model || '')
+      const keyStr = typeof apiKey === 'string' ? apiKey.trim() : ''
+      const colonIdx = keyStr.indexOf(':')
+      const secretIdLen = colonIdx >= 0 ? keyStr.slice(0, colonIdx).trim().length : 0
+      const secretKeyLen = colonIdx >= 0 ? keyStr.slice(colonIdx + 1).trim().length : 0
+      console.log('[AI 图片连通性测试] 请求参数:', { ...reqBody, apiKey: apiKey ? '***' : undefined })
+      if (isHunyuan) {
+        console.warn('[AI 图片连通性测试] 混元 Key 本地校验:', {
+          keyLength: keyStr.length,
+          hasColon: colonIdx >= 0,
+          secretIdLength: secretIdLen,
+          secretKeyLength: secretKeyLen,
+          formatOk: colonIdx >= 0 && secretIdLen > 0 && secretKeyLen > 0,
+        })
+        if (keyStr.length === 0) {
+          console.warn('[AI 图片连通性测试] 提示：API Key 为空，请先在图片配置中填写 SecretId:SecretKey 并保存')
+        } else if (colonIdx < 0 || secretIdLen === 0 || secretKeyLen === 0) {
+          console.warn('[AI 图片连通性测试] 提示：格式应为 SecretId:SecretKey（英文冒号连接，前后无空格）')
+        }
+      }
       const res = await fetch('/api/ai/image/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint,
-          apiKey: apiKey || undefined,
-          model,
-          size: config.size || '1024x1024',
-          prompt: 'test',
-        }),
+        body: JSON.stringify(reqBody),
       })
       const raw = await res.text()
       let data = {}
@@ -174,12 +201,25 @@ export function useAIImage() {
       } catch (_) {
         if (!res.ok) data = { message: res.status === 400 ? '请求参数有误，请检查模型与配置' : '连接失败' }
       }
+      // 调试信息输出到浏览器控制台
+      const debugInfo = data?.debug ?? data?._debug
+      if (debugInfo) {
+        console.warn('[AI 图片连通性测试] 调试信息:', debugInfo)
+        if (data?.code === 'INVALID_API_KEY' && debugInfo.receivedLength === 0) {
+          console.warn('[AI 图片连通性测试] 提示：API Key 未传入或为空，请确认已选择腾讯混元服务商并在图片配置中填写 SecretId:SecretKey 后保存')
+        }
+      }
+      console.log('[AI 图片连通性测试] 响应:', { ok: data?.ok, status: res.status, message: data?.message, code: data?.code })
+      if (!data?.ok && !debugInfo) {
+        console.warn('[AI 图片连通性测试] 完整响应体:', data)
+      }
       let msg = data?.message || (res.status === 400 ? '请求参数有误，请检查模型与配置' : '连接失败')
       if (typeof msg === 'string' && /^\s*bad\s*request\s*$/i.test(msg)) {
         msg = '请求参数有误：请检查模型名、出图尺寸或 API Key 是否符合该服务商要求'
       }
       return data?.ok ? { success: true, message: '连接成功' } : { success: false, message: msg }
     } catch (e) {
+      console.warn('[AI 图片连通性测试] 异常:', e)
       return { success: false, message: e.message || '连接失败' }
     }
   }, [config])

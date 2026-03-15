@@ -452,7 +452,24 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少有效的 endpoint' });
         return;
       }
+      // 腾讯混元：API 不提供 /v1/models 接口，直接返回静态模型列表（参考 https://cloud.tencent.com/document/product/1729/104753、105968）
+      const HUNYUAN_CHAT_MODELS = [
+        'hunyuan-2.0-thinking-20251109', 'hunyuan-2.0-instruct-20251111', 'hunyuan-t1-latest',
+        'hunyuan-a13b', 'hunyuan-turbos-latest', 'hunyuan-lite', 'hunyuan-translation',
+        'hunyuan-translation-lite', 'hunyuan-large-role-latest',
+        'hunyuan-vision-1.5-instruct', 'hunyuan-t1-vision-20250916', 'hunyuan-turbos-vision-video',
+      ];
+      const HUNYUAN_IMAGE_MODELS = ['hunyuan-image', 'hunyuan-image-lite']; // 混元生图、文生图轻量版
+      if (serviceType === 'hunyuan') {
+        const models = [...HUNYUAN_CHAT_MODELS, ...HUNYUAN_IMAGE_MODELS];
+        sendJson(res, 200, { ok: true, models, imageOnly: modelListTab === 'image' });
+        return;
+      }
       let url = ep.endsWith('/models') ? ep : ep + '/models';
+      // 百度千帆：模型列表仅在 qianfan.baidubce.com/v2/models，旧文心 aip 地址无此接口；统一走千帆 API
+      if (serviceType === 'wenxin') {
+        url = 'https://qianfan.baidubce.com/v2/models';
+      }
       // 硅基流动支持 sub_type=text-to-image 仅拉取文生图模型（文档：type/image, sub_type/text-to-image|image-to-image）
       const isSiliconFlow = ep.includes('siliconflow.cn') || ep.includes('siliconflow.com');
       if (isSiliconFlow && modelListTab === 'image') {
@@ -465,6 +482,9 @@ const server = http.createServer(async (req, res) => {
       const fetchRes = await fetch(url, { method: 'GET', headers });
       if (!fetchRes.ok) {
         const rawText = await fetchRes.text();
+        if (serviceType === 'wenxin') {
+          console.warn('[api/ai/models/fetch] 百度千帆拉取失败:', fetchRes.status, url, rawText?.slice(0, 200));
+        }
         let errMsg = fetchRes.statusText || '拉取模型列表失败';
         try {
           const errData = rawText ? JSON.parse(rawText) : {};
@@ -473,19 +493,24 @@ const server = http.createServer(async (req, res) => {
           if (rawText && rawText.length < 300) errMsg = rawText;
         }
         if (fetchRes.status === 401 || fetchRes.status === 403) {
-          errMsg = '认证失败：请检查 API Key 是否已填写且有效';
+          errMsg = serviceType === 'wenxin'
+            ? '认证失败：请使用千帆控制台创建的 API Key（需配置 V2 应用 appid），格式如 bce-v3/ALTAK-xxx/xxx'
+            : '认证失败：请检查 API Key 是否已填写且有效';
         }
         sendJson(res, fetchRes.status, { ok: false, code: 'UPSTREAM_ERROR', message: errMsg });
         return;
       }
       const data = await fetchRes.json().catch(() => ({}));
-      const rawList = data?.data || data?.models || [];
+      const rawList = data?.data || data?.models || data?.result || [];
       const allIds = Array.isArray(rawList)
         ? rawList
           .map((m) => (typeof m === 'string' ? m : m?.id || m?.model || m?.name))
           .filter(Boolean)
         : [];
       const models = allIds.filter(isChatOrImageModel);
+      if (serviceType === 'wenxin' && models.length === 0 && allIds.length === 0 && rawList.length > 0) {
+        console.warn('[api/ai/models/fetch] 百度千帆返回数据但解析后为空，原始 data 结构:', JSON.stringify(Object.keys(data || {})), 'rawList 长度:', rawList.length);
+      }
       sendJson(res, 200, { ok: true, models, imageOnly: isSiliconFlow && modelListTab === 'image' });
     } catch (e) {
       console.error('[api/ai/models/fetch] error:', e.message);
@@ -509,7 +534,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const ep = (endpoint || '').replace(/\/$/, '');
-      const needsKey = /siliconflow\.(cn|com)|api\.openai\.com|deepseek|doubao/i.test(ep);
+      const needsKey = /siliconflow\.(cn|com)|api\.openai\.com|deepseek|volces\.com|qianfan\.baidubce\.com/i.test(ep);
       if (needsKey && (!apiKey || typeof apiKey !== 'string' || !apiKey.trim())) {
         sendJson(res, 400, { ok: false, code: 'MISSING_API_KEY', message: '该服务商需要填写并保存 API Key 后再测试连接' });
         return;
@@ -562,9 +587,14 @@ const server = http.createServer(async (req, res) => {
         if (fetchRes.status === 400 && /asr|dedicated task.*asr/i.test(String(errMsg))) {
           errMsg = '当前模型为语音/音频模型，不支持纯文本输入。请选择文本对话模型（如 qwen-turbo、qwen-plus）进行连通性测试或对话。';
         }
-        // 404：上游 API 地址返回未找到，多为 endpoint 配置错误
+        // 404：上游 API 地址返回未找到，多为 endpoint 配置错误或 model 无效
         if (fetchRes.status === 404) {
-          errMsg = '您配置的 API 地址返回 404，请检查 endpoint 是否正确（应为完整地址，如 https://api.openai.com/v1 或 https://dashscope.aliyuncs.com/compatible-mode/v1）';
+          const isVolcArk = /ark\.\w+\.volces\.com/i.test(ep);
+          if (isVolcArk) {
+            errMsg = '火山方舟返回 404：model 需填写推理接入点 ID（ep-xxxx）或带日期后缀的模型 ID。请在火山方舟控制台创建接入点或从模型广场复制完整 Model ID';
+          } else {
+            errMsg = '您配置的 API 地址返回 404，请检查 endpoint 是否正确（应为完整地址，如 https://api.openai.com/v1 或 https://dashscope.aliyuncs.com/compatible-mode/v1）';
+          }
         }
         console.error('[api/ai/chat/proxy] upstream error:', fetchRes.status, url, errMsg);
         sendJson(res, fetchRes.status, {
@@ -614,11 +644,10 @@ const server = http.createServer(async (req, res) => {
   if (parsed.pathname === '/api/ai/image/generate' && req.method === 'POST') {
     try {
       const body = await readJsonBody(req, res, 1024 * 1024 * 6); // 6MB，支持 base64 参考图
-      const { endpoint, apiKey, model, size, prompt: promptRaw, seed, count, referenceImages } = body || {};
+      const { endpoint, apiKey, model, size, prompt: promptRaw, seed, count, referenceImages, _debug } = body || {};
       const prompt = typeof promptRaw === 'string' ? promptRaw.trim() : '';
       if (!endpoint || typeof endpoint !== 'string' || !endpoint.trim()) {
-        console.warn('[api/ai/image/generate] 400: 缺少 endpoint');
-        sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少 API 代理地址，请在配置中填写 endpoint' });
+        sendJson(res, 400, { ok: false, code: 'INVALID_PARAMS', message: '缺少 API 代理地址，请在配置中填写 endpoint', debug: { reason: 'missing_endpoint' } });
         return;
       }
       if (!prompt) {
@@ -626,11 +655,12 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const ep = (endpoint || '').replace(/\/$/, '');
+      const modelStr = (model && typeof model === 'string') ? model : '';
+      const isHunyuanModel = /hunyuan-image/i.test(modelStr || '');
+      const isHunyuanImage = isHunyuanModel || /hunyuan\.tencentcloudapi\.com/i.test(ep) || (/tencentcloudapi\.com/i.test(ep) && /hunyuan/i.test(ep));
       const isFal = ep.includes('fal.run') || ep.includes('fal.ai');
-      const isDoubaoAI = ep.includes('doubao-ai.com');
       const isSiliconFlow = ep.includes('siliconflow.cn') || ep.includes('siliconflow.com');
       const isBailian = /dashscope(-intl|-us)?\.aliyuncs\.com/i.test(ep);
-      const modelStr = (model && typeof model === 'string') ? model : '';
       const useSiliconFlowFormat = isSiliconFlow || /FLUX|Kolors|black-forest|siliconflow/i.test(modelStr);
       const refImg = Array.isArray(referenceImages) && referenceImages.length > 0 ? referenceImages[0] : null;
       const n = Math.min(Math.max(1, parseInt(count, 10) || 1), 8);
@@ -643,6 +673,115 @@ const server = http.createServer(async (req, res) => {
       }
       if (isBailian && !apiKeyStr) {
         sendJson(res, 400, { ok: false, code: 'MISSING_API_KEY', message: '阿里云百炼需要填写并保存 API Key 后再测试或生成' });
+        return;
+      }
+      if (isHunyuanImage && !apiKeyStr) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_API_KEY', message: '腾讯混元图片需填写 SecretId:SecretKey（格式：在 API Key 中填入 密钥ID:密钥Key，从腾讯云控制台-访问管理-API密钥 获取）' });
+        return;
+      }
+
+      if (isHunyuanImage) {
+        const trimmed = (apiKeyStr || '').trim();
+        const colonIdx = trimmed.indexOf(':');
+        let secretId = '';
+        let secretKey = '';
+        if (colonIdx >= 0) {
+          secretId = trimmed.slice(0, colonIdx).trim();
+          secretKey = trimmed.slice(colonIdx + 1).trim();
+        }
+        if (!secretId || !secretKey) {
+          const debugInfo = {
+            receivedLength: trimmed.length,
+            hasColon: colonIdx >= 0,
+            secretIdLength: secretId.length,
+            secretKeyLength: secretKey.length,
+          };
+          sendJson(res, 400, {
+            ok: false,
+            code: 'INVALID_API_KEY',
+            message: '腾讯混元图片 API Key 格式应为 SecretId:SecretKey（中间用英文冒号连接，无空格），请从腾讯云控制台-访问管理-API密钥 获取',
+            debug: debugInfo,
+          });
+          return;
+        }
+        const resSize = (size || '768x768').replace('x', ':');
+        const isLite = /hunyuan-image-lite|lite/i.test(modelStr);
+        try {
+          const { hunyuan } = require('tencentcloud-sdk-nodejs-hunyuan');
+          const HunyuanClient = hunyuan.v20230901.Client;
+          const client = new HunyuanClient({
+            credential: { secretId, secretKey },
+            region: 'ap-guangzhou',
+          });
+          if (isLite) {
+            const testPrompt = (prompt && prompt.trim().length >= 1 ? prompt : '一只橘色的小猫坐在窗台上').slice(0, 256);
+            const resp = await client.TextToImageLite({
+              Prompt: testPrompt,
+              Resolution: resSize,
+              RspImgType: 'url',
+            });
+            const raw = resp?.ResultImage ?? resp?.Response?.ResultImage;
+            if (!raw || typeof raw !== 'string') {
+              const keys = resp ? Object.keys(resp) : [];
+              const errInfo = resp?.Error || resp?.Response?.Error;
+              const errMsg = errInfo?.Message || errInfo?.Code;
+              const debugInfo = {
+                endpoint: ep,
+                model: modelStr,
+                hasColonInKey: apiKeyStr.includes(':'),
+                respKeys: keys,
+                hasResultImage: !!resp?.ResultImage,
+                hasResponse: !!resp?.Response,
+                hasResponseResultImage: !!resp?.Response?.ResultImage,
+                resultImageType: typeof resp?.ResultImage,
+                error: errMsg,
+                requestId: resp?.RequestId,
+              };
+              const userMsg = errMsg
+                ? (errMsg.includes('IllegalDetected') ? '内容可能涉及敏感信息，请更换提示词重试' : errMsg)
+                : '未返回图像数据。请确认：1) SecretId:SecretKey 正确 2) 已开通混元生图服务 3) 账户有余额或免费额度';
+              sendJson(res, 500, { ok: false, code: 'NO_IMAGE', message: userMsg, debug: debugInfo });
+              return;
+            }
+            const img = raw.startsWith('data:') ? raw : raw;
+            sendJson(res, 200, { ok: true, url: img, urls: [img], b64: img.startsWith('data:') });
+          } else {
+            const submitResp = await client.SubmitHunyuanImageJob({
+              Prompt: prompt.slice(0, 1024),
+              Resolution: resSize,
+              Num: Math.min(Math.max(1, n), 4),
+            });
+            const jobId = submitResp?.JobId;
+            if (!jobId) {
+              sendJson(res, 500, { ok: false, code: 'NO_JOB_ID', message: '提交任务失败' });
+              return;
+            }
+            for (let i = 0; i < 60; i++) {
+              await new Promise((r) => setTimeout(r, 2000));
+              const queryResp = await client.QueryHunyuanImageJob({ JobId: jobId });
+              const statusCode = queryResp?.JobStatusCode;
+              const imgs = Array.isArray(queryResp?.ResultImage) ? queryResp.ResultImage : [];
+              if (statusCode === '5' && imgs.length > 0) {
+                const img = imgs[0];
+                sendJson(res, 200, { ok: true, url: img, urls: imgs, b64: img.startsWith('data:') });
+                return;
+              }
+              if (statusCode === '4') {
+                const errMsg = queryResp?.JobErrorMsg || queryResp?.JobErrorCode || '任务失败';
+                sendJson(res, 500, { ok: false, code: 'JOB_FAILED', message: errMsg });
+                return;
+              }
+            }
+            sendJson(res, 504, { ok: false, code: 'TIMEOUT', message: '任务超时' });
+          }
+        } catch (hunyuanErr) {
+          const errMsg = hunyuanErr?.message || hunyuanErr?.code || String(hunyuanErr);
+          const friendly = /AuthFailure|InvalidParameter|SecretId|SecretKey|credential/i.test(errMsg)
+            ? '认证失败：请检查 SecretId:SecretKey 格式是否正确，从腾讯云控制台-访问管理-API密钥 获取'
+            : errMsg;
+          const debugInfo = { endpoint: ep, model: modelStr, hasColonInKey: apiKeyStr.includes(':'), error: errMsg };
+          sendJson(res, 500, { ok: false, code: 'UPSTREAM_ERROR', message: friendly, debug: debugInfo });
+        }
         return;
       }
 
@@ -720,14 +859,6 @@ const server = http.createServer(async (req, res) => {
           if (refImg) payload.image = refImg;
         }
         if (typeof seedNum === 'number' && !isNaN(seedNum)) payload.seed = seedNum;
-      } else if (isDoubaoAI) {
-        // 豆包 AI 文生图 API: https://doubao-app.com/apidoc/ 仅需 prompt、size
-        url = ep + '/images/generations';
-        headers = { 'Content-Type': 'application/json' };
-        if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
-        payload = { prompt, size: size || '1024x1024' };
-        if (refImg) payload.image = refImg;
-        if (typeof seedNum === 'number' && !isNaN(seedNum)) payload.seed = seedNum;
       } else {
         url = ep + '/images/generations';
         headers = { 'Content-Type': 'application/json' };
@@ -748,7 +879,6 @@ const server = http.createServer(async (req, res) => {
         if ((fetchRes.status === 401 || fetchRes.status === 403) && (!errMsg || /^(Unauthorized|Forbidden|Illegal operation)$/i.test(errMsg))) {
           errMsg = '认证失败或服务限制：请检查 API Key 是否有效；内置免费代理可能不支持文生图，建议使用硅基流动等需 API Key 的服务';
         } else if (fetchRes.status === 400) {
-          console.warn('[api/ai/image/generate] 400 原始响应', JSON.stringify({ model: modelStr, size, upstreamMessage: data?.message, upstreamData: data?.data, upstreamCode: data?.code, upstreamDetail: data?.detail }));
           const isBuiltin = /proxy-ai\.doocs\.org/i.test(ep);
           if (isBuiltin && (!errMsg || errMsg.length < 20)) {
             errMsg = '内置免费代理可能不支持文生图或已限流，建议切换到硅基流动并填写 API Key 后使用';
@@ -756,11 +886,12 @@ const server = http.createServer(async (req, res) => {
             errMsg = '请求参数有误：请检查模型名、出图尺寸或提示词是否符合该服务商 API 要求';
           }
         }
-        console.warn('[api/ai/image/generate] 上游返回', fetchRes.status, errMsg);
+        const debugInfo = { endpoint: ep, model: modelStr, size, upstreamStatus: fetchRes.status, upstreamMessage: data?.message, upstreamData: data?.data, upstreamCode: data?.code, upstreamDetail: data?.detail };
         sendJson(res, fetchRes.status, {
           ok: false,
           code: 'UPSTREAM_ERROR',
           message: errMsg || '图像生成失败',
+          debug: debugInfo,
         });
         return;
       }
@@ -785,7 +916,20 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (imgUrls.length === 0) {
-        sendJson(res, 500, { ok: false, code: 'NO_IMAGE', message: '未返回图像数据' });
+        const tcErr = data?.Response?.Error;
+        const tcMsg = tcErr?.Message || tcErr?.Code;
+        if (tcErr || /tencentcloud|hunyuan|MissingParameter|Version/i.test(JSON.stringify(data || {}))) {
+          const debugInfo = { endpoint: ep, model: modelStr, tcError: tcMsg, rawKeys: data ? Object.keys(data) : [] };
+          sendJson(res, 500, {
+            ok: false,
+            code: 'NO_IMAGE',
+            message: tcMsg || '请确认：API 代理地址为 https://hunyuan.tencentcloudapi.com，API Key 为 SecretId:SecretKey 格式，且已选模型 hunyuan-image-lite',
+            debug: debugInfo,
+          });
+          return;
+        }
+        const debugInfo = { endpoint: ep, model: modelStr, rawKeys: data ? Object.keys(data) : [], rawPreview: data ? JSON.stringify(data).slice(0, 500) : null };
+        sendJson(res, 500, { ok: false, code: 'NO_IMAGE', message: '未返回图像数据', debug: debugInfo });
         return;
       }
       const firstUrl = imgUrls[0];
@@ -794,8 +938,7 @@ const server = http.createServer(async (req, res) => {
         : { ok: true, url: firstUrl, urls: imgUrls, b64: false };
       sendJson(res, 200, result);
     } catch (e) {
-      console.error('[api/ai/image/generate] error:', e);
-      sendJson(res, 500, { ok: false, code: 'ERROR', message: e.message || '图像生成失败' });
+      sendJson(res, 500, { ok: false, code: 'ERROR', message: e.message || '图像生成失败', debug: { error: e.message } });
     }
     return;
   }

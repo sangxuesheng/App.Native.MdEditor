@@ -37,6 +37,10 @@ export function useAIChat() {
             customModels: { ...(DEFAULT_CONFIG.customModels || {}), ...(savedConfig.customModels || {}) },
             verifiedModelsByService: { ...(DEFAULT_CONFIG.verifiedModelsByService || {}), ...(savedConfig.verifiedModelsByService || {}) },
             fetchedModelsByService: { ...(DEFAULT_CONFIG.fetchedModelsByService || {}), ...(savedConfig.fetchedModelsByService || {}) },
+            disabledProviders:
+              Array.isArray(savedConfig.disabledProviders) && savedConfig.disabledProviders.length > 0
+                ? savedConfig.disabledProviders
+                : DEFAULT_CONFIG.disabledProviders,
           }
         : DEFAULT_CONFIG
       setConfig(effective)

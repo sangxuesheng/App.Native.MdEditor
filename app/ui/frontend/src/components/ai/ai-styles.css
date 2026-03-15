@@ -1795,6 +1795,13 @@
 .theme-light .config-field-desc {
   color: #57606a;
 }
+.config-field-desc-highlight {
+  color: #cf222e;
+  font-weight: 500;
+}
+.theme-light .config-field-desc-highlight {
+  color: #cf222e;
+}
 .config-field-vertical input {
   margin-top: 0;
 }

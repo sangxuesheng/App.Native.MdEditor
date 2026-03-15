@@ -44,7 +44,7 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
     if (image.config.type && image.config.type !== 'builtin' && isBuiltinProxy) {
       finalEp = fallbackEp
     }
-    const ak = chat.config.apiKeys?.[image.config.type] ?? image.config.apiKey ?? ''
+    const ak = image.config.apiKeys?.[image.config.type] ?? image.config.apiKey ?? chat.config.apiKeys?.[image.config.type] ?? chat.config.apiKey ?? ''
     return {
       ...image.config,
       endpoint: finalEp,
@@ -52,7 +52,7 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
       fetchedModelsByService: chat.config.fetchedModelsByService,
       disabledProviders: chat.config.disabledProviders,
     }
-  }, [image.config, image.config.endpoints, chat.config.endpoints, chat.config.apiKeys, chat.config.fetchedModelsByService, chat.config.disabledProviders])
+  }, [image.config, image.config.endpoints, image.config.apiKeys, chat.config.endpoints, chat.config.apiKeys, chat.config.fetchedModelsByService, chat.config.disabledProviders])
 
   const openChatConfig = () => {
     setConfigPanelTab('chat')
