@@ -187,18 +187,26 @@ export default function AIChatPanel({
   }, [quoteFullContent])
 
   // 处理快捷指令：将提示词作为引用块插入，不写入编辑区（只同时引用一个，会替换已有引用）
+  // 若已启用引用全文，则保留引用全文，将提示词放入输入框，便于对全文执行润色/翻译等操作
   const handleQuickCommand = (command) => {
     const text = (getSelectedText ? getSelectedText() : '') || ''
     const prompt = command.template.replace('{{sel}}', text)
-    onToggleQuoteFullContent?.(false)
-    setQuotedBlocks([
-      {
-        id: crypto.randomUUID?.() ?? `q-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        content: prompt,
-        sourceIndex: null,
-      },
-    ])
-    setInput('')
+    if (quoteFullContent) {
+      // 引用全文 + 快捷指令：保留引用全文，提示词放入输入框
+      setInput(prompt)
+      setQuotedBlocks([])
+    } else {
+      // 无引用全文时：提示词作为引用块
+      onToggleQuoteFullContent?.(false)
+      setQuotedBlocks([
+        {
+          id: crypto.randomUUID?.() ?? `q-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          content: prompt,
+          sourceIndex: null,
+        },
+      ])
+      setInput('')
+    }
     // 内容较长时自动展开输入区，便于查看引用块
     const lineCount = (prompt.match(/\n/g) || []).length + 1
     if (lineCount > 6) {
@@ -224,6 +232,16 @@ export default function AIChatPanel({
 
   const removeQuotedBlock = (id) => {
     setQuotedBlocks((prev) => prev.filter((b) => b.id !== id))
+  }
+
+  // 点击引用全文时：若当前有引用块（来自快捷指令），先将其内容移入输入框，再启用引用全文
+  const handleToggleQuoteFull = () => {
+    if (!quoteFullContent && quotedBlocks.length > 0) {
+      const prompt = quotedBlocks.map((b) => b.content).join('\n\n')
+      setInput(prompt)
+      setQuotedBlocks([])
+    }
+    onToggleQuoteFullContent?.(!quoteFullContent)
   }
 
   const scrollToMessage = (index) => {
@@ -387,7 +405,7 @@ export default function AIChatPanel({
             <button
               type="button"
               className={`ai-quote-full-btn${quoteFullContent ? ' active' : ''}`}
-              onClick={() => onToggleQuoteFullContent(!quoteFullContent)}
+              onClick={handleToggleQuoteFull}
               title={quoteFullContent ? '已启用引用全文' : '引用全文'}
             >
               {quoteFullContent ? <Check size={14} /> : <TextQuote size={14} />}
