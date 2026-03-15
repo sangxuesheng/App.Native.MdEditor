@@ -60,6 +60,7 @@ const FileTree = forwardRef(({
     fired: false
   });
   const suppressClickPathRef = useRef(null);
+  const createFolderRootRef = useRef(null); // 空白处新建文件夹的父目录（mdeditor）
 
   const handleSearchQueryChange = (nextQuery) => {
     setSearchQuery(nextQuery);
@@ -367,6 +368,7 @@ const FileTree = forwardRef(({
       if (dirPath === '/') {
         // 根目录
         setTree(data.items);
+        createFolderRootRef.current = data.createFolderRoot || null;
       } else {
         // 更新树结构
         setTree(prevTree => updateTreeNode(prevTree, dirPath, data.items));
@@ -641,12 +643,11 @@ const FileTree = forwardRef(({
       if (action === 'refresh') {
         await doRefreshRootDirectory();
       } else if (action === 'newfolder') {
-        // 空白处新建文件夹：父级为 mdeditor 根目录（Folder 的上一级）
-        const rootParentPath = tree.length > 0 && tree[0].path
-          ? tree[0].path.replace(/\/[^/]+$/, '')
-          : null;
-        if (rootParentPath) {
-          doOpenNewFolderDialog({ path: rootParentPath, type: 'directory', name: '' });
+        // 空白处新建文件夹：父级为 mdeditor 根目录（createFolderRoot，不在文件树中显示）
+        const parentPath = createFolderRootRef.current
+          || (tree.length > 0 && tree[0].path ? tree[0].path.replace(/\/[^/]+$/, '') : null);
+        if (parentPath) {
+          doOpenNewFolderDialog({ path: parentPath, type: 'directory', name: '' });
         } else {
           showToast?.('无法获取根目录，请刷新后重试', 'error');
         }
@@ -772,13 +773,9 @@ const FileTree = forwardRef(({
       const data = await response.json();
       
       if (data.ok) {
-        // 刷新：若父级为根目录（mdeditor），刷新根；否则刷新父目录
-        const rootParentPath = tree.length > 0 && tree[0].path
-          ? tree[0].path.replace(/\/[^/]+$/, '')
-          : null;
-        await loadDirectory(
-          rootParentPath && newFolderParent.path === rootParentPath ? '/' : newFolderParent.path
-        );
+        // 刷新：若父级为 mdeditor（createFolderRoot），刷新根；否则刷新父目录
+        const isCreateUnderMdeditor = createFolderRootRef.current && newFolderParent.path === createFolderRootRef.current;
+        await loadDirectory(isCreateUnderMdeditor ? '/' : newFolderParent.path);
         showToast(`已创建文件夹 ${folderName}`, 'success');
       } else {
         showToast(`创建文件夹失败: ${data.message || data.code}`, 'error');

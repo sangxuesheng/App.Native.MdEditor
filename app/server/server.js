@@ -1447,48 +1447,45 @@ const server = http.createServer(async (req, res) => {
       const safePath = requestedPath === '/' ? null : resolveSafePath(requestedPath);
       const roots = getAllowedRoots();
       
-      // 如果请求根目录：列出 mdeditor 下的目录（Folder + 用户新建的文件夹），images/history 已过滤
+      // 如果请求根目录：用户授权路径 + mdeditor 子目录（Folder、新建文件夹等），不显示 mdeditor 本身
       if (!safePath) {
         const mdeditorRoot = path.join(SHARES_BASE, 'mdeditor');
-        const listDir = fs.existsSync(mdeditorRoot)
-          ? mdeditorRoot
-          : (roots[0] ? path.dirname(roots[0]) : path.join(SHARES_BASE, 'Folder'));
-        if (!listDir) {
-          const rootDirs = roots.map(root => ({
-            name: path.basename(root),
-            path: root,
-            type: 'directory',
-            isRoot: true
-          }));
-          sendJson(res, 200, { ok: true, path: '/', items: rootDirs });
-          return;
+        const sharesFolder = path.join(SHARES_BASE, 'Folder');
+        const rootDirs = [];
+        // 1. 用户授权路径（排除 mdeditor、排除 sharesFolder 避免与 mdeditor 子目录重复）
+        roots
+          .filter(root => {
+            if (root === mdeditorRoot || path.basename(root) === 'mdeditor') return false;
+            if (root === sharesFolder && fs.existsSync(mdeditorRoot)) return false;
+            try {
+              return fs.existsSync(root) && fs.statSync(root).isDirectory();
+            } catch {
+              return false;
+            }
+          })
+          .forEach(root => rootDirs.push({ name: path.basename(root), path: root, type: 'directory', isRoot: true }));
+        // 2. mdeditor 子目录（Folder、新建文件夹等），images/history 已过滤，避免与用户路径重复
+        const existingPaths = new Set(rootDirs.map(d => d.path));
+        if (fs.existsSync(mdeditorRoot)) {
+          try {
+            const entries = fs.readdirSync(mdeditorRoot, { withFileTypes: true });
+            entries
+              .filter(e => e.isDirectory() && !e.name.startsWith('.') && e.name !== 'images' && e.name !== 'history')
+              .forEach(e => {
+                const p = path.join(mdeditorRoot, e.name);
+                if (!existingPaths.has(p)) {
+                  existingPaths.add(p);
+                  rootDirs.push({ name: e.name, path: p, type: 'directory', isRoot: true });
+                }
+              });
+          } catch (_) {}
         }
-        fs.readdir(listDir, { withFileTypes: true }, (err, entries) => {
-          if (err) {
-            const rootDirs = roots.map(root => ({
-              name: path.basename(root),
-              path: root,
-              type: 'directory',
-              isRoot: true
-            }));
-            sendJson(res, 200, { ok: true, path: '/', items: rootDirs });
-            return;
-          }
-          const items = entries
-            .filter(entry => {
-              if (entry.name.startsWith('.')) return false;
-              if (!entry.isDirectory()) return false;
-              if (entry.name === 'images' || entry.name === 'history') return false;
-              return true;
-            })
-            .map(entry => ({
-              name: entry.name,
-              path: path.join(listDir, entry.name),
-              type: 'directory',
-              isRoot: true
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-          sendJson(res, 200, { ok: true, path: '/', items });
+        rootDirs.sort((a, b) => a.name.localeCompare(b.name));
+        sendJson(res, 200, {
+          ok: true,
+          path: '/',
+          items: rootDirs,
+          createFolderRoot: fs.existsSync(mdeditorRoot) ? mdeditorRoot : (rootDirs[0]?.path || null)
         });
         return;
       }
