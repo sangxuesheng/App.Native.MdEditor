@@ -1,13 +1,25 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import { X, Settings, Image as ImageIcon, Search, Trash2, Loader2, MessageSquare, Check, ChevronDown, ChevronUp, Upload, RefreshCw, Play } from 'lucide-react'
-import AnimatedSelect from '../AnimatedSelect'
 import Resizer from '../Resizer'
 import { AI_IMAGE_SERVICES, SIZE_LABELS, isImageModel } from '../../constants/aiImageConfig'
 
 const INPUT_HEIGHT_MIN = 80
 const INPUT_HEIGHT_MAX = 400
 const INPUT_HEIGHT_DEFAULT = 180
+
+/** 检测是否为移动端视口 */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth <= 768)
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const fn = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', fn)
+    fn()
+    return () => mq.removeEventListener('change', fn)
+  }, [])
+  return isMobile
+}
 
 /** 根据尺寸字符串渲染比例图标（正方形/横版/竖版） */
 function SizeIcon({ size, className }) {
@@ -186,6 +198,8 @@ export default function AIImagePanel({
   const inputRef = React.useRef(null)
   const [showHistory, setShowHistory] = React.useState(false)
   const [previewUrl, setPreviewUrl] = React.useState(null)
+  const isMobile = useIsMobile()
+  const [advancedOpen, setAdvancedOpen] = React.useState(false)
 
   // 种子、数量、参考图（UI 状态，API 暂仅支持单图）
   const [seed, setSeed] = React.useState(() => Math.floor(Math.random() * 1000000))
@@ -241,235 +255,235 @@ export default function AIImagePanel({
   const currentSize = config?.size || '1024x1024'
   const countOptions = [1, 2, 4, 8]
 
-  return (
-    <div className="ai-chat-panel ai-image-panel ai-image-panel-sidebar">
-      {/* 左侧控制面板 */}
-      <aside className="ai-image-sidebar">
-        <div className="ai-image-sidebar-inner">
-          {/* 模型选择 */}
-          {onImageConfigChange && (
-            <div className="ai-image-sidebar-section">
-              <div className="ai-image-sidebar-label">模型</div>
-              <div className="ai-image-model-switcher-wrap">
-                <button
-                  ref={modelSwitcherButtonRef}
-                  type="button"
-                  className="ai-image-model-select-btn"
-                  onClick={() => { setShowModelSwitcher((v) => !v); setModelSearch('') }}
-                  title="切换模型"
-                  disabled={generating}
-                >
-                  <span className="ai-image-model-select-label">{displayImageModelLabel}</span>
-                  {showModelSwitcher ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-                {showModelSwitcher && modelSwitcherPositionReady && createPortal(
-                  <div
-                    role="dialog"
-                    aria-label="切换文生图模型"
-                    className={`ai-model-switcher-dropdown ${document.querySelector('.app')?.classList.contains('theme-light') ? 'theme-light' : 'theme-dark'}`}
-                    style={{
-                      position: 'fixed',
-                      ...(modelSwitcherPosition.useTop
-                        ? { top: modelSwitcherPosition.top }
-                        : { bottom: modelSwitcherPosition.bottom }),
-                      left: modelSwitcherPosition.left,
-                      zIndex: 9999,
-                      width: 280,
-                      maxHeight: 320,
-                    }}
-                  >
-                    <div
-                      ref={modelSwitcherPopoverRef}
-                      className="ai-model-switcher-popover ai-model-switcher-popover-fixed"
-                    >
-                      <div className="ai-model-switcher-search">
-                        <Search size={16} />
-                        <input
-                          type="text"
-                          placeholder="搜索模型"
-                          value={modelSearch}
-                          onChange={(e) => setModelSearch(e.target.value)}
-                          autoFocus
-                        />
-                      </div>
-                      <div className="ai-model-switcher-list">
-                        {groupedImageByService.length === 0 ? (
-                          <div className="ai-model-switcher-empty">无匹配模型</div>
-                        ) : (
-                          groupedImageByService.map((group) => (
-                            <div key={group.serviceType} className="ai-model-switcher-group">
-                              <div className="ai-model-switcher-group-title">{group.serviceLabel}</div>
-                              {group.models.map((model) => {
-                                const svc = AI_IMAGE_SERVICES.find((s) => s.value === group.serviceType)
-                                const sizes = svc?.sizes || ['1024x1024']
-                                const firstSize = sizes[0] || '1024x1024'
-                                return (
-                                  <button
-                                    key={`${group.serviceType}:${model}`}
-                                    type="button"
-                                    className={`ai-model-switcher-item${config?.type === group.serviceType && currentImageModel === model ? ' active' : ''}`}
-                                    onClick={() => {
-                                      onImageConfigChange({
-                                        type: group.serviceType,
-                                        model,
-                                        size: config?.type === group.serviceType ? (config?.size || firstSize) : firstSize,
-                                      })
-                                      setShowModelSwitcher(false)
-                                    }}
-                                  >
-                                    <span className="ai-model-switcher-item-label">{model}</span>
-                                    {config?.type === group.serviceType && currentImageModel === model && <Check size={16} />}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </div>,
-                  document.body
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 尺寸选项 */}
-          {onImageConfigChange && sizeOptions.length > 0 && (
-            <div className="ai-image-sidebar-section">
-              <div className="ai-image-sidebar-label">尺寸</div>
-              <div className="ai-image-size-grid">
-                {sizeOptions.slice(0, 6).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={`ai-image-size-option${currentSize === opt.value ? ' active' : ''}`}
-                    onClick={() => onImageConfigChange({ size: opt.value })}
-                    disabled={generating}
-                    title={opt.label}
-                  >
-                    <SizeIcon size={opt.value} className="ai-image-size-icon" />
-                    <span className="ai-image-size-text">{opt.value}</span>
-                  </button>
-                ))}
-              </div>
-              {sizeOptions.length > 6 && (
-                <div className="ai-image-size-grid ai-image-size-grid-row2">
-                  {sizeOptions.slice(6, 10).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      className={`ai-image-size-option${currentSize === opt.value ? ' active' : ''}`}
-                      onClick={() => onImageConfigChange({ size: opt.value })}
-                      disabled={generating}
-                      title={opt.label}
-                    >
-                      <SizeIcon size={opt.value} className="ai-image-size-icon" />
-                      <span className="ai-image-size-text">{opt.value}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 种子 */}
-          <div className="ai-image-sidebar-section">
-            <div className="ai-image-sidebar-label">
-              种子
-              <span className="ai-image-sidebar-hint">相同种子+相同提示词可复现相似图像</span>
-            </div>
-            <div className="ai-image-seed-row">
-              <input
-                type="text"
-                className="ai-image-seed-input"
-                placeholder="随机种子"
-                value={seed}
-                onChange={(e) => setSeed(e.target.value.replace(/\D/g, '').slice(0, 10) || '')}
-                disabled={generating}
-              />
-              <button
-                type="button"
-                className="ai-image-seed-refresh"
-                onClick={handleSeedRefresh}
-                title="随机种子"
-                disabled={generating}
-              >
-                <RefreshCw size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* 图片数量 */}
-          <div className="ai-image-sidebar-section">
-            <div className="ai-image-sidebar-label">
-              图片数量
-              <span className="ai-image-sidebar-hint">仅部分模型支持（如 Kolors、Fal、阿里云百炼、OpenAI 等）</span>
-            </div>
-            <div className="ai-image-count-row">
-              {countOptions.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  className={`ai-image-count-option${count === n ? ' active' : ''}`}
-                  onClick={() => setCount(n)}
-                  disabled={generating}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 参考图上传 */}
-          <div className="ai-image-sidebar-section ai-image-ref-section">
-            <div className="ai-image-sidebar-label">
-              参考图
-              <span className="ai-image-sidebar-hint">并非所有模型和服务商都支持</span>
-            </div>
-            <div
-              className="ai-image-ref-upload"
-              onClick={() => refFileInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('dragover') }}
-              onDragLeave={(e) => { e.currentTarget.classList.remove('dragover') }}
-              onDrop={(e) => {
-                e.preventDefault()
-                e.currentTarget.classList.remove('dragover')
-                if (e.dataTransfer?.files?.length) handleRefFiles({ target: { files: e.dataTransfer.files } })
-              }}
+  /** 高级设置内容（模型、尺寸、种子、数量、参考图），桌面在侧边栏、移动端在可折叠区 */
+  const renderAdvancedContent = () => (
+    <>
+      {onImageConfigChange && (
+        <div className="ai-image-sidebar-section">
+          <div className="ai-image-sidebar-label">模型</div>
+          <div className="ai-image-model-switcher-wrap">
+            <button
+              ref={modelSwitcherButtonRef}
+              type="button"
+              className="ai-image-model-select-btn"
+              onClick={() => { setShowModelSwitcher((v) => !v); setModelSearch('') }}
+              title="切换模型"
+              disabled={generating}
             >
-              <input
-                ref={refFileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleRefFiles}
-                style={{ display: 'none' }}
-              />
-              <Upload size={24} className="ai-image-ref-upload-icon" />
-              <span className="ai-image-ref-upload-text">点击或拖拽上传图片</span>
-              <span className="ai-image-ref-upload-tip">支持多张，单张 ≤5MB</span>
-            </div>
-            {referencePreviews.length > 0 && (
-              <div className="ai-image-ref-preview">
-                {referencePreviews.map((url, i) => (
-                  <div key={i} className="ai-image-ref-preview-item">
-                    <img src={url} alt="" />
-                    <button
-                      type="button"
-                      className="ai-image-ref-remove"
-                      onClick={(e) => { e.stopPropagation(); removeRefFile(i) }}
-                      title="移除"
-                    >
-                      ×
-                    </button>
+              <span className="ai-image-model-select-label">{displayImageModelLabel}</span>
+              {showModelSwitcher ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {showModelSwitcher && modelSwitcherPositionReady && createPortal(
+              <div
+                role="dialog"
+                aria-label="切换文生图模型"
+                className={`ai-model-switcher-dropdown ${document.querySelector('.app')?.classList.contains('theme-light') ? 'theme-light' : 'theme-dark'}`}
+                style={{
+                  position: 'fixed',
+                  ...(modelSwitcherPosition.useTop
+                    ? { top: modelSwitcherPosition.top }
+                    : { bottom: modelSwitcherPosition.bottom }),
+                  left: modelSwitcherPosition.left,
+                  zIndex: 9999,
+                  width: 280,
+                  maxHeight: 320,
+                }}
+              >
+                <div
+                  ref={modelSwitcherPopoverRef}
+                  className="ai-model-switcher-popover ai-model-switcher-popover-fixed"
+                >
+                  <div className="ai-model-switcher-search">
+                    <Search size={16} />
+                    <input
+                      type="text"
+                      placeholder="搜索模型"
+                      value={modelSearch}
+                      onChange={(e) => setModelSearch(e.target.value)}
+                      autoFocus
+                    />
                   </div>
-                ))}
-              </div>
+                  <div className="ai-model-switcher-list">
+                    {groupedImageByService.length === 0 ? (
+                      <div className="ai-model-switcher-empty">无匹配模型</div>
+                    ) : (
+                      groupedImageByService.map((group) => (
+                        <div key={group.serviceType} className="ai-model-switcher-group">
+                          <div className="ai-model-switcher-group-title">{group.serviceLabel}</div>
+                          {group.models.map((model) => {
+                            const svc = AI_IMAGE_SERVICES.find((s) => s.value === group.serviceType)
+                            const sizes = svc?.sizes || ['1024x1024']
+                            const firstSize = sizes[0] || '1024x1024'
+                            return (
+                              <button
+                                key={`${group.serviceType}:${model}`}
+                                type="button"
+                                className={`ai-model-switcher-item${config?.type === group.serviceType && currentImageModel === model ? ' active' : ''}`}
+                                onClick={() => {
+                                  onImageConfigChange({
+                                    type: group.serviceType,
+                                    model,
+                                    size: config?.type === group.serviceType ? (config?.size || firstSize) : firstSize,
+                                  })
+                                  setShowModelSwitcher(false)
+                                }}
+                              >
+                                <span className="ai-model-switcher-item-label">{model}</span>
+                                {config?.type === group.serviceType && currentImageModel === model && <Check size={16} />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>,
+              document.body
             )}
           </div>
         </div>
-      </aside>
+      )}
+      {onImageConfigChange && sizeOptions.length > 0 && (
+        <div className="ai-image-sidebar-section">
+          <div className="ai-image-sidebar-label">尺寸</div>
+          <div className="ai-image-size-grid">
+            {sizeOptions.slice(0, 6).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`ai-image-size-option${currentSize === opt.value ? ' active' : ''}`}
+                onClick={() => onImageConfigChange({ size: opt.value })}
+                disabled={generating}
+                title={opt.label}
+              >
+                <SizeIcon size={opt.value} className="ai-image-size-icon" />
+                <span className="ai-image-size-text">{opt.value}</span>
+              </button>
+            ))}
+          </div>
+          {sizeOptions.length > 6 && (
+            <div className="ai-image-size-grid ai-image-size-grid-row2">
+              {sizeOptions.slice(6, 10).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`ai-image-size-option${currentSize === opt.value ? ' active' : ''}`}
+                  onClick={() => onImageConfigChange({ size: opt.value })}
+                  disabled={generating}
+                  title={opt.label}
+                >
+                  <SizeIcon size={opt.value} className="ai-image-size-icon" />
+                  <span className="ai-image-size-text">{opt.value}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <div className="ai-image-sidebar-section">
+        <div className="ai-image-sidebar-label">
+          种子
+          <span className="ai-image-sidebar-hint">相同种子+相同提示词可复现相似图像</span>
+        </div>
+        <div className="ai-image-seed-row">
+          <input
+            type="text"
+            className="ai-image-seed-input"
+            placeholder="随机种子"
+            value={seed}
+            onChange={(e) => setSeed(e.target.value.replace(/\D/g, '').slice(0, 10) || '')}
+            disabled={generating}
+          />
+          <button
+            type="button"
+            className="ai-image-seed-refresh"
+            onClick={handleSeedRefresh}
+            title="随机种子"
+            disabled={generating}
+          >
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="ai-image-sidebar-section">
+        <div className="ai-image-sidebar-label">
+          图片数量
+          <span className="ai-image-sidebar-hint">仅部分模型支持（如 Kolors、Fal、阿里云百炼、OpenAI 等）</span>
+        </div>
+        <div className="ai-image-count-row">
+          {countOptions.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`ai-image-count-option${count === n ? ' active' : ''}`}
+              onClick={() => setCount(n)}
+              disabled={generating}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="ai-image-sidebar-section ai-image-ref-section">
+        <div className="ai-image-sidebar-label">
+          参考图
+          <span className="ai-image-sidebar-hint">并非所有模型和服务商都支持</span>
+        </div>
+        <div
+          className="ai-image-ref-upload"
+          onClick={() => refFileInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('dragover') }}
+          onDragLeave={(e) => { e.currentTarget.classList.remove('dragover') }}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.currentTarget.classList.remove('dragover')
+            if (e.dataTransfer?.files?.length) handleRefFiles({ target: { files: e.dataTransfer.files } })
+          }}
+        >
+          <input
+            ref={refFileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleRefFiles}
+            style={{ display: 'none' }}
+          />
+          <Upload size={24} className="ai-image-ref-upload-icon" />
+          <span className="ai-image-ref-upload-text">点击或拖拽上传图片</span>
+          <span className="ai-image-ref-upload-tip">支持多张，单张 ≤5MB</span>
+        </div>
+        {referencePreviews.length > 0 && (
+          <div className="ai-image-ref-preview">
+            {referencePreviews.map((url, i) => (
+              <div key={i} className="ai-image-ref-preview-item">
+                <img src={url} alt="" />
+                <button
+                  type="button"
+                  className="ai-image-ref-remove"
+                  onClick={(e) => { e.stopPropagation(); removeRefFile(i) }}
+                  title="移除"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+
+  return (
+    <div className={`ai-chat-panel ai-image-panel ai-image-panel-sidebar${isMobile ? ' ai-image-panel-mobile' : ''}`}>
+      {/* 桌面端：左侧控制面板 */}
+      {!isMobile && (
+        <aside className="ai-image-sidebar">
+          <div className="ai-image-sidebar-inner">
+            {renderAdvancedContent()}
+          </div>
+        </aside>
+      )}
 
       {/* 右侧主内容区 */}
       <div className="ai-image-main-wrap">
@@ -553,8 +567,8 @@ export default function AIImagePanel({
           </div>
         )}
 
-        {/* 拉动条：上拉可放大输入框 */}
-        <Resizer direction="horizontal" onResize={handleInputResize} />
+        {/* 拉动条：上拉可放大输入框（移动端隐藏） */}
+        {!isMobile && <Resizer direction="horizontal" onResize={handleInputResize} />}
 
         <form
           className="ai-input-area ai-image-input-area-inline"
@@ -598,6 +612,26 @@ export default function AIImagePanel({
             </div>
           </div>
         </form>
+
+        {/* 移动端：可折叠高级设置 */}
+        {isMobile && (
+          <>
+            <button
+              type="button"
+              className="ai-image-advanced-toggle"
+              onClick={() => setAdvancedOpen((v) => !v)}
+              aria-expanded={advancedOpen}
+            >
+              高级设置
+              {advancedOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </button>
+            <div className={`ai-image-advanced-mobile${advancedOpen ? ' show' : ''}`}>
+              <div className="ai-image-sidebar-inner">
+                {renderAdvancedContent()}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {showHistory && history.length > 0 && (

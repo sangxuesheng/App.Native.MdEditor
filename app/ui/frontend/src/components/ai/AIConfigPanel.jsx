@@ -1,11 +1,24 @@
 import React from 'react'
-import { X, TestTube, Info, Plus, Trash2, Search, HelpCircle, Lock, Eye, EyeOff, MessageSquare, Image as ImageIcon, Pencil, RefreshCw } from 'lucide-react'
+import { X, TestTube, Info, Plus, Trash2, Search, HelpCircle, Lock, Eye, EyeOff, MessageSquare, Image as ImageIcon, Pencil, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import AnimatedSelect from '../AnimatedSelect'
 import ElasticSlider from '../ElasticSlider'
 import { AI_SERVICES, AI_SERVICE_CATEGORIES, DEFAULT_CONFIG, CONNECTIVITY_TEST_DEFAULT_MODELS, CONNECTIVITY_TEST_EXCLUDED_PATTERNS } from '../../constants/aiConfig'
 import { AI_IMAGE_SERVICES, DEFAULT_IMAGE_CONFIG, isImageModel, CONNECTIVITY_TEST_DEFAULT_IMAGE_MODELS } from '../../constants/aiImageConfig'
 
 const API_KEY_MASK = '••••••••••••' // 已保存的 API Key 在页面上仅显示星号，不展示明文
+
+/** 检测是否为移动端视口 */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth <= 768)
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const fn = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', fn)
+    fn()
+    return () => mq.removeEventListener('change', fn)
+  }, [])
+  return isMobile
+}
 
 const SIZE_LABELS = {
   '1024x1024': '正方形 (1024×1024)',
@@ -59,6 +72,11 @@ export default function AIConfigPanel({
   const [fetchingModels, setFetchingModels] = React.useState(false) // 正在拉取模型列表
   const [fetchModelsError, setFetchModelsError] = React.useState(null) // 拉取失败提示
   const mainContentRef = React.useRef(null)
+  const isMobile = useIsMobile()
+  const [mobileApiOpen, setMobileApiOpen] = React.useState(true)
+  const [mobileModelsOpen, setMobileModelsOpen] = React.useState(false)
+  const [mobileServiceSelectOpen, setMobileServiceSelectOpen] = React.useState(false)
+  const mobileServiceWrapRef = React.useRef(null)
 
   const handleClose = () => {
     setShowApiKey(false)
@@ -137,6 +155,21 @@ export default function AIConfigPanel({
       return { ...cat, services }
     }).filter((cat) => cat.services.length > 0)
   }, [configSearchLower])
+
+  /** 移动端服务商下拉选项：已启用优先，其余按分类顺序 */
+  const mobileServiceOptions = React.useMemo(() => {
+    const seen = new Set()
+    const out = []
+    for (const s of enabledSidebarServices) {
+      if (!seen.has(s.value)) { seen.add(s.value); out.push(s) }
+    }
+    for (const cat of categorizedSidebarItems) {
+      for (const s of cat.services) {
+        if (!seen.has(s.value)) { seen.add(s.value); out.push(s) }
+      }
+    }
+    return out
+  }, [enabledSidebarServices, categorizedSidebarItems])
 
   const filteredModels = React.useMemo(() => {
     if (!configSearch.trim()) return allModels
@@ -618,8 +651,23 @@ export default function AIConfigPanel({
     return () => clearTimeout(t)
   }, [rowImageTestResult])
 
+  React.useEffect(() => {
+    if (!mobileServiceSelectOpen) return
+    const onDocClick = (e) => {
+      if (mobileServiceWrapRef.current && !mobileServiceWrapRef.current.contains(e.target)) {
+        setMobileServiceSelectOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('touchstart', onDocClick, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('touchstart', onDocClick)
+    }
+  }, [mobileServiceSelectOpen])
+
   return (
-    <div className="ai-config-panel">
+    <div className={`ai-config-panel${isMobile ? ' ai-config-panel-mobile' : ''}`}>
       <div className="ai-config-header">
         <h3>AI 配置</h3>
         <button className="ai-icon-btn" onClick={handleClose} title="关闭">
@@ -639,7 +687,41 @@ export default function AIConfigPanel({
         </div>
       </div>
 
+      {/* 移动端：顶部服务商下拉选择，替代左侧边栏 */}
+      {isMobile && (
+        <div className="ai-config-mobile-service-wrap" ref={mobileServiceWrapRef}>
+          <button
+            type="button"
+            className="ai-config-mobile-service-trigger"
+            onClick={() => setMobileServiceSelectOpen((v) => !v)}
+            aria-expanded={mobileServiceSelectOpen}
+          >
+            <span>{currentService?.label ?? '选择服务商'}</span>
+            {mobileServiceSelectOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+          {mobileServiceSelectOpen && (
+            <div className="ai-config-mobile-service-dropdown">
+              {mobileServiceOptions.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  className={`ai-config-mobile-service-item${viewingService === s.value ? ' active' : ''}`}
+                  onClick={() => {
+                    selectService(s.value)
+                    setMobileServiceSelectOpen(false)
+                  }}
+                >
+                  <span className={`ai-config-sidebar-dot${enabledValueSet.has(s.value) ? ' enabled' : ''}`} />
+                  <span>{s.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="ai-config-body">
+        {!isMobile && (
         <aside className="ai-config-sidebar">
           {enabledSidebarServices.length > 0 && (
                 <div className="ai-config-sidebar-group">
@@ -676,6 +758,7 @@ export default function AIConfigPanel({
                 </div>
               ))}
         </aside>
+        )}
 
         <div className="ai-config-right-panel">
         <div className="ai-config-main" ref={mainContentRef}>
@@ -730,7 +813,21 @@ export default function AIConfigPanel({
             </div>
           </div>
 
-          <div className="ai-config-main-form">
+          {/* 移动端：API 配置可折叠 */}
+          <div className={isMobile ? 'ai-config-mobile-section' : 'ai-config-main-form'}>
+            {isMobile && (
+              <button
+                type="button"
+                className="ai-config-mobile-section-toggle"
+                onClick={() => setMobileApiOpen((v) => !v)}
+                aria-expanded={mobileApiOpen}
+              >
+                API 配置
+                {mobileApiOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+            )}
+            {(isMobile ? mobileApiOpen : true) && (
+            <div className="ai-config-main-form">
             {currentService?.needsApiKey && (
               <div className="config-field config-field-vertical">
                 <label className="config-field-label">API Key</label>
@@ -854,7 +951,23 @@ export default function AIConfigPanel({
               </div>
             )}
           </div>
+            )}
+          </div>
 
+          {/* 移动端：模型列表可折叠 */}
+          <div className={isMobile ? 'ai-config-mobile-section' : ''}>
+            {isMobile && (
+              <button
+                type="button"
+                className="ai-config-mobile-section-toggle"
+                onClick={() => setMobileModelsOpen((v) => !v)}
+                aria-expanded={mobileModelsOpen}
+              >
+                模型列表
+                {mobileModelsOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+            )}
+            {(isMobile ? mobileModelsOpen : true) && (
           <div className="ai-config-models">
             <div className="ai-config-models-header">
               <span className="ai-config-models-title">模型列表</span>
@@ -1176,6 +1289,10 @@ export default function AIConfigPanel({
               </div>
             )}
 
+          </div>
+            )}
+          </div>
+
           {modelListTab === 'chat' && (
             <>
               <div className="ai-config-main-form">
@@ -1217,7 +1334,6 @@ export default function AIConfigPanel({
           )}
 
           </div>
-        </div>
         {/* 保存与重置按钮：固定在右侧面板底部，左侧服务列表贯穿全高 */}
         <div className="ai-config-actions-fixed">
           <button
