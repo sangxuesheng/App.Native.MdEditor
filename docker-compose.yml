@@ -1,0 +1,20 @@
+# =============================================================================
+#  Markdown 编辑器 - Docker Compose
+#  与 fnOS 原生部署并行，用于本地 Docker 运行
+# =============================================================================
+
+services:
+  mdeditor:
+    build: .
+    image: mdeditor2:latest
+    container_name: mdeditor2
+    ports:
+      - "18080:18080"
+    environment:
+      PORT: 18080
+      # 挂载的 data 目录作为文件树根，可在此新建/编辑 Markdown
+      TRIM_DATA_ACCESSIBLE_PATHS: /app/data
+    volumes:
+      # 本地目录挂载为编辑器可访问的文件根
+      - ./data:/app/data
+    restart: unless-stopped

@@ -1,0 +1,31 @@
+# 依赖与构建产物（Docker 内重新构建）
+node_modules
+app/ui/frontend/node_modules
+app/ui/frontend/dist
+app/server/node_modules
+
+# Git 与 IDE
+.git
+.gitignore
+.cursor
+.vscode
+*.swp
+*.swo
+
+# 文档与临时文件
+*.md
+!README.md
+docs/
+*.fpk
+*.log
+
+# fnOS 专用（Docker 不需要）
+cmd/
+wizard/
+config/
+manifest
+ICON*.PNG
+
+# 其他
+.DS_Store
+Thumbs.db

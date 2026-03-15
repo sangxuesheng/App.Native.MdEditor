@@ -223,9 +223,13 @@
 ## 📖 使用指南
 
 ### 安装
+
+**飞牛 NAS：**
 1. 下载 `App.Native.MdEditor2.fpk`
 2. 在飞牛 NAS 应用中心上传安装
 3. 启动应用
+
+**Docker：** 参见下方 [Docker 构建与运行](#docker-构建与运行) 或 [DOCKER.md](./DOCKER.md)
 
 ### 快速开始
 1. 点击"新建"创建文件
@@ -295,6 +299,38 @@ npm run dev
 npm run build
 fnpack build
 ```
+
+### Docker 构建与运行
+
+项目支持 **Docker** 与 **fnOS 原生** 两种部署方式，可并行使用。
+
+```bash
+# 方式一：使用 build-and-deploy.sh（推荐）
+bash build-and-deploy.sh --docker           # 构建镜像并运行
+bash build-and-deploy.sh --docker-compose   # Docker Compose 构建并启动
+
+# 方式二：直接使用 Docker 命令
+docker build -t mdeditor2:latest .
+mkdir -p data
+docker run -d --rm --name mdeditor2 -p 18080:18080 \
+  -v $(pwd)/data:/app/data \
+  mdeditor2:latest
+
+# 方式三：Docker Compose
+docker compose up -d --build
+```
+
+**访问**：http://localhost:18080/
+
+**数据目录**：`./data` 挂载为编辑器的文件树根目录，在此新建/编辑的 Markdown 会持久化到宿主机。
+
+| 场景           | 推荐方式                          |
+|----------------|-----------------------------------|
+| 飞牛 NAS 部署  | fnOS 原生（fnpack + install-fpk） |
+| 本地开发/测试 | Docker 或 原生 build             |
+| CI/CD 构建     | Docker build                      |
+
+详细说明请参考 [DOCKER.md](./DOCKER.md)
 
 ## 📝 版本历史
 
@@ -366,6 +402,7 @@ fnpack build
 ## 📚 文档
 
 - [CHANGELOG.md](./CHANGELOG.md) - 详细版本更新历史
+- [DOCKER.md](./DOCKER.md) - Docker 构建与运行指南
 - [热更新快速参考.md](./热更新快速参考.md) - 热更新使用指南
 - [START_DEV_MODE.md](./START_DEV_MODE.md) - 开发模式启动指南
 - [飞牛nas应用开发文档.md](./飞牛nas应用开发文档.md) - 飞牛 NAS 开发文档

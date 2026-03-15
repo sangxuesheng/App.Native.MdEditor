@@ -10,6 +10,7 @@
 #    bash build-and-deploy.sh --install  # 仅安装已有的 fpk
 #    bash build-and-deploy.sh --local    # install-local 开发快速模式
 #    bash build-and-deploy.sh --restart  # 仅重启应用（不重新构建）
+#    bash build-and-deploy.sh --docker   # Docker 构建并运行（与 fnOS 并行支持）
 # =============================================================================
 
 set -e
@@ -162,6 +163,45 @@ do_install_local() {
 # ----------------------------------------------------------------------------
 # 步骤 4：重启并验证
 # ----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+# Docker 构建与运行（与 fnOS 原生并行支持）
+# ----------------------------------------------------------------------------
+do_docker_build() {
+    log_step "Docker 构建"
+    if ! command -v docker &> /dev/null; then
+        log_err "未找到 docker 命令，请先安装 Docker"
+        exit 1
+    fi
+    cd "$SCRIPT_DIR"
+    docker build -t mdeditor2:latest .
+    log_ok "Docker 镜像构建完成 → mdeditor2:latest"
+}
+
+do_docker_run() {
+    log_step "Docker 运行"
+    mkdir -p "$SCRIPT_DIR/data"
+    docker run -d --rm \
+        --name mdeditor2 \
+        -p 18080:18080 \
+        -v "$SCRIPT_DIR/data:/app/data" \
+        -e TRIM_DATA_ACCESSIBLE_PATHS=/app/data \
+        mdeditor2:latest
+    log_ok "容器已启动，访问: http://localhost:18080/"
+}
+
+do_docker_compose() {
+    log_step "Docker Compose 构建并启动"
+    if ! command -v docker &> /dev/null; then
+        log_err "未找到 docker 命令，请先安装 Docker"
+        exit 1
+    fi
+    cd "$SCRIPT_DIR"
+    mkdir -p data
+    docker compose up -d --build
+    log_ok "Docker Compose 已启动，访问: http://localhost:18080/"
+}
+
 do_restart() {
     log_step "步骤 4 / 重启应用并验证"
     check_appcenter
@@ -206,6 +246,13 @@ case "${1:-}" in
     --restart)
         do_restart
         ;;
+    --docker)
+        do_docker_build
+        do_docker_run
+        ;;
+    --docker-compose)
+        do_docker_compose
+        ;;
     "")
         # 默认：完整流程
         echo ""
@@ -244,11 +291,14 @@ case "${1:-}" in
         echo "  --install  仅安装已有的 fpk + 重启"
         echo "  --local    构建前端 + install-local（开发快速模式）+ 重启"
         echo "  --restart  仅重启应用"
+        echo "  --docker   Docker 构建并运行（与 fnOS 并行）"
+        echo "  --docker-compose  Docker Compose 构建并启动"
         echo ""
         echo "示例:"
         echo "  bash build-and-deploy.sh             # 正式发布"
         echo "  bash build-and-deploy.sh --local     # 开发调试（最快）"
         echo "  bash build-and-deploy.sh --restart   # 仅重启服务"
+        echo "  bash build-and-deploy.sh --docker    # Docker 构建并运行"
         exit 1
         ;;
 esac
