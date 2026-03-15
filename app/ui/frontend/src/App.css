@@ -2285,6 +2285,11 @@ img[style*="width"] {
   color: var(--text-primary);
 }
 
+/* 文件树打开时：ListCollapse 镜像显示 */
+.toggle-filetree-btn.filetree-open svg {
+  transform: scaleX(-1);
+}
+
 .theme-dark .toggle-filetree-btn {
   --border-color: #3e3e42;
   --hover-bg: #2a2d2e;

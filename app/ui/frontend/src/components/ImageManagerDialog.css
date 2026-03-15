@@ -1989,7 +1989,14 @@
   }
 }
 
-/* 移动端隐藏按钮 */
+/* 最近上传：桌面端隐藏右下角插入按钮，仅显示中间 overlay 插入 */
+@media (min-width: 768px) {
+  .recent-upload-item .insert-image-btn {
+    display: none;
+  }
+}
+
+/* 移动端隐藏 overlay 等，仅显示右下角插入按钮 */
 @media (max-width: 767px) {
   .img-preview-icon-btn,
   .delete-image-btn,

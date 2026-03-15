@@ -21,13 +21,14 @@ import {
   BarChart3,
   ChevronDown,
   ImageIcon,
-  Copy
+  Copy,
+  Bot
 } from 'lucide-react'
 import { copyToWeChat } from '../utils/wechatExporter'
 import { useAppUi } from '../context/AppUiContext'
 import './EditorToolbar.css'
 
-function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTableInsert, disabled, onShowToast, exportConfig, compact = false, theme = 'dark' }) {
+function EditorToolbar({ onInsert, onImageUpload, onOpenImageManager, onOpenTableInsert, onOpenAI, disabled, onShowToast, exportConfig, compact = false, theme = 'dark' }) {
   const { showToast } = useAppUi()
   const [showChartMenu, setShowChartMenu] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
@@ -305,6 +306,21 @@ ${'```'}`
           <button className="toolbar-btn" onClick={insertBold} disabled={disabled} title="加粗 (Ctrl+B)"><Bold size={iconSize} /></button>
           <button className="toolbar-btn" onClick={insertItalic} disabled={disabled} title="斜体 (Ctrl+I)"><Italic size={iconSize} /></button>
           <button className="toolbar-btn" onClick={insertStrikethrough} disabled={disabled} title="删除线"><Strikethrough size={iconSize} /></button>
+          {onOpenAI && (
+            <>
+              <div className="toolbar-divider"></div>
+              <button
+                type="button"
+                className="toolbar-btn ai-toolbar-btn"
+                onClick={onOpenAI}
+                disabled={disabled}
+                title="打开 AI 助手"
+              >
+                <Bot size={iconSize} />
+              </button>
+            </>
+          )}
+          <div className="toolbar-divider"></div>
           <button className="toolbar-btn" onClick={insertUnorderedList} disabled={disabled} title="无序列表"><List size={iconSize} /></button>
           <button className="toolbar-btn" onClick={insertOrderedList} disabled={disabled} title="有序列表"><ListOrdered size={iconSize} /></button>
           <button className="toolbar-btn" onClick={insertTaskList} disabled={disabled} title="任务列表"><CheckSquare size={iconSize} /></button>
@@ -394,7 +410,22 @@ ${'```'}`
         <button className="toolbar-btn" onClick={insertItalic} disabled={disabled} title="斜体 (Ctrl+I)"><Italic size={iconSize} /></button>
         <button className="toolbar-btn" onClick={insertStrikethrough} disabled={disabled} title="删除线"><Strikethrough size={iconSize} /></button>
       </div>
-      <div className="toolbar-divider"></div>
+      {onOpenAI && (
+        <>
+          <div className="toolbar-divider"></div>
+          <div className="toolbar-group">
+            <button
+              type="button"
+              className="toolbar-btn ai-toolbar-btn"
+              onClick={onOpenAI}
+              disabled={disabled}
+              title="打开 AI 助手"
+            >
+              <Bot size={iconSize} />
+            </button>
+          </div>
+        </>
+      )}
       <div className="toolbar-divider"></div>
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={insertUnorderedList} disabled={disabled} title="无序列表"><List size={iconSize} /></button>

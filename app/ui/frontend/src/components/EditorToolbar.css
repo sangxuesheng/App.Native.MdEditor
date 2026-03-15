@@ -108,6 +108,23 @@
   color: #58a6ff;
 }
 
+/* AI 工具栏按钮：区别于其他功能按钮的配色 */
+.ai-toolbar-btn {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(124, 58, 237, 0.2) 100%);
+  border-color: #8b5cf6;
+  color: #a78bfa;
+}
+
+.ai-toolbar-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(124, 58, 237, 0.35) 100%);
+  border-color: #a78bfa;
+  color: #c4b5fd;
+}
+
+.ai-toolbar-btn:active:not(:disabled) {
+  background: rgba(139, 92, 246, 0.5);
+}
+
 /* 图注按钮 */
 .caption-group {
   position: relative;
@@ -404,7 +421,8 @@
 
   .chart-btn,
   .caption-btn,
-  .wechat-copy-btn {
+  .wechat-copy-btn,
+  .ai-toolbar-btn {
     min-width: 44px;
     gap: 6px;
     padding: 0 12px;
@@ -446,6 +464,23 @@
   background: #eaeef2;
   border-color: #0969da;
   color: #0969da;
+}
+
+/* AI 按钮 - 浅色模式：紫色系，区别于蓝色功能按钮 */
+.theme-light .ai-toolbar-btn {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.12) 100%);
+  border-color: #8b5cf6;
+  color: #6d28d9;
+}
+
+.theme-light .ai-toolbar-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(124, 58, 237, 0.2) 100%);
+  border-color: #7c3aed;
+  color: #5b21b6;
+}
+
+.theme-light .ai-toolbar-btn:active:not(:disabled) {
+  background: rgba(139, 92, 246, 0.3);
 }
 
 .theme-light .chart-dropdown,

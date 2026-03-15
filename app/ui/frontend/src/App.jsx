@@ -44,7 +44,7 @@ import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
-import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2 } from 'lucide-react'
+import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2, ListCollapse } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
 import { saveEditorDraft, loadEditorDraft, clearEditorDraft } from './utils/editorLocalStorage'
@@ -236,6 +236,7 @@ function App() {
   const [showHistory, setShowHistory] = useState(false)
   const [historyVersions, setHistoryVersions] = useState([])
   const [showToolbar, setShowToolbar] = useState(true)
+  const [aiDialogOpen, setAiDialogOpen] = useState(false)
   const [initialStateLoaded, setInitialStateLoaded] = useState(false)
   const [editorFontSize, setEditorFontSize] = useState(14)
   const [editorLineHeight, setEditorLineHeight] = useState(24)
@@ -1789,49 +1790,72 @@ function App() {
     syncPreviewWithEditorRef.current = syncPreviewWithEditor
   }, [syncPreviewWithEditor])
 
-  // 编辑器滚动与预览联动
+  // 左右联动：编辑器滚动 ↔ 预览滚动（双向同步）
+  const syncFromEditorRef = useRef(false)
+  const syncFromPreviewRef = useRef(false)
+
   useEffect(() => {
     const editor = editorInstance
     if (!editor) return
 
-    console.log('[联动滚动] 初始化滚动联动监听, 开关 =', syncPreviewWithEditorRef.current)
+    const previewRoot = previewRef.current
+    const previewPane = previewRoot?.parentElement || previewRoot
+    if (!previewPane) return
 
+    // 编辑器 → 预览
     const scrollDisposable = editor.onDidScrollChange(() => {
       if (!syncPreviewWithEditorRef.current) return
+      if (syncFromPreviewRef.current) return // 正在从预览同步过来，避免回环
       if (!previewRef.current) return
+
+      const previewRootCur = previewRef.current
+      const previewPaneCur = previewRootCur.parentElement || previewRootCur
 
       const editorScrollTop = editor.getScrollTop()
       const editorScrollHeight = editor.getScrollHeight()
       const editorLayout = editor.getLayoutInfo()
       const editorClientHeight = editorLayout ? editorLayout.height : 0
       const editorMaxScroll = Math.max(editorScrollHeight - editorClientHeight, 0)
-
-      const previewRoot = previewRef.current
-      const previewPane = previewRoot.parentElement || previewRoot
-      const previewMaxScroll = Math.max(previewPane.scrollHeight - previewPane.clientHeight, 0)
-
-      console.log('[联动滚动] editor:', {
-        editorScrollTop,
-        editorScrollHeight,
-        editorClientHeight,
-        editorMaxScroll
-      })
-      console.log('[联动滚动] preview:', {
-        scrollHeight: previewPane.scrollHeight,
-        clientHeight: previewPane.clientHeight,
-        previewMaxScroll
-      })
+      const previewMaxScroll = Math.max(previewPaneCur.scrollHeight - previewPaneCur.clientHeight, 0)
 
       if (editorMaxScroll <= 0 || previewMaxScroll <= 0) return
 
+      syncFromEditorRef.current = true
       const ratio = editorScrollTop / editorMaxScroll
-      const targetScrollTop = previewMaxScroll * ratio
-
-      previewPane.scrollTop = targetScrollTop
+      previewPaneCur.scrollTop = previewMaxScroll * ratio
+      syncFromEditorRef.current = false
     })
+
+    // 预览 → 编辑器
+    const handlePreviewScroll = () => {
+      if (!syncPreviewWithEditorRef.current) return
+      if (syncFromEditorRef.current) return // 正在从编辑器同步过来，避免回环
+      if (!editor) return
+
+      const previewRootCur = previewRef.current
+      const previewPaneCur = previewRootCur?.parentElement || previewRootCur
+      if (!previewPaneCur) return
+
+      const previewScrollTop = previewPaneCur.scrollTop
+      const previewMaxScroll = Math.max(previewPaneCur.scrollHeight - previewPaneCur.clientHeight, 0)
+      const editorScrollHeight = editor.getScrollHeight()
+      const editorLayout = editor.getLayoutInfo()
+      const editorClientHeight = editorLayout ? editorLayout.height : 0
+      const editorMaxScroll = Math.max(editorScrollHeight - editorClientHeight, 0)
+
+      if (previewMaxScroll <= 0 || editorMaxScroll <= 0) return
+
+      syncFromPreviewRef.current = true
+      const ratio = previewScrollTop / previewMaxScroll
+      editor.setScrollTop(editorMaxScroll * ratio)
+      syncFromPreviewRef.current = false
+    }
+
+    previewPane.addEventListener('scroll', handlePreviewScroll, { passive: true })
 
     return () => {
       scrollDisposable?.dispose()
+      previewPane.removeEventListener('scroll', handlePreviewScroll)
     }
   }, [syncPreviewWithEditor, editorInstance])
 
@@ -5984,6 +6008,7 @@ function App() {
     
     // 监听粘贴事件，处理图片粘贴
       const domNode = editor.getDomNode()
+      let pasteCleanup = () => {}
       if (domNode) {
         domNode.addEventListener('focusin', () => {
           if (window.matchMedia(MOBILE_SINGLE_COLUMN_MEDIA_QUERY).matches) {
@@ -6008,74 +6033,86 @@ function App() {
         domNode.addEventListener('contextmenu', handleEditorContextMenu)
       }
       
-      domNode.addEventListener('paste', async (e) => {
+      // Ctrl+V 粘贴图片：Monaco 在内部拦截粘贴，必须在 document 捕获阶段拦截
+      const handleDocumentPaste = async (e) => {
+        const editorDom = editor.getDomNode()
+        if (!editorDom) return
+        const activeEl = document.activeElement
+        const target = e.target
+        const editorFocused = activeEl && (editorDom === activeEl || editorDom.contains(activeEl))
+        const pasteInEditor = target && (editorDom === target || editorDom.contains(target))
+        if (!editorFocused && !pasteInEditor) return
+
         const items = e.clipboardData?.items
         if (!items) return
-        
-        // 查找图片项
+
         for (let i = 0; i < items.length; i++) {
           const item = items[i]
           if (item.type.startsWith('image/')) {
             e.preventDefault()
             e.stopPropagation()
-            
+
             const file = item.getAsFile()
             if (!file) continue
-            
-            // 显示上传提示
+
             setStatus('正在上传图片...')
-            
+
+            const insertImageMarkdown = (markdown) => {
+              const ed = editorRef.current
+              if (!ed) return
+              const selection = ed.getSelection()
+              ed.executeEdits('paste-image', [{
+                range: selection,
+                text: `\n\n${markdown}\n\n`,
+                forceMoveMarkers: true
+              }])
+            }
+
             try {
-              // 上传图片
               const formData = new FormData()
               formData.append('images', file)
-              
+
               const response = await fetch('/api/image/upload', {
                 method: 'POST',
                 body: formData
               })
-              
+
               const result = await response.json()
-              
+
               if (result.ok && result.images && result.images.length > 0) {
                 const image = result.images[0]
-                const markdown = `![图片](${image.url})`
-                
-                // 插入到编辑器，上下各留一行空格
-                const selection = editor.getSelection()
-                editor.executeEdits('paste-image', [{
-                  range: selection,
-                  text: `\n\n${markdown}\n\n`,
-                  forceMoveMarkers: true
-                }])
-                
+                insertImageMarkdown(`![图片](${image.url})`)
                 showToast(`图片上传成功: ${image.filename}`, 'success')
                 setStatus('就绪')
               } else {
-                const errorMsg = getUserFriendlyMessage(
-                  new Error(result.message || '上传失败'),
-                  { operation: '粘贴上传图片' }
-                )
-                showToast('图片上传失败', 'error')
-                logError(new Error(result.message || '上传失败'), {
-                  operation: '粘贴上传图片',
-                  responseData: result
-                })
-                setStatus('就绪')
+                const reader = new FileReader()
+                reader.onload = () => {
+                  insertImageMarkdown(`![图片](${reader.result})`)
+                  showToast('图片已插入（Base64，上传服务不可用）', 'info')
+                  setStatus('就绪')
+                }
+                reader.readAsDataURL(file)
               }
             } catch (error) {
-              const formattedError = handleError(error, {
-                operation: '粘贴上传图片',
-                fileType: file.type
-              })
-              showToast(`图片上传失败: ${formattedError.message}`, 'error')
-              setStatus('就绪')
+              const reader = new FileReader()
+              reader.onload = () => {
+                insertImageMarkdown(`![图片](${reader.result})`)
+                showToast('图片已插入（Base64）', 'info')
+                setStatus('就绪')
+              }
+              reader.onerror = () => {
+                showToast('图片读取失败，请重试', 'error')
+                setStatus('就绪')
+              }
+              reader.readAsDataURL(file)
             }
-            
+
             break
           }
         }
-      })
+      }
+      document.addEventListener('paste', handleDocumentPaste, true)
+      pasteCleanup = () => document.removeEventListener('paste', handleDocumentPaste, true)
       
       // 监听拖拽事件，处理图片拖拽上传
       domNode.addEventListener('dragover', (e) => {
@@ -6277,6 +6314,8 @@ function App() {
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyH, () => {
       editor.trigger('keyboard', 'editor.action.startFindReplaceAction')
     })
+
+    return pasteCleanup
   }, [applyMonacoTheme])
 
   // MenuBar 处理函数
@@ -7018,7 +7057,8 @@ function App() {
     onZoomIn: handleZoomIn,
     onZoomOut: handleZoomOut,
     onZoomReset: handleZoomReset,
-    onLayoutChange: setLayout,
+    layout,
+    onLayoutChange: updateLayout,
     onShowMarkdownHelp: handleShowMarkdownHelp,
     onShowShortcuts: handleShowShortcuts,
     onShowAbout: handleShowAbout,
@@ -7187,11 +7227,11 @@ function App() {
       <header className="toolbar">
         <div className="toolbar-left">
           <button 
-            className="btn-icon toggle-filetree-btn"
+            className={`btn-icon toggle-filetree-btn ${showFileTree ? 'filetree-open' : 'filetree-closed'}`}
             onClick={handleToggleFileTree}
             title="切换文件树 (Ctrl+B)"
           >
-            <FolderArchive />
+            <ListCollapse size={20} />
           </button>
           {!isAdaptiveSinglePaneViewport && (
             <>
@@ -7400,6 +7440,7 @@ function App() {
                 onImageUpload={handleImageUpload}
                 onOpenImageManager={() => setShowImageManager(true)}
                 onOpenTableInsert={() => setShowTableDialog(true)}
+                onOpenAI={() => setAiDialogOpen(true)}
                 onShowToast={(message, type) => {
                   setStatus(message)
                   setStatusType(type === 'error' ? 'error' : type === 'success' ? 'success' : 'normal')
@@ -7731,8 +7772,10 @@ function App() {
         />
       )}
 
-      {/* AI 侧边栏 */}
+      {/* AI 对话（由工具栏按钮打开） */}
       <AISidebar
+        isOpen={aiDialogOpen}
+        onClose={() => setAiDialogOpen(false)}
         getEditorContent={getEditorContent}
         getSelectedText={getSelectedText}
         onInsertImage={handleImageInsert}

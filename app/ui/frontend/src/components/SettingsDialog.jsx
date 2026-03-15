@@ -229,7 +229,7 @@ const SettingsDialog = ({
               <div className="setting-item">
                 <div className="setting-label">
                   <label>编辑-预览联动</label>
-                  <p className="setting-description">编辑器滚动时，预览区域自动跟随滚动</p>
+                  <p className="setting-description">左右联动：左边滑动时右边跟随，右边滑动时左边跟随</p>
                 </div>
                 <label className="toggle-switch">
                   <input

@@ -730,9 +730,8 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
                   <h4>最近上传</h4>
                   <div className="image-grid">
                     {uploadedImages.map((image, index) => (
-                      <div key={index} className="image-item">
+                      <div key={index} className="image-item recent-upload-item">
                         <img src={image.url} alt={image.alt || '图片'} />
-                        <button className="img-preview-icon-btn" onClick={(e) => handlePreviewOpenClick(e, image)} title="预览"><Eye size={14} /></button>
                         <div className="image-overlay">
                           <button onClick={() => handleInsertUploadedClick(image)}>
                             插入
@@ -824,13 +823,14 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
                       <div 
                         key={index} 
                         className={`image-item ${selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleLibraryImageClick(image)}
                         onTouchStart={(e) => handleImageTouchStart(e, image)}
                         onTouchEnd={(e) => handleImageTouchEnd(e, image)}
                       >
                         {selectionMode && (
                           <div 
                             className="image-checkbox"
-                            onClick={() => handleImageSelectToggleClick(image)}
+                            onClick={(e) => { e.stopPropagation(); handleImageSelectToggleClick(image) }}
                           >
                             {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
                           </div>
@@ -838,8 +838,6 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
                         <img 
                           src={image.url} 
                           alt={image.alt || '图片'} 
-                          onClick={() => handleLibraryImageClick(image)}
-                          style={{ cursor: 'pointer' }}
                         />
                         {!selectionMode && (
                           <button 

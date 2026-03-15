@@ -33,6 +33,8 @@ import {
   ZoomOut,
   RotateCcw,
   HelpCircle,
+  Columns,
+  Eye,
   Keyboard,
   Info,
   X,
@@ -88,6 +90,10 @@ const MenuItemIcon = ({ type }) => {
     // 视图菜单
     'tree': <FolderTree style={iconStyle} />,
     'toolbar': <Wrench style={iconStyle} />,
+    'layout': <Columns style={iconStyle} />,
+    'layout-vertical': <Columns style={iconStyle} />,
+    'layout-editor': <FileText style={iconStyle} />,
+    'layout-preview': <Eye style={iconStyle} />,
     'zoom-in': <ZoomIn style={iconStyle} />,
     'zoom-out': <ZoomOut style={iconStyle} />,
     'zoom-reset': <RotateCcw style={iconStyle} />,
@@ -147,6 +153,7 @@ function MenuBar({
   onZoomIn,
   onZoomOut,
   onZoomReset,
+  layout,
   onLayoutChange,
   onShowMarkdownHelp,
   onShowShortcuts,
@@ -283,6 +290,15 @@ function MenuBar({
       name: '视图',
       items: [
         { label: '切换工具栏', icon: 'toolbar', action: onToggleToolbar },
+        {
+          icon: 'layout',
+          label: '页面布局',
+          submenu: [
+            { label: '左右分栏', icon: 'layout-vertical', action: () => onLayoutChange?.('vertical'), checked: (layout || 'vertical') === 'vertical' },
+            { label: '仅编辑', icon: 'layout-editor', action: () => onLayoutChange?.('editor-only'), checked: layout === 'editor-only' },
+            { label: '仅预览', icon: 'layout-preview', action: () => onLayoutChange?.('preview-only'), checked: layout === 'preview-only' }
+          ]
+        },
         { divider: true },
         { label: '放大', icon: 'zoom-in', shortcut: 'Ctrl++', action: onZoomIn },
         { label: '缩小', icon: 'zoom-out', shortcut: 'Ctrl+-', action: onZoomOut },
