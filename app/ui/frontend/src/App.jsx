@@ -1292,6 +1292,43 @@ function App() {
         color: ${exportConfig.elementStyles.link.color} !important;
         -webkit-text-fill-color: ${exportConfig.elementStyles.link.color} !important;
       }` : ''}
+
+      /* 代码块滚动条：根据导出配置中代码主题 CSS 的背景色自动调整 */
+      ${(() => {
+        const themeBackgrounds = {
+          'github': '#f6f8fa', 'github-dark': '#0d1117', 'vs': '#ffffff', 'vs2015': '#1e1e1e',
+          'dracula': '#282a36', 'atom-one-dark': '#282c34', 'solarized-light': '#fdf6e3',
+          'solarized-dark': '#002b36', 'nord': '#2e3440', 'monokai': '#272822', 'material': '#263238'
+        }
+        let codeBg = themeBackgrounds[exportConfig.codeTheme] || themeBackgrounds['github']
+        const codePre = exportConfig.elementStyles?.code_pre
+        if (codePre?.customCSS) {
+          const m = codePre.customCSS.match(/(?:background(?:-color)?|background)\s*:\s*([#a-fA-F0-9()%,.\s]+)/)
+          if (m) {
+            const v = m[1].trim()
+            if (/^#[0-9a-fA-F]{3,8}$/.test(v)) codeBg = v
+            else if (/^rgb|^rgba|^hsl|^hsla/.test(v)) codeBg = v
+          }
+        }
+        const hexToLuminance = (hex) => {
+          const h = hex.replace('#', '')
+          const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+          const r = parseInt(full.slice(0, 2), 16)
+          const g = parseInt(full.slice(2, 4), 16)
+          const b = parseInt(full.slice(4, 6), 16)
+          return (r * 299 + g * 587 + b * 114) / 1000
+        }
+        const isDark = /^#[0-9a-fA-F]{3,8}$/i.test(codeBg) ? hexToLuminance(codeBg) < 128 : (codeBg + '').toLowerCase().includes('dark') || (codeBg + '').includes('0d1117') || (codeBg + '').includes('2728') || (codeBg + '').includes('282a') || (codeBg + '').includes('2632')
+        const thumb = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.2)'
+        const thumbHover = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.35)'
+        return `
+      .markdown-body pre::-webkit-scrollbar { width: 8px; height: 8px; }
+      .markdown-body pre::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+      .markdown-body pre::-webkit-scrollbar-thumb { background: ${thumb}; border-radius: 4px; }
+      .markdown-body pre::-webkit-scrollbar-thumb:hover { background: ${thumbHover}; }
+      .markdown-body pre { scrollbar-color: ${thumb} transparent; scrollbar-width: thin; }
+      `
+      })()}
     `
     
     // 调试：输出生成的样式
