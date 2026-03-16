@@ -36,7 +36,7 @@ export PATH=/var/apps/python312/target/bin:$PATH
 
 | 场景 | 命令 |
 |---|---|
-| **完整发布流程**（构建 + 打包 + 安装 + 重启） | `bash build-and-deploy.sh` |
+| **默认构建 fpk / 完整发布**（优化打包 + 安装 + 重启） | `bash build-and-deploy.sh`（内部调用 `build-optimized.sh`） |
 | **开发调试**（构建 + install-local + 重启，最快） | `bash build-and-deploy.sh --local` |
 | 仅构建前端 | `bash build-and-deploy.sh --build` |
 | 仅 fnpack 打包 | `bash build-and-deploy.sh --pack` |
