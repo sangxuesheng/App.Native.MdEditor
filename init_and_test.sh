@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TOKEN="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"
+TOKEN="${GITHUB_TOKEN}"
 OWNER="tingwen-img"
 REPO="img0"
 
