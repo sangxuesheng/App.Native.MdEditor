@@ -12,7 +12,6 @@ const url = require('url');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const net = require('net');
 let pdfParse = null;
 try {
   pdfParse = require('pdf-parse');
@@ -82,135 +81,6 @@ function decryptAesGcm(payload) {
 function isEncryptedApiKey(v) {
   return v && typeof v === 'object' && v.__enc === ENC_PREFIX;
 }
-
-function maskApiKey(value) {
-  if (typeof value !== 'string') return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  if (trimmed.length <= 5) return '****';
-  const head = trimmed.slice(0, 3);
-  const tail = trimmed.slice(-2);
-  return `${head}****${tail}`;
-}
-
-function normalizeClientIp(raw) {
-  if (!raw) return '';
-  const first = String(raw).split(',')[0].trim();
-  if (!first) return '';
-  if (first.startsWith('::ffff:')) return first.slice(7);
-  return first;
-}
-
-function ipv4ToInt(ip) {
-  const parts = ip.split('.').map((p) => Number(p));
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return null;
-  return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
-}
-
-function isIpv4InCidr(ip, cidr) {
-  const [base, bitsRaw] = cidr.split('/');
-  const bits = Number(bitsRaw);
-  if (!base || Number.isNaN(bits) || bits < 0 || bits > 32) return false;
-  const ipInt = ipv4ToInt(ip);
-  const baseInt = ipv4ToInt(base);
-  if (ipInt == null || baseInt == null) return false;
-  const mask = bits === 0 ? 0 : (~((1 << (32 - bits)) - 1) >>> 0) >>> 0;
-  return (ipInt & mask) === (baseInt & mask);
-}
-
-function parseIpv6ToBigInt(ip) {
-  const lower = ip.toLowerCase();
-  const hasIpv4 = lower.includes('.');
-  const [leftRaw, rightRaw] = lower.split('::');
-  const left = leftRaw ? leftRaw.split(':').filter(Boolean) : [];
-  const right = rightRaw ? rightRaw.split(':').filter(Boolean) : [];
-
-  if (lower.includes('::') && rightRaw === undefined) return null;
-  if (lower.split('::').length > 2) return null;
-
-  if (hasIpv4) {
-    const ipv4Part = (right.length ? right[right.length - 1] : left[left.length - 1]) || '';
-    const ipInt = ipv4ToInt(ipv4Part);
-    if (ipInt == null) return null;
-    const high = ((ipInt >>> 16) & 0xffff).toString(16);
-    const low = (ipInt & 0xffff).toString(16);
-    if (right.length) {
-      right.splice(right.length - 1, 1, high, low);
-    } else {
-      left.splice(left.length - 1, 1, high, low);
-    }
-  }
-
-  const totalGroups = 8;
-  const missing = totalGroups - (left.length + right.length);
-  if (missing < 0) return null;
-  const groups = [...left, ...Array(missing).fill('0'), ...right];
-  if (groups.length !== totalGroups) return null;
-
-  let out = 0n;
-  for (const g of groups) {
-    if (g.length > 4) return null;
-    const val = BigInt(parseInt(g || '0', 16));
-    if (Number.isNaN(Number(val))) return null;
-    out = (out << 16n) + val;
-  }
-  return out;
-}
-
-function isIpv6InCidr(ip, cidr) {
-  const [base, bitsRaw] = cidr.split('/');
-  const bits = Number(bitsRaw);
-  if (!base || Number.isNaN(bits) || bits < 0 || bits > 128) return false;
-  const ipInt = parseIpv6ToBigInt(ip);
-  const baseInt = parseIpv6ToBigInt(base);
-  if (ipInt == null || baseInt == null) return false;
-  if (bits === 0) return true;
-  const shift = 128n - BigInt(bits);
-  return (ipInt >> shift) === (baseInt >> shift);
-}
-
-function isPrivateOrLoopbackIp(ip) {
-  if (!ip) return false;
-  if (ip === '127.0.0.1' || ip === '::1') return true;
-  if (ip.startsWith('10.')) return true;
-  if (ip.startsWith('192.168.')) return true;
-  if (ip.startsWith('172.')) {
-    const second = Number(ip.split('.')[1]);
-    if (!Number.isNaN(second) && second >= 16 && second <= 31) return true;
-  }
-  if (ip.startsWith('fc') || ip.startsWith('fd')) return true; // fc00::/7
-  if (ip.startsWith('fe80:')) return true; // link-local
-  return false;
-}
-
-function getSettingsSecretAllowedCidrs() {
-  const raw = process.env.SETTINGS_SECRET_ALLOWED_CIDRS || '';
-  if (!raw.trim()) return [];
-  return raw
-    .split(/[,\s]+/)
-    .map((v) => v.trim())
-    .filter(Boolean);
-}
-
-function isSettingsSecretAllowed(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const direct = req.socket?.remoteAddress || req.connection?.remoteAddress || '';
-  const ip = normalizeClientIp(forwarded || direct);
-  if (!ip) return false;
-  const cidrs = getSettingsSecretAllowedCidrs();
-  if (cidrs.length) {
-    return cidrs.some((cidr) => {
-      const base = cidr.split('/')[0];
-      const isV4 = net.isIP(ip) === 4 && net.isIP(base) === 4;
-      const isV6 = net.isIP(ip) === 6 && net.isIP(base) === 6;
-      if (isV4) return isIpv4InCidr(ip, cidr);
-      if (isV6) return isIpv6InCidr(ip, cidr);
-      return false;
-    });
-  }
-  return isPrivateOrLoopbackIp(ip);
-}
-
 const STATIC_DIR = path.join(__dirname, '../ui/frontend/dist');
 
 // 共享路径解析：fnOS 用 TRIM_APPNAME 推导 shares，开发环境用相对路径
@@ -284,83 +154,6 @@ function resolveSafePath(requestedPath) {
   throw new Error('PATH_NOT_ALLOWED');
 }
 
-function cleanupEmptyDirs(startDir, baseDir, maxDepth = 3) {
-  if (!startDir || !baseDir) return;
-  let current = startDir;
-  for (let i = 0; i < maxDepth; i += 1) {
-    if (!current.startsWith(baseDir)) return;
-    try {
-      if (!fs.existsSync(current)) return;
-      const entries = fs.readdirSync(current);
-      if (entries.length > 0) return;
-      fs.rmdirSync(current);
-      current = path.dirname(current);
-    } catch (_) {
-      return;
-    }
-  }
-}
-
-function deleteLocalImageByUrl(imageUrl) {
-  if (!imageUrl) {
-    return { ok: false, code: 'INVALID_URL', message: '无效的图片URL' };
-  }
-
-  let pathname = '';
-  try {
-    if (/^https?:\/\//i.test(imageUrl)) {
-      const parsedUrl = new URL(imageUrl);
-      pathname = parsedUrl.pathname;
-    } else {
-      pathname = String(imageUrl);
-    }
-  } catch (_) {
-    pathname = String(imageUrl || '');
-  }
-
-  pathname = pathname.split('?')[0].split('#')[0];
-  try { pathname = decodeURIComponent(pathname); } catch (_) {}
-
-  const isImagesPath = pathname.startsWith('/images/');
-  const isLocalApiPath = pathname.startsWith('/api/image/local/');
-  if (!pathname || (!isImagesPath && !isLocalApiPath)) {
-    return { ok: false, code: 'INVALID_URL', message: '无效的图片URL' };
-  }
-
-  const relativePath = isImagesPath
-    ? pathname.replace(/^\/images\/?/, '')
-    : pathname.replace(/^\/api\/image\/local\/?/, '');
-
-  const baseImagesPath = getSharePath('images');
-  const imagePath = isImagesPath
-    ? path.join(baseImagesPath, relativePath)
-    : path.join(baseImagesPath, 'originals', relativePath);
-
-  const legacyBasePath = '/var/apps/App.Native.MdEditor2/shares/images';
-  const legacyImagePath = isImagesPath
-    ? path.join(legacyBasePath, relativePath)
-    : path.join(legacyBasePath, 'originals', relativePath);
-
-  const resolvedPath = fs.existsSync(imagePath) ? imagePath : legacyImagePath;
-  if (!fs.existsSync(resolvedPath)) {
-    return { ok: false, code: 'NOT_FOUND', message: '图片不存在' };
-  }
-
-  try {
-    fs.unlinkSync(resolvedPath);
-    const baseForCleanup = isImagesPath
-      ? (resolvedPath.startsWith(baseImagesPath) ? baseImagesPath : legacyBasePath)
-      : (resolvedPath.startsWith(baseImagesPath) ? path.join(baseImagesPath, 'originals') : path.join(legacyBasePath, 'originals'));
-    cleanupEmptyDirs(path.dirname(resolvedPath), baseForCleanup, 3);
-    return { ok: true, url: imageUrl };
-  } catch (err) {
-    if (err.code === 'EACCES') {
-      return { ok: false, code: 'EACCES', message: '无权限删除图片' };
-    }
-    return { ok: false, code: 'DELETE_ERROR', message: '删除图片失败' };
-  }
-}
-
 // CORS 允许头（飞牛 NAS 等环境下应用可能被嵌入或反向代理，需支持跨域）
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -404,7 +197,7 @@ function readJsonBody(req, res, maxBytes = 1024 * 64) {
 }
 
 // 初始化图床管理器
-const imagebedManager = new ImageBedManager(getDb(), null, isSettingsSecretAllowed);
+const imagebedManager = new ImageBedManager(getDb());
 
 const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
@@ -532,53 +325,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 应用设置：GET /api/settings（默认脱敏 apiKey）
+  // 应用设置：GET /api/settings（返回时对 aiConfig.apiKey 解密）
   if (parsed.pathname === '/api/settings' && req.method === 'GET') {
-    try {
-      const db = getDb();
-      const rows = db.prepare('SELECT key, value FROM settings').all();
-      const settings = {};
-      for (const row of rows) {
-        try {
-          settings[row.key] = JSON.parse(row.value);
-        } catch {
-          settings[row.key] = row.value;
-        }
-      }
-      if (settings.aiConfig && typeof settings.aiConfig === 'object' && settings.aiConfig.apiKey !== undefined) {
-        const ak = settings.aiConfig.apiKey;
-        let plain = null;
-        if (isEncryptedApiKey(ak)) {
-          plain = decryptAesGcm(ak);
-        } else if (typeof ak === 'string') {
-          plain = ak;
-        }
-        settings.aiConfig = { ...settings.aiConfig, apiKey: maskApiKey(plain || '') };
-      }
-      if (settings.aiImageConfig && typeof settings.aiImageConfig === 'object' && settings.aiImageConfig.apiKey !== undefined) {
-        const ak = settings.aiImageConfig.apiKey;
-        let plain = null;
-        if (isEncryptedApiKey(ak)) {
-          plain = decryptAesGcm(ak);
-        } else if (typeof ak === 'string') {
-          plain = ak;
-        }
-        settings.aiImageConfig = { ...settings.aiImageConfig, apiKey: maskApiKey(plain || '') };
-      }
-      sendJson(res, 200, { ok: true, settings });
-    } catch (e) {
-      console.error('[api/settings][GET] error:', e);
-      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取设置失败' });
-    }
-    return;
-  }
-
-  // 应用设置：GET /api/settings/secret（返回明文 apiKey，需要内网或白名单）
-  if (parsed.pathname === '/api/settings/secret' && req.method === 'GET') {
-    if (!isSettingsSecretAllowed(req)) {
-      sendJson(res, 403, { ok: false, code: 'FORBIDDEN', message: '仅允许内网或白名单访问' });
-      return;
-    }
     try {
       const db = getDb();
       const rows = db.prepare('SELECT key, value FROM settings').all();
@@ -606,7 +354,7 @@ const server = http.createServer(async (req, res) => {
       }
       sendJson(res, 200, { ok: true, settings });
     } catch (e) {
-      console.error('[api/settings/secret][GET] error:', e);
+      console.error('[api/settings][GET] error:', e);
       sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取设置失败' });
     }
     return;
@@ -2453,7 +2201,7 @@ const server = http.createServer(async (req, res) => {
   }
 
 
-  // 图片删除：DELETE /api/image/delete（兼容旧调用，转为本地删除）
+  // 图片删除：DELETE /api/image/delete
   if (parsed.pathname === '/api/image/delete' && req.method === 'DELETE') {
     let raw = '';
     req.on('data', chunk => {
@@ -2472,86 +2220,74 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
         return;
       }
-
-      const imageUrl = body && body.url;
-      const result = deleteLocalImageByUrl(imageUrl);
-      if (result.ok) {
-        sendJson(res, 200, { ok: true, url: imageUrl });
-      } else {
-        const status = result.code === 'NOT_FOUND' ? 404 : (result.code === 'EACCES' ? 403 : 400);
-        sendJson(res, status, result);
+      
+      let imageUrl = body && body.url;
+      if (!imageUrl) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_URL', message: '无效的图片URL' });
+        return;
       }
-    });
-    return;
-  }
 
-  // 图片批量删除：POST /api/image/delete-batch
-  if (parsed.pathname === '/api/image/delete-batch' && req.method === 'POST') {
-    let raw = '';
-    req.on('data', chunk => {
-      raw += chunk.toString('utf8');
-      if (raw.length > 1024 * 1024) {
-        raw = '';
-        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
-        req.destroy();
-      }
-    });
-    req.on('end', async () => {
-      let body;
+      let pathname = '';
       try {
-        body = JSON.parse(raw || '{}');
-      } catch {
-        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
-        return;
-      }
-
-      const items = Array.isArray(body?.items) ? body.items : [];
-      if (items.length === 0) {
-        sendJson(res, 400, { ok: false, code: 'INVALID_ITEMS', message: 'items 必须是非空数组' });
-        return;
-      }
-
-      const results = [];
-      let success = 0;
-      let failed = 0;
-
-      for (const item of items) {
-        const url = item?.url;
-        const imagebedId = item?.imagebedId;
-        if (!url) {
-          failed += 1;
-          results.push({ url, ok: false, code: 'INVALID_URL', message: '无效的图片URL' });
-          continue;
+        if (/^https?:\/\//i.test(imageUrl)) {
+          const parsedUrl = new URL(imageUrl);
+          pathname = parsedUrl.pathname;
+        } else {
+          pathname = String(imageUrl);
         }
+      } catch (_) {
+        pathname = String(imageUrl || '');
+      }
 
-        try {
-          if (imagebedId) {
-            const bedId = parseInt(imagebedId, 10);
-            const result = await imagebedManager.deleteImageFromBed(bedId, url);
-            if (result.success) {
-              success += 1;
-              results.push({ url, ok: true, imagebedId: bedId });
+      pathname = pathname.split('?')[0].split('#')[0];
+      try { pathname = decodeURIComponent(pathname); } catch (_) {}
+
+      const isImagesPath = pathname.startsWith('/images/');
+      const isLocalApiPath = pathname.startsWith('/api/image/local/');
+      if (!pathname || (!isImagesPath && !isLocalApiPath)) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_URL', message: '无效的图片URL' });
+        return;
+      }
+
+      const relativePath = isImagesPath
+        ? pathname.replace(/^\/images\/?/, '')
+        : pathname.replace(/^\/api\/image\/local\/?/, '');
+      
+      try {
+        const baseImagesPath = getSharePath('images');
+        const imagePath = isImagesPath
+          ? path.join(baseImagesPath, relativePath)
+          : path.join(baseImagesPath, 'originals', relativePath);
+
+        // 兼容旧版本硬编码路径
+        const legacyBasePath = '/var/apps/App.Native.MdEditor2/shares/images';
+        const legacyImagePath = isImagesPath
+          ? path.join(legacyBasePath, relativePath)
+          : path.join(legacyBasePath, 'originals', relativePath);
+        
+        // 检查文件是否存在（兼容旧路径）
+        const resolvedPath = fs.existsSync(imagePath) ? imagePath : legacyImagePath;
+        if (!fs.existsSync(resolvedPath)) {
+          sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '图片不存在' });
+          return;
+        }
+        
+        // 删除文件
+        fs.unlink(resolvedPath, (err) => {
+          if (err) {
+            if (err.code === 'EACCES') {
+              sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限删除图片' });
             } else {
-              failed += 1;
-              results.push({ url, ok: false, imagebedId: bedId, code: 'DELETE_ERROR', message: result.error || '删除失败' });
+              sendJson(res, 500, { ok: false, code: 'DELETE_ERROR', message: '删除图片失败' });
             }
-          } else {
-            const result = deleteLocalImageByUrl(url);
-            if (result.ok) {
-              success += 1;
-              results.push({ url, ok: true });
-            } else {
-              failed += 1;
-              results.push({ url, ok: false, code: result.code, message: result.message });
-            }
+            return;
           }
-        } catch (err) {
-          failed += 1;
-          results.push({ url, ok: false, code: 'DELETE_ERROR', message: err.message || '删除失败' });
-        }
+          sendJson(res, 200, { ok: true, url: imageUrl });
+        });
+      } catch (err) {
+        console.error('Image delete error:', err);
+        sendJson(res, 500, { ok: false, code: 'DELETE_ERROR', message: '删除失败' });
       }
-
-      sendJson(res, 200, { ok: failed === 0, success, failed, results });
     });
     return;
   }
