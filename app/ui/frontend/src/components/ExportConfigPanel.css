@@ -12,7 +12,7 @@
   flex-direction: column;
   overflow: hidden;
   align-self: stretch; /* 与父容器高度一致 */
-  animation: slideInRight 0.3s ease-out;
+  animation: slideInRight 0.28s ease-out;
 }
 
 .export-config-panel.compact {

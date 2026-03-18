@@ -1,5 +1,5 @@
 import React from 'react'
-import { X, Download, Info } from 'lucide-react'
+import { X, Download } from 'lucide-react'
 import './ImagePreviewDialog.css'
 
 function ImagePreviewDialog({ image, onClose, theme }) {
@@ -15,22 +15,19 @@ function ImagePreviewDialog({ image, onClose, theme }) {
   }
 
   const formatFileSize = (bytes) => {
+    if (bytes === undefined || bytes === null) return '0 B'
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '未知'
-    const date = new Date(dateString)
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '未知'
+    const date = new Date(timestamp)
     return date.toLocaleString('zh-CN')
   }
 
-  const handleOverlayClick = () => {
-    onClose()
-  }
-
-  const handleCloseClick = () => {
+  const handleMaskClick = () => {
     onClose()
   }
 
@@ -38,66 +35,57 @@ function ImagePreviewDialog({ image, onClose, theme }) {
     doDownloadImage()
   }
 
+  const handleCloseClick = (e) => {
+    e.stopPropagation()
+    onClose()
+  }
+
   return (
-    <div className="image-preview-overlay" onClick={handleOverlayClick}>
-      <div 
-        className={`image-preview-dialog ${theme}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 头部 */}
-        <div className="image-preview-header">
-          <h3>{image.filename || '图片预览'}</h3>
-          <div className="header-actions">
-            <button 
-              className="action-button"
-              onClick={handleDownloadClick}
-              title="下载图片"
-            >
-              <Download size={20} />
-            </button>
-            <button 
-              className="close-button"
-              onClick={handleCloseClick}
-              title="关闭"
-            >
-              <X size={20} />
-            </button>
-          </div>
-        </div>
-
-        {/* 图片显示区域 */}
-        <div className="image-preview-content">
-          <img 
-            src={image.url} 
-            alt={image.filename || '图片'} 
-            className="preview-image"
-          />
-        </div>
-
-        {/* 图片信息 */}
-        <div className="image-preview-info">
-          <div className="info-icon">
-            <Info size={16} />
-            <span>图片信息</span>
-          </div>
-          <div className="info-grid">
-            <div className="info-item">
+    <div className="img-preview-mask" onClick={handleMaskClick}>
+      <div className="img-preview-card" onClick={(e) => e.stopPropagation()}>
+        {/* 图片信息头部 - 参考截图布局 */}
+        <div className="img-preview-info-header">
+          <div className="info-title">图片信息</div>
+          <div className="info-details">
+            <div className="info-row">
               <span className="info-label">文件名：</span>
               <span className="info-value">{image.filename || '未知'}</span>
             </div>
-            <div className="info-item">
+            <div className="info-row">
               <span className="info-label">文件大小：</span>
               <span className="info-value">{formatFileSize(image.size || 0)}</span>
             </div>
-            <div className="info-item">
-              <span className="info-label">上传时间：</span>
-              <span className="info-value">{formatDate(image.uploadTime || image.mtime)}</span>
+            <div className="info-row">
+              <span className="info-label">修改时间：</span>
+              <span className="info-value">{formatDate(image.mtime || image.uploadTime)}</span>
             </div>
-            <div className="info-item">
-              <span className="info-label">图片路径：</span>
-              <span className="info-value" title={image.url}>{image.url}</span>
+            <div className="info-row actions-row">
+              <span className="info-label">操作：</span>
+              <div className="info-actions">
+                <button 
+                  className="info-action-btn"
+                  onClick={handleDownloadClick}
+                  title="下载图片"
+                >
+                  <Download size={16} />
+                  <span>下载</span>
+                </button>
+                <button 
+                  className="info-action-btn close-btn"
+                  onClick={handleCloseClick}
+                  title="关闭"
+                >
+                  <X size={16} />
+                  <span>关闭</span>
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* 图片预览主体 */}
+        <div className="img-preview-body">
+          <img src={image.url} alt={image.filename || '图片'} />
         </div>
       </div>
     </div>

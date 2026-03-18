@@ -29,6 +29,7 @@ import SettingsDialog from './components/SettingsDialog'
 import MarkdownHelpDialog from './components/MarkdownHelpDialog'
 import ShortcutsDialog from './components/ShortcutsDialog'
 import ImageManagerDialog from './components/ImageManagerDialog'
+import ImagePreviewDialog from './components/ImagePreviewDialog'
 import TableInsertDialog from './components/TableInsertDialog'
 import AboutDialog from './components/AboutDialog'
 import SyncDialog from './components/SyncDialog'
@@ -42,6 +43,7 @@ import { saveFileHistory, getFileHistory as getFileHistoryVersions, deleteVersio
 import { handleError, logError, getUserFriendlyMessage } from './utils/errorHandler'
 import './App.css'
 import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
+import { compressImage } from './utils/imageCompressor'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
 import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2, ListCollapse } from 'lucide-react'
@@ -53,6 +55,7 @@ import { safeParseJsonResponse } from './utils/fetchUtils'
 import { copyToWeChat } from './utils/wechatExporter'
 import { detectCOSE } from './utils/coseClient'
 import { DEFAULT_DOCUMENT_CONTENT } from './constants/defaultDocument'
+import { getFormatFromPath, getLanguageFromPath, FORMAT_MD, FORMAT_TEXT, FORMAT_IMAGE, FORMAT_PDF, FORMAT_UNSUPPORTED } from './constants/fileFormats'
 import { AppUiProvider } from './context/AppUiContext'
 
 // 性能优化：首屏加载动画
@@ -256,6 +259,23 @@ function App() {
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState(null)
   const [clipboardContent, setClipboardContent] = useState(null)
+
+  // 全格式支持：当前文件格式、图片预览数据、PDF预览数据、非支持格式弹窗、保存确认弹窗
+  const [currentFileFormat, setCurrentFileFormat] = useState(null) // 'md'|'text'|'image'|'pdf'|'unsupported'
+  const imageDataRef = useRef(null) // 图片 base64 dataURL
+  const pdfDataRef = useRef(null) // PDF base64 dataURL
+  const currentFileEncodingRef = useRef('utf8') // 'utf8'|'hex' - 用于 Hex 保存时转换
+  const [currentFileSize, setCurrentFileSize] = useState(null) // 当前文件大小
+  const [currentFileMtime, setCurrentFileMtime] = useState(null) // 当前文件修改时间戳
+  const [showUnsupportedFormatDialog, setShowUnsupportedFormatDialog] = useState(false)
+  const pendingUnsupportedPathRef = useRef(null)
+  const [showSaveConfirmDialog, setShowSaveConfirmDialog] = useState(null) // { format, title, message } | null
+  const pendingSaveAfterConfirmRef = useRef(null) // { path, content, encoding, isSwitch }
+  const [showImageZoomDialog, setShowImageZoomDialog] = useState(false) // 图片预览点击放大
+  const originalLayoutRef = useRef(null) // 图片自动切换（桌面端）前用户原来的布局
+  const originalMobilePaneRef = useRef(null) // 图片自动切换（移动端）前用户原来的视图
+  const isImageAutoSwitchRef = useRef(false) // 桌面端：标记是否是通过图片自动切换的布局
+  const isMobileImageAutoSwitchRef = useRef(false) // 移动端：标记是否是通过图片自动切换的视图
 
   const handleExportConfigChange = useCallback((nextConfig) => {
     setExportConfig(nextConfig)
@@ -2993,10 +3013,35 @@ function App() {
     }
   }
 
-  const saveFile = async (path = currentPath, saveContent = content, isAutoSave = false) => {
+  const saveFile = async (path = currentPath, saveContent = content, isAutoSave = false, encodingOverride = null) => {
     if (!path) {
       setStatus('未指定文件路径，无法保存')
       return false
+    }
+
+    const encoding = encodingOverride ?? currentFileEncodingRef.current
+    let bodyContent = saveContent
+    let bodyEncoding = 'utf8'
+    if (encoding === 'hex') {
+      try {
+        const hex = saveContent.replace(/\s/g, '')
+        if (hex.length % 2 !== 0) throw new Error('Hex 字符串长度必须为偶数')
+        const bytes = new Uint8Array(hex.length / 2)
+        for (let i = 0; i < hex.length; i += 2) {
+          bytes[i / 2] = parseInt(hex.substr(i, 2), 16)
+        }
+        let binary = ''
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i])
+        }
+        bodyContent = btoa(binary)
+        bodyEncoding = 'base64'
+      } catch (e) {
+        setStatus('Hex 格式错误，无法保存')
+        return false
+      }
+    } else if (encoding === 'base64') {
+      bodyEncoding = 'base64'
     }
 
     try {
@@ -3004,7 +3049,7 @@ function App() {
       const response = await fetch('/api/file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path, content: saveContent })
+        body: JSON.stringify({ path, content: bodyContent, encoding: bodyEncoding })
       })
       const data = await response.json()
       
@@ -3075,18 +3120,18 @@ function App() {
   // 自动保存（替代 useAutoSave）- 只在内容变化时保存
   useEffect(() => {
     if (!currentPath || content === '') return
+    // PDF/图片/非支持格式不自动保存（需手动确认）
+    if (currentFileFormat === FORMAT_IMAGE || currentFileFormat === FORMAT_UNSUPPORTED) return
+    if (currentPath.toLowerCase().endsWith('.pdf')) return
 
-    // 清除之前的定时器
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current)
     }
 
     autoSaveTimerRef.current = setTimeout(async () => {
-      // 检查内容是否真的变化了
       const contentChanged = content !== lastSavedContentRef.current
       const pathChanged = currentPath !== lastSavedPathRef.current
 
-      // 只在内容变化或路径变化时才保存
       if (contentChanged || pathChanged) {
         try {
           const success = await saveFile(currentPath, content, true)
@@ -3108,7 +3153,7 @@ function App() {
         clearTimeout(autoSaveTimerRef.current)
       }
     }
-  }, [content, currentPath, getAutoSaveInterval])
+  }, [content, currentPath, currentFileFormat, getAutoSaveInterval])
 
   // 编辑区 localStorage 草稿备份（防抖 2 秒，刷新/关闭前可恢复）
   useEffect(() => {
@@ -3229,7 +3274,8 @@ function App() {
         if (openSync && ok) runPublishFlow()
       })
     } else {
-      // 无 URL 路径时：优先从 localStorage 恢复草稿，否则使用空白文档模板
+      setCurrentFileFormat(null)
+      imageDataRef.current = null
       const draft = loadEditorDraft()
       if (draft && draft.content !== '') {
         setContent(draft.content)
@@ -3248,41 +3294,102 @@ function App() {
     }
   }, [initialStateLoaded])
 
-  const loadFile = useCallback(async (path) => {
+  // 全格式支持：实际加载文件内容
+  const doLoadFile = useCallback(async (path, format, mode) => {
     try {
-      // 清除自动保存的内容与 localStorage 草稿（因为要加载新文件）
       await clearPersistedContent()
       clearEditorDraft()
-      
+      imageDataRef.current = null
+      setCurrentFileFormat(format)
+
       setStatus('正在加载...')
-      const response = await fetch(`/api/file?path=${encodeURIComponent(path)}`)
+      const modeParam = mode === 'binary' ? 'binary' : mode === 'hex' ? 'hex' : 'text'
+      const response = await fetch(`/api/file?path=${encodeURIComponent(path)}&mode=${modeParam}`)
       const data = await response.json()
-      
+
       if (data.ok) {
         const fileContent = data.content || ''
-        
-        // 检查文件大小
-        const fileSizeKB = fileContent.length / 1024
-        if (fileSizeKB > 1024) { // 大于 1MB
-          const fileSizeMB = (fileSizeKB / 1024).toFixed(2)
-          const confirmed = await requestConfirm({
-            title: '加载大文件',
-            message: `文件较大（${fileSizeMB} MB），加载可能需要一些时间。是否继续？`,
-            confirmText: '继续加载',
-            confirmVariant: 'primary'
-          })
-          if (!confirmed) {
-            setStatus('已取消加载')
-            setTimeout(() => setStatus('就绪'), 2000)
-            return false
-          }
+
+        // 如果是图片或PDF格式，立即清空预览区显示加载状态
+        if ((format === FORMAT_IMAGE || format === FORMAT_PDF) && previewRef.current) {
+          previewRef.current.innerHTML = '<div class="preview-loading" style="display:flex;align-items:center;justify-content:center;min-height:200px;padding:24px;color:var(--text-secondary);font-size:14px;">正在加载...</div>'
         }
-        
-        // 添加到最近文件列表（写入数据库）
+
+        // 检查文件大小（文本/hex 按字符长度，binary 按 base64 解码后估算）
+        const sizeBytes = mode === 'binary' ? (fileContent.length * 3) / 4 : new Blob([fileContent]).size
+        const fileSizeKB = sizeBytes / 1024
+        if (fileSizeKB > 1024) {
+          const fileSizeMB = (fileSizeKB / 1024).toFixed(2)
+          showToast(`文件较大（${fileSizeMB} MB），加载可能需要一些时间`, 'info', 1000)
+        }
+
         await addRecentFile(path)
         setRecentFiles(await getRecentFiles())
-        
-        setContent(fileContent)
+
+        if (format === FORMAT_IMAGE) {
+          currentFileEncodingRef.current = 'base64'
+          const mime = path.toLowerCase().endsWith('.png') ? 'image/png' : path.toLowerCase().endsWith('.gif') ? 'image/gif' : path.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg'
+          imageDataRef.current = `data:${mime};base64,${fileContent}`
+          // 使用 Markdown 语法引用图片，使用 /api/media 路径方式
+          const mediaPath = `/api/media?path=${encodeURIComponent(path)}`
+          const initialMarkdown = `![${path.split('/').pop()}](${mediaPath})`
+          setContent(initialMarkdown)
+          lastSavedContentRef.current = initialMarkdown
+          lastSavedPathRef.current = path
+          // 图片文件布局规则：单窗口模式（仅编辑/仅预览）时，切换到仅预览模式
+          if (layout === 'editor-only' || layout === 'preview-only') {
+            // 记录原布局（用于后续恢复）
+            originalLayoutRef.current = layout
+            isImageAutoSwitchRef.current = true
+            setLayout('preview-only')
+          }
+          // 移动端：切换到预览视图
+          if (isAdaptiveSinglePaneViewport && mobileActivePane === 'editor') {
+            originalMobilePaneRef.current = mobileActivePane
+            isMobileImageAutoSwitchRef.current = true
+            isMobileImageAutoSwitchRef.current = true
+            setMobileActivePane('preview')
+          }
+        } else if (format === FORMAT_PDF) {
+          currentFileEncodingRef.current = 'base64'
+          pdfDataRef.current = `data:application/pdf;base64,${fileContent}`
+          // PDF文件设置为空内容，因为不需要编辑
+          setContent('')
+          lastSavedContentRef.current = ''
+          lastSavedPathRef.current = path
+          imageDataRef.current = null
+          // PDF文件布局规则：单窗口模式（仅编辑/仅预览）时，切换到仅预览模式
+          if (layout === 'editor-only' || layout === 'preview-only') {
+            // 记录原布局（用于后续恢复）
+            originalLayoutRef.current = layout
+            isImageAutoSwitchRef.current = true
+            setLayout('preview-only')
+          }
+          // 移动端：切换到预览视图
+          if (isAdaptiveSinglePaneViewport && mobileActivePane === 'editor') {
+            originalMobilePaneRef.current = mobileActivePane
+            isMobileImageAutoSwitchRef.current = true
+            setMobileActivePane('preview')
+          }
+        } else {
+          currentFileEncodingRef.current = mode === 'hex' ? 'hex' : 'utf8'
+          setContent(fileContent)
+          lastSavedContentRef.current = fileContent
+          lastSavedPathRef.current = path
+          // 桌面端：非图片文件，如果之前是图片自动切换的，恢复原布局
+          if (isImageAutoSwitchRef.current && originalLayoutRef.current) {
+            setLayout(originalLayoutRef.current)
+            isImageAutoSwitchRef.current = false
+            originalLayoutRef.current = null
+          }
+          // 移动端：非图片文件，如果之前是图片自动切换的，恢复原视图
+          if (isMobileImageAutoSwitchRef.current && originalMobilePaneRef.current) {
+            setMobileActivePane(originalMobilePaneRef.current)
+            isMobileImageAutoSwitchRef.current = false
+            originalMobilePaneRef.current = null
+          }
+        }
+
         setCurrentPath(path)
         setStatus(`已加载: ${path}`)
         return true
@@ -3293,17 +3400,42 @@ function App() {
         )
         setStatus(`加载失败: ${data.message || data.code}`)
         console.error(errorMsg)
+        // 移除自动布局切换，沿用当前布局
+        showToast('文件读取失败', 'error', 3000)
         return false
       }
     } catch (error) {
-      const formattedError = handleError(error, {
-        operation: '加载文件',
-        filePath: path
-      })
+      const formattedError = handleError(error, { operation: '加载文件', filePath: path })
       setStatus(`加载失败: ${formattedError.message}`)
+      // 移除自动布局切换，沿用当前布局
+      showToast('文件读取失败', 'error', 3000)
       return false
     }
-  }, [])
+  }, [requestConfirm, showToast, layout, isAdaptiveSinglePaneViewport, mobileActivePane])
+
+  // 全格式支持：按格式加载文件并应用自动布局
+  const loadFile = useCallback(async (path) => {
+    const format = getFormatFromPath(path)
+    if (format === FORMAT_UNSUPPORTED) {
+      pendingUnsupportedPathRef.current = path
+      setShowUnsupportedFormatDialog(true)
+      return false
+    }
+    return doLoadFile(path, format, format === FORMAT_IMAGE ? 'binary' : 'text')
+  }, [doLoadFile])
+
+  const handleUnsupportedFormatChoice = useCallback(async (choice) => {
+    const path = pendingUnsupportedPathRef.current
+    setShowUnsupportedFormatDialog(false)
+    pendingUnsupportedPathRef.current = null
+    if (!path || choice === 'cancel') return
+    const mode = choice === 'hex' ? 'hex' : 'text'
+    const loaded = await doLoadFile(path, FORMAT_UNSUPPORTED, mode)
+    if (loaded) {
+      pendingSwitchPathRef.current = null
+      updateShowFileTree((prev) => (isCompactViewport ? false : prev))
+    }
+  }, [doLoadFile, isCompactViewport, updateShowFileTree])
 
   const hasUnsavedChanges = useCallback(() => {
     if (!content) {
@@ -3335,31 +3467,45 @@ function App() {
   }, [isCompactViewport, loadFile, updateShowFileTree])
 
   const handleSwitchSaveConfirm = useCallback(async () => {
-    setShowSwitchSaveConfirm(false)
-
     if (!currentPath) {
+      setShowSwitchSaveConfirm(false)
       setIsSaveAsMode(false)
       setShowSaveAsDialog(true)
       setStatus('当前内容尚未保存，请先保存后再切换文件')
       return
     }
 
+    const isPdf = currentPath.toLowerCase().endsWith('.pdf')
+    if (currentFileFormat === FORMAT_IMAGE || isPdf || currentFileFormat === FORMAT_UNSUPPORTED) {
+      setShowSwitchSaveConfirm(false)
+      const format = currentFileFormat === FORMAT_IMAGE ? 'image' : isPdf ? 'pdf' : 'unsupported'
+      const msg = format === 'image' ? '修改图片二进制内容可能导致图片损坏，是否确认保存？'
+        : format === 'pdf' ? '仅保存提取的纯文本内容，原 PDF 格式将被覆盖，是否确认？'
+        : '修改该格式文件可能导致文件损坏，是否确认保存？'
+      setShowSaveConfirmDialog({
+        format,
+        title: format === 'pdf' ? '保存 PDF 文件' : format === 'image' ? '保存图片文件' : '保存非原生支持文件',
+        message: msg
+      })
+      pendingSaveAfterConfirmRef.current = { path: currentPath, content, isSwitch: true }
+      return
+    }
+
+    setShowSwitchSaveConfirm(false)
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current)
       autoSaveTimerRef.current = null
     }
 
     const success = await saveFile(currentPath, content)
-    if (!success) {
-      return
-    }
+    if (!success) return
 
     await saveFileHistory(currentPath, content, '', false).catch(err => {
       console.warn('切换前保存历史版本失败:', err)
     })
 
     await continuePendingSwitch()
-  }, [content, continuePendingSwitch, currentPath])
+  }, [content, continuePendingSwitch, currentPath, currentFileFormat])
 
   const handleSwitchWithoutSaving = useCallback(async () => {
     setShowSwitchSaveConfirm(false)
@@ -3386,7 +3532,18 @@ function App() {
     return continuePendingSwitch()
   }, [continuePendingSwitch, hasUnsavedChanges, currentPath])
 
-  const handleFileSelect = useCallback((filePath) => {
+  const handleFileSelect = useCallback((filePath, node) => {
+    // 从文件树节点获取 size 和 mtime
+    if (node && node.size !== undefined) {
+      setCurrentFileSize(node.size)
+    } else {
+      setCurrentFileSize(null)
+    }
+    if (node && node.mtime !== undefined) {
+      setCurrentFileMtime(node.mtime)
+    } else {
+      setCurrentFileMtime(null)
+    }
     void openFileWithGuard(filePath)
   }, [openFileWithGuard])
 
@@ -3397,18 +3554,16 @@ function App() {
   const [initialFileName, setInitialFileName] = useState('')
 
   const handleNewFileConfirm = useCallback((fileContent) => {
-    // 清除自动保存的内容与 localStorage 草稿（因为要创建新文件）
     void clearPersistedContent()
     clearEditorDraft()
-    
-    // 直接加载模板内容到编辑器，模板内容视为「已保存」状态，未修改时不弹保存提示
+    imageDataRef.current = null
+    setCurrentFileFormat(null)
     lastSavedContentRef.current = fileContent
     lastSavedPathRef.current = ''
     setContent(fileContent)
-    setCurrentPath('') // 清空当前路径，表示这是新文件
-    setInitialFileName('') // 清空初始文件名，用户保存时自己填写
+    setCurrentPath('')
+    setInitialFileName('')
     setStatus('新建文件 - 未保存')
-    // 不再打开保存对话框，用户编辑完成后通过保存按钮触发
   }, [])
 
   const handleSaveAsConfirm = useCallback(async (newPath) => {
@@ -3443,14 +3598,20 @@ function App() {
 
   const handleImageUpload = useCallback(async (file) => {
     if (!file || !editorRef.current) return
-    
+
+    const isHEIC = file.name?.toLowerCase?.().endsWith('.heic') || file.name?.toLowerCase?.().endsWith('.heif')
+
     setStatus('正在压缩图片...')
-    
+
     try {
-      // 压缩图片
+      // 压缩图片（按设置开关；HEIC 跳过，服务器端转换）
       try {
-        file = await compressImage(file)
-        setStatus('正在上传图片...')
+        if (isHEIC) {
+          setStatus('正在上传图片...')
+        } else {
+          file = await compressImage(file)
+          setStatus('正在上传图片...')
+        }
       } catch (error) {
         console.error('图片压缩失败:', error)
         setStatus('正在上传图片...')
@@ -3626,25 +3787,50 @@ function App() {
 
   const handleSaveClick = useCallback(async () => {
     if (currentPath) {
-      // 清除自动保存定时器，避免冲突
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current)
         autoSaveTimerRef.current = null
       }
-      // 如果有路径，直接保存
+      // PDF/图片/非支持格式：保存前二次确认
+      const isPdf = currentPath.toLowerCase().endsWith('.pdf')
+      if (currentFileFormat === FORMAT_IMAGE) {
+        setShowSaveConfirmDialog({
+          format: 'image',
+          title: '保存图片文件',
+          message: '修改图片二进制内容可能导致图片损坏，是否确认保存？'
+        })
+        pendingSaveAfterConfirmRef.current = { path: currentPath, content, isSwitch: false }
+        return
+      }
+      if (isPdf) {
+        setShowSaveConfirmDialog({
+          format: 'pdf',
+          title: '保存 PDF 文件',
+          message: '仅保存提取的纯文本内容，原 PDF 格式将被覆盖，是否确认？'
+        })
+        pendingSaveAfterConfirmRef.current = { path: currentPath, content, isSwitch: false }
+        return
+      }
+      if (currentFileFormat === FORMAT_UNSUPPORTED) {
+        setShowSaveConfirmDialog({
+          format: 'unsupported',
+          title: '保存非原生支持文件',
+          message: '修改该格式文件可能导致文件损坏，是否确认保存？'
+        })
+        pendingSaveAfterConfirmRef.current = { path: currentPath, content, isSwitch: false }
+        return
+      }
       const success = await saveFile(currentPath, content)
       if (success) {
-        // 手动保存后创建历史版本（标记为手动保存）
         await saveFileHistory(currentPath, content, '', false).catch(err => {
           console.warn('保存历史版本失败:', err)
         })
       }
     } else {
-      // 如果没有路径，打开保存对话框（不是另存为）
       setIsSaveAsMode(false)
       setShowSaveAsDialog(true)
     }
-  }, [currentPath, content]) // 依赖 currentPath 和 content
+  }, [currentPath, content, currentFileFormat])
 
   // 恢复历史版本
   const handleVersionRestore = useCallback(async (restoredContent, version) => {
@@ -3678,6 +3864,30 @@ function App() {
       editorRef.current.focus()
     }
   }, [currentPath])
+
+  const handleSaveConfirmChoice = useCallback(async (choice) => {
+    const pending = pendingSaveAfterConfirmRef.current
+    setShowSaveConfirmDialog(null)
+    pendingSaveAfterConfirmRef.current = null
+    if (!pending || choice === 'cancel') return
+    if (choice === 'saveAsMd') {
+      setInitialFileName((pending.path.split('/').pop() || 'untitled').replace(/\.[^.]+$/, '') + '.md')
+      setIsSaveAsMode(true)
+      setShowSaveAsDialog(true)
+      return
+    }
+    if (choice === 'confirm') {
+      const success = await saveFile(pending.path, pending.content)
+      if (success) {
+        await saveFileHistory(pending.path, pending.content, '', false).catch(err => {
+          console.warn('保存历史版本失败:', err)
+        })
+        if (pending.isSwitch) {
+          await continuePendingSwitch()
+        }
+      }
+    }
+  }, [continuePendingSwitch])
 
   const handleSaveAs = useCallback(() => {
     setIsSaveAsMode(true)
@@ -5759,21 +5969,19 @@ function App() {
   }, [debouncedContent])
 
   useEffect(() => {
+    // 图片格式不渲染 Markdown
+    if (currentFileFormat === FORMAT_IMAGE) return
     // 如果正在渲染中，跳过
-    if (isRenderingRef.current) {
-      return
-    }
-    
+    if (isRenderingRef.current) return
     // 只在内容真正变化时才渲染
     if (debouncedContent !== lastRenderedContentRef.current) {
       lastRenderedContentRef.current = debouncedContent
       isRenderingRef.current = true
-      
       renderMarkdown(debouncedContent).finally(() => {
         isRenderingRef.current = false
       })
     }
-  }, [debouncedContent])
+  }, [debouncedContent, currentFileFormat])
 
   // 初始化时应用导出配置样式
   // useEffect(() => {
@@ -5794,9 +6002,36 @@ function App() {
   useEffect(() => {
     if (effectiveLayout === 'preview-only' || effectiveLayout === 'vertical') {
       const timer = setTimeout(() => {
-        // 布局切换或导出配置面板开关时强制渲染（平板模式下关闭导出配置会切换 DOM 分支，预览区被替换需重新填充）
-        if (!isRenderingRef.current && previewRef.current) {
-          console.log('布局切换，触发渲染')
+        if (!previewRef.current) return
+        // 图片格式：直接使用 imageDataRef.current 中的 base64 数据渲染
+        // 如果 imageDataRef.current 为 null，说明图片还在加载中，显示加载状态
+        if (currentFileFormat === FORMAT_IMAGE) {
+          if (imageDataRef.current) {
+            previewRef.current.innerHTML = `<div class="preview-image-container" style="display:flex;align-items:center;justify-content:center;min-height:200px;padding:24px;"><img src="${imageDataRef.current}" alt="${currentPath?.split('/').pop() || '预览'}" style="max-width:100%;max-height:80vh;object-fit:contain;" /></div>`
+          } else {
+            previewRef.current.innerHTML = '<div class="preview-loading" style="display:flex;align-items:center;justify-content:center;min-height:200px;padding:24px;color:var(--text-secondary);font-size:14px;">正在加载图片...</div>'
+          }
+          return
+        }
+        // 非支持格式：显示提示
+        if (currentFileFormat === FORMAT_UNSUPPORTED) {
+          previewRef.current.innerHTML = '<div class="preview-unsupported" style="display:flex;align-items:center;justify-content:center;min-height:200px;padding:24px;color:var(--text-secondary);font-size:14px;">此格式不支持预览</div>'
+          return
+        }
+        // 文本类格式：纯文本展示（支持语法高亮）
+        if (currentFileFormat === FORMAT_TEXT) {
+          const escaped = (content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+          const lang = currentPath ? getLanguageFromPath(currentPath) : 'plaintext'
+          const langClass = lang === 'plaintext' ? '' : ` language-${lang}`
+          previewRef.current.innerHTML = `<pre class="preview-plaintext" style="margin:0;padding:24px;white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:14px;"><code class="hljs${langClass}">${escaped}</code></pre>`
+          import('highlight.js').then(({ default: hljs }) => {
+            const code = previewRef.current?.querySelector('.preview-plaintext code')
+            if (code) hljs.highlightElement(code).catch(() => {})
+          }).catch(() => {})
+          return
+        }
+        // 布局切换时强制渲染 Markdown（包括图片格式，支持在编辑区写 Markdown 图片语法）
+        if (!isRenderingRef.current) {
           isRenderingRef.current = true
           renderMarkdown(content).finally(() => {
             isRenderingRef.current = false
@@ -5805,7 +6040,54 @@ function App() {
       }, 50)
       return () => clearTimeout(timer)
     }
-  }, [effectiveLayout, content, renderMarkdown, showExportConfigPanel])
+  }, [effectiveLayout, content, renderMarkdown, showExportConfigPanel, currentFileFormat, currentPath, imageDataRef.current])
+
+  // 图片格式：切换到编辑/双栏布局时，按需加载 Hex 到编辑区
+  useEffect(() => {
+    if (currentFileFormat !== FORMAT_IMAGE || !currentPath) return
+    const needsEditor = effectiveLayout === 'editor-only' || effectiveLayout === 'vertical'
+    if (!needsEditor || content !== '') return
+
+    let cancelled = false
+    const loadImageHex = async () => {
+      try {
+        const res = await fetch(`/api/file?path=${encodeURIComponent(currentPath)}&mode=hex`)
+        const data = await res.json()
+        if (cancelled || !data.ok) return
+        currentFileEncodingRef.current = 'hex'
+        setContent(data.content || '')
+        lastSavedContentRef.current = data.content || ''
+        lastSavedPathRef.current = currentPath
+      } catch (e) {
+        if (!cancelled) showToast('加载图片 Hex 失败', 'error')
+      }
+    }
+    loadImageHex()
+    return () => { cancelled = true }
+  }, [currentFileFormat, currentPath, effectiveLayout, content, showToast])
+
+  // 图片双栏模式：Hex 编辑后实时更新预览（hex -> base64 -> dataURL）
+  useEffect(() => {
+    if (currentFileFormat !== FORMAT_IMAGE || effectiveLayout !== 'vertical') return
+    if (!content || !/^[0-9a-fA-F\s]*$/.test(content.replace(/\s/g, ''))) return
+
+    try {
+      const hex = content.replace(/\s/g, '')
+      if (hex.length % 2 !== 0) return
+      const bytes = new Uint8Array(hex.length / 2)
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substr(i, 2), 16)
+      }
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+      const b64 = btoa(binary)
+      const mime = currentPath.toLowerCase().endsWith('.png') ? 'image/png' : currentPath.toLowerCase().endsWith('.gif') ? 'image/gif' : currentPath.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg'
+      imageDataRef.current = `data:${mime};base64,${b64}`
+      if (previewRef.current) {
+        previewRef.current.innerHTML = `<div class="preview-image-container" style="display:flex;align-items:center;justify-content:center;min-height:200px;padding:24px;"><img src="${imageDataRef.current}" alt="预览" style="max-width:100%;max-height:80vh;object-fit:contain;" /></div>`
+      }
+    } catch (_) {}
+  }, [currentFileFormat, currentPath, effectiveLayout, content])
 
   // 处理脚注链接点击，防止页面滚动
   useEffect(() => {
@@ -5901,14 +6183,24 @@ function App() {
       }
     }
     
+    const handleFormatImageClick = (e) => {
+      if (e.target.closest('.preview-image-container') && currentFileFormat === FORMAT_IMAGE && imageDataRef.current) {
+        e.preventDefault()
+        e.stopPropagation()
+        setShowImageZoomDialog(true)
+      }
+    }
+
     const previewElement = previewRef.current
     if (previewElement) {
       previewElement.addEventListener('click', handleImageLinkClick, true)
+      previewElement.addEventListener('click', handleFormatImageClick, true)
       return () => {
         previewElement.removeEventListener('click', handleImageLinkClick, true)
+        previewElement.removeEventListener('click', handleFormatImageClick, true)
       }
     }
-  }, [previewRef])
+  }, [previewRef, currentFileFormat])
 
   // 预览区右键菜单事件监听 - 已改为直接在 JSX 中使用 onContextMenu
   // useEffect 已移除，避免重复绑定
@@ -7177,6 +7469,51 @@ function App() {
         />
       )}
 
+      {showUnsupportedFormatDialog && (
+        <div className={`dialog-overlay theme-${editorTheme}`} onClick={() => handleUnsupportedFormatChoice('cancel')}>
+          <div className="dialog-container confirm-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="选择打开方式">
+            <div className="dialog-content confirm-dialog-panel">
+              <h2 className="confirm-dialog-title">打开非支持格式文件</h2>
+              <p className="confirm-message">此格式不支持预览。请选择打开方式：</p>
+              <div className="confirm-dialog-actions" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <button className="btn-secondary" onClick={() => void handleUnsupportedFormatChoice('text')}>纯文本</button>
+                <button className="btn-secondary" onClick={() => void handleUnsupportedFormatChoice('hex')}>Hex</button>
+                <button className="btn-secondary" onClick={() => handleUnsupportedFormatChoice('cancel')}>取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSaveConfirmDialog && (
+        <div className={`dialog-overlay theme-${editorTheme}`} onClick={() => handleSaveConfirmChoice('cancel')}>
+          <div className="dialog-container confirm-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={showSaveConfirmDialog.title}>
+            <div className="dialog-content confirm-dialog-panel">
+              <h2 className="confirm-dialog-title">{showSaveConfirmDialog.title}</h2>
+              <p className="confirm-message">{showSaveConfirmDialog.message}</p>
+              <div className="confirm-dialog-actions" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <button className="btn-primary" onClick={() => void handleSaveConfirmChoice('confirm')}>确认保存</button>
+                <button className="btn-secondary" onClick={() => void handleSaveConfirmChoice('saveAsMd')}>另存为 .md</button>
+                <button className="btn-secondary" onClick={() => handleSaveConfirmChoice('cancel')}>取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImageZoomDialog && imageDataRef.current && (
+        <ImagePreviewDialog
+          image={{
+            url: imageDataRef.current,
+            filename: currentPath?.split('/').pop() || 'image',
+            size: currentFileSize,
+            mtime: currentFileMtime
+          }}
+          onClose={() => setShowImageZoomDialog(false)}
+          theme={editorTheme}
+        />
+      )}
+
       {confirmDialogState && (
         <ConfirmDialog
           title={confirmDialogState.title}
@@ -7429,7 +7766,7 @@ function App() {
               style={{
                 width: `min(${fileTreeWidth}px, calc(100vw - 24px))`,
                 transform: isFileTreeClosing ? 'translate3d(-100%, 0, 0)' : `translate3d(${fileTreeSwipeOffset}px, 0, 0)`,
-                transition: isFileTreeSwipeDragging ? 'none' : (isFileTreeClosing ? 'transform 280ms ease-in' : 'transform 180ms ease-out'),
+                transition: isFileTreeSwipeDragging ? 'none' : (isFileTreeClosing ? 'transform 280ms ease-in' : 'transform 280ms ease-out'),
               }}
               onTouchStart={handleFileTreeTouchStart}
               onTouchMove={handleFileTreeTouchMove}
@@ -7547,7 +7884,7 @@ function App() {
               >
                 <MonacoEditor
                   height="100%"
-                  defaultLanguage="markdown"
+                  language={currentPath ? getLanguageFromPath(currentPath) : 'markdown'}
                   theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
                   value={content}
                   onChange={handleEditorChange}
@@ -7652,7 +7989,7 @@ function App() {
               >
                 <MonacoEditor
                   height="100%"
-                  defaultLanguage="markdown"
+                  language={currentPath ? getLanguageFromPath(currentPath) : 'markdown'}
                   theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
                   value={content}
                   onChange={handleEditorChange}

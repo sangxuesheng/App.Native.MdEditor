@@ -1,0 +1,3 @@
+GitHub ImageBed Test Image
+Created at: $(date)
+This is a simple test file for GitHub image bed functionality.

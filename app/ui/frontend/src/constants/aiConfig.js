@@ -1,50 +1,40 @@
 // AI 配置常量
 
-/** 服务商分类（侧栏展示顺序：国内 → 云算力 → 海外 → 部署 → 聚合 → 垂类 → 其他） */
+/** 服务商分类（侧栏展示顺序） */
 export const AI_SERVICE_CATEGORIES = [
+  {
+    id: 'builtin',
+    label: '内置',
+    values: ['builtin'],
+  },
   {
     id: 'chinaGeneral',
     label: '国内通用大模型',
     values: [
-      'deepseek', 'moonshot', 'aliyun-bailian', 'wenxin',
-      'hunyuan', 'zhipu', 'siliconflow', 'spark', 'sensenova',
-      'stepfun', 'baichuan', 'doubao', 'minimax', 'internlm', '360ai',
-      'taichu', 'jina',
+      'hunyuan',
+      'deepseek',
+      'moonshot',
+      'aliyun-bailian',
+      'wenxin',
+      'zhipu',
+      'siliconflow',
+      'doubao',
     ],
-  },
-  {
-    id: 'cloudCompute',
-    label: 'AI算力/云服务',
-    values: ['azure-ai', 'bedrock', 'cloudflare', 'nvidia', 'nebius', 'qiniu'],
   },
   {
     id: 'overseasGeneral',
     label: '海外通用大模型',
-    values: [
-      'openai', 'azure-openai', 'anthropic', 'google', 'vertex-ai',
-      'mistral', 'perplexity', 'xai', 'cohere', 'ai21labs',
-      'upstage', 'groq', 'fireworks', 'together', 'sambanova', 'cerebras',
-    ],
+    values: ['openai'],
   },
   {
     id: 'deploymentPlatform',
-    label: '模型部署/推理平台',
-    values: ['ollama', 'ollama-cloud', 'vllm', 'xinference', 'lmstudio', 'higress'],
-  },
-  {
-    id: 'modelAggregation',
-    label: '模型聚合/中转',
-    values: ['builtin', 'aihubmix', 'openrouter', 'search1api', 'infiniai', 'akashchat', 'cometapi', 'vercel-ai'],
-  },
-  {
-    id: 'verticalTool',
-    label: '垂类/工具型AI',
-    values: ['comfyui', 'fal', 'huggingface', 'bfl', 'novita', 'ppio', 'modelscope', 'vercel-v0', 'gitee-ai'],
+    label: '本地部署',
+    values: ['ollama'],
   },
   {
     id: 'other',
     label: '其他',
-    values: ['302ai', 'github', 'newapi', 'custom'],
+    values: ['custom'],
   },
 ]
 
@@ -68,140 +58,6 @@ export const AI_SERVICES = [
     ],
   },
   {
-    value: 'deepseek',
-    label: 'DeepSeek',
-    endpoint: 'https://api.deepseek.com/v1',
-    needsApiKey: true,
-    helpUrl: 'https://api-docs.deepseek.com/zh-cn/',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'openai',
-    label: 'OpenAI',
-    endpoint: 'https://api.openai.com/v1',
-    needsApiKey: true,
-    helpUrl: 'https://platform.openai.com/docs/api-reference',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'azure-openai',
-    label: 'Azure OpenAI',
-    endpoint: 'https://your-resource.openai.azure.com/openai/deployments/your-deployment',
-    needsApiKey: true,
-    helpUrl: 'https://learn.microsoft.com/zh-cn/azure/ai-services/openai/',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'anthropic',
-    label: 'Anthropic',
-    endpoint: 'https://api.anthropic.com/v1',
-    needsApiKey: true,
-    helpUrl: 'https://docs.anthropic.com/',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'google',
-    label: 'Google',
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta',
-    needsApiKey: true,
-    helpUrl: 'https://ai.google.dev/docs',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'vertex-ai',
-    label: 'Vertex AI',
-    endpoint: 'https://us-central1-aiplatform.googleapis.com/v1/projects',
-    needsApiKey: true,
-    helpUrl: 'https://cloud.google.com/vertex-ai/docs',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'mistral',
-    label: 'Mistral',
-    endpoint: 'https://api.mistral.ai/v1',
-    needsApiKey: true,
-    helpUrl: 'https://docs.mistral.ai/',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'perplexity',
-    label: 'Perplexity',
-    endpoint: 'https://api.perplexity.ai',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'xai',
-    label: 'xAI (Grok)',
-    endpoint: 'https://api.x.ai/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'cohere',
-    label: 'Cohere',
-    endpoint: 'https://api.cohere.ai/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'ai21labs',
-    label: 'Ai21Labs',
-    endpoint: 'https://api.ai21.com/studio/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'upstage',
-    label: 'Upstage',
-    endpoint: 'https://api.upstage.ai/v1/solar',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'groq',
-    label: 'Groq',
-    endpoint: 'https://api.groq.com/openai/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'fireworks',
-    label: 'Fireworks AI',
-    endpoint: 'https://api.fireworks.ai/inference/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'together',
-    label: 'Together AI',
-    endpoint: 'https://api.together.xyz/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'sambanova',
-    label: 'SambaNova',
-    endpoint: 'https://api.sambanova.ai/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'cerebras',
-    label: 'Cerebras',
-    endpoint: 'https://api.cerebras.ai/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'qwen',
-    label: '通义千问',
-    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    needsApiKey: true,
-    helpUrl: 'https://help.aliyun.com/zh/dashscope/',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
     value: 'hunyuan',
     label: '腾讯混元',
     endpoint: 'https://api.hunyuan.cloud.tencent.com/v1',
@@ -210,44 +66,11 @@ export const AI_SERVICES = [
     models: [], // 在线拉取，不默认配置
   },
   {
-    value: 'doubao',
-    label: '火山方舟（豆包）',
-    endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
+    value: 'deepseek',
+    label: 'DeepSeek',
+    endpoint: 'https://api.deepseek.com/v1',
     needsApiKey: true,
-    helpUrl: 'https://www.volcengine.com/docs/82379',
-    modelHint: 'model 填推理接入点 ID（ep-xxxx）或带日期后缀的模型 ID（如 doubao-pro-32k-241215），在火山方舟控制台创建接入点或从模型广场复制',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'siliconflow',
-    label: '硅基流动',
-    endpoint: 'https://api.siliconflow.cn/v1',
-    needsApiKey: true,
-    helpUrl: 'https://docs.siliconflow.cn/',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: '302ai',
-    label: '302.AI',
-    endpoint: 'https://api.302.ai/v1',
-    needsApiKey: true,
-    helpUrl: 'https://302.ai/',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'zhipu',
-    label: '智谱 AI',
-    endpoint: 'https://open.bigmodel.cn/api/paas/v4',
-    needsApiKey: true,
-    helpUrl: 'https://open.bigmodel.cn/dev/api',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'baichuan',
-    label: '百川智能',
-    endpoint: 'https://api.baichuan-ai.com/v1',
-    needsApiKey: true,
-    helpUrl: 'https://platform.baichuan-ai.com/docs',
+    helpUrl: 'https://api-docs.deepseek.com/zh-cn/',
     models: [], // 在线拉取，不默认配置
   },
   {
@@ -275,60 +98,36 @@ export const AI_SERVICES = [
     models: [], // 在线拉取，不默认配置
   },
   {
-    value: 'spark',
-    label: 'Spark',
-    endpoint: 'https://spark-api.xf-yun.com/v1',
+    value: 'zhipu',
+    label: '智谱 AI',
+    endpoint: 'https://open.bigmodel.cn/api/paas/v4',
     needsApiKey: true,
-    helpUrl: 'https://www.xfyun.cn/doc/spark/Web.html',
+    helpUrl: 'https://open.bigmodel.cn/dev/api',
     models: [], // 在线拉取，不默认配置
   },
   {
-    value: 'sensenova',
-    label: 'SenseNova',
-    endpoint: 'https://api.sensenova.cn/v1/llm',
+    value: 'siliconflow',
+    label: '硅基流动',
+    endpoint: 'https://api.siliconflow.cn/v1',
     needsApiKey: true,
+    helpUrl: 'https://docs.siliconflow.cn/',
     models: [], // 在线拉取，不默认配置
   },
   {
-    value: 'stepfun',
-    label: 'Stepfun',
-    endpoint: 'https://api.stepfun.com/v1',
+    value: 'doubao',
+    label: '火山方舟（豆包）',
+    endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
     needsApiKey: true,
+    helpUrl: 'https://www.volcengine.com/docs/82379',
+    modelHint: 'model 填推理接入点 ID（ep-xxxx）或带日期后缀的模型 ID（如 doubao-pro-32k-241215），在火山方舟控制台创建接入点或从模型广场复制',
     models: [], // 在线拉取，不默认配置
   },
   {
-    value: 'minimax',
-    label: 'MiniMax',
-    endpoint: 'https://api.minimax.chat/v1',
+    value: 'openai',
+    label: 'OpenAI',
+    endpoint: 'https://api.openai.com/v1',
     needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'internlm',
-    label: 'InternLM',
-    endpoint: 'https://openapi.internlm.ai/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: '360ai',
-    label: '360 AI',
-    endpoint: 'https://api.360.cn/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'taichu',
-    label: 'Taichu',
-    endpoint: 'https://api.taichu.zone/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'jina',
-    label: 'Jina AI',
-    endpoint: 'https://api.jina.ai/v1',
-    needsApiKey: true,
+    helpUrl: 'https://platform.openai.com/docs/api-reference',
     models: [], // 在线拉取，不默认配置
   },
   {
@@ -338,210 +137,6 @@ export const AI_SERVICES = [
     needsApiKey: false,
     helpUrl: 'https://github.com/ollama/ollama/blob/main/docs/api.md',
     models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'ollama-cloud',
-    label: 'Ollama Cloud',
-    endpoint: 'https://api.ollama.com/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'vllm',
-    label: 'vLLM',
-    endpoint: '',
-    needsApiKey: false,
-    models: [],
-  },
-  {
-    value: 'xinference',
-    label: 'Xinference',
-    endpoint: 'http://localhost:9997/v1',
-    needsApiKey: false,
-    models: [],
-  },
-  {
-    value: 'lmstudio',
-    label: 'LM Studio',
-    endpoint: 'http://localhost:1234/v1',
-    needsApiKey: false,
-    models: [],
-  },
-  {
-    value: 'higress',
-    label: 'Higress',
-    endpoint: '',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'azure-ai',
-    label: 'Azure AI',
-    endpoint: 'https://your-resource.cognitiveservices.azure.com/openai/deployments',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'bedrock',
-    label: 'Bedrock',
-    endpoint: 'https://bedrock-runtime.us-east-1.amazonaws.com',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'cloudflare',
-    label: 'Cloudflare Workers AI',
-    endpoint: 'https://api.cloudflare.com/client/v4/accounts',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'nvidia',
-    label: 'Nvidia',
-    endpoint: 'https://integrate.api.nvidia.com/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'nebius',
-    label: 'Nebius',
-    endpoint: 'https://api.nebius.ai/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'qiniu',
-    label: 'Qiniu',
-    endpoint: 'https://ai.qiniuapi.com/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'aihubmix',
-    label: 'AiHubMix',
-    endpoint: 'https://api.aihubmix.com/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'openrouter',
-    label: 'OpenRouter',
-    endpoint: 'https://openrouter.ai/api/v1',
-    needsApiKey: true,
-    helpUrl: 'https://openrouter.ai/docs',
-    models: [], // 在线拉取，不默认配置
-  },
-  {
-    value: 'search1api',
-    label: 'Search1API',
-    endpoint: 'https://api.search1api.com/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'infiniai',
-    label: 'InfiniAI',
-    endpoint: 'https://api.infini.ai/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'akashchat',
-    label: 'AkashChat',
-    endpoint: 'https://api.akashchat.com/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'cometapi',
-    label: 'CometAPI',
-    endpoint: 'https://api.cometapi.com/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'vercel-ai',
-    label: 'Vercel AI Gateway',
-    endpoint: 'https://api.vercel.com/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'comfyui',
-    label: 'ComfyUI',
-    endpoint: '',
-    needsApiKey: false,
-    models: [],
-  },
-  {
-    value: 'fal',
-    label: 'Fal',
-    endpoint: 'https://api.fal.ai/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'huggingface',
-    label: 'HuggingFace',
-    endpoint: 'https://api-inference.huggingface.co',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'bfl',
-    label: 'Black Forest Labs',
-    endpoint: 'https://api.blackforestlabs.ai/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'novita',
-    label: 'Novita',
-    endpoint: 'https://api.novita.ai/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'ppio',
-    label: 'PPIO',
-    endpoint: 'https://api.ppio.ai/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'modelscope',
-    label: 'ModelScope',
-    endpoint: 'https://api.modelscope.cn/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'vercel-v0',
-    label: 'Vercel (v0)',
-    endpoint: 'https://api.vercel.com/v0',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'gitee-ai',
-    label: 'Gitee AI',
-    endpoint: 'https://api.gitee.com/ai/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'github',
-    label: 'GitHub',
-    endpoint: 'https://api.github.com/copilot/v1',
-    needsApiKey: true,
-    models: [],
-  },
-  {
-    value: 'newapi',
-    label: 'New API',
-    endpoint: '',
-    needsApiKey: true,
-    models: [],
   },
   {
     value: 'custom',
@@ -567,25 +162,15 @@ export const CONNECTIVITY_TEST_EXCLUDED_PATTERNS = [
 export const CONNECTIVITY_TEST_DEFAULT_MODELS = {
   builtin: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'],
   deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  openai: ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4o'],
-  'azure-openai': ['gpt-4o-mini', 'gpt-35-turbo'],
-  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'],
-  google: ['gemini-1.5-flash', 'gemini-pro'],
-  mistral: ['mistral-small-latest', 'open-mistral-7b'],
-  groq: ['llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
-  qwen: ['qwen-turbo', 'qwen-plus'],
   hunyuan: ['hunyuan-lite', 'hunyuan-turbos-latest', 'hunyuan-a13b'],
-  doubao: ['doubao-pro-32k-241215', 'doubao-lite-32k-250115'],
-  siliconflow: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V2.5'],
-  '302ai': ['gpt-4o-mini', 'deepseek-chat'],
-  zhipu: ['glm-4-flash', 'glm-4'],
-  baichuan: ['Baichuan2-Turbo', 'Baichuan2-53B'],
   moonshot: ['moonshot-v1-8k', 'moonshot-v1-32k'],
   'aliyun-bailian': ['qwen-turbo', 'qwen-plus'],
   wenxin: ['ernie-speed-128k', 'ernie-4.0-8k'],
+  zhipu: ['glm-4-flash', 'glm-4'],
+  siliconflow: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V2.5'],
+  doubao: ['doubao-pro-32k-241215', 'doubao-lite-32k-250115'],
+  openai: ['gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4o'],
   ollama: ['llama3.2', 'qwen2.5:7b'],
-  'ollama-cloud': ['llama3.2', 'qwen2.5:7b'],
-  openrouter: ['openai/gpt-4o-mini', 'anthropic/claude-3-haiku'],
   custom: ['gpt-4o-mini', 'gpt-3.5-turbo'],
 }
 

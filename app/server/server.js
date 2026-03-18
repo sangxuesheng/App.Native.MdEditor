@@ -12,9 +12,16 @@ const url = require('url');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const net = require('net');
+let pdfParse = null;
+try {
+  pdfParse = require('pdf-parse');
+} catch (_) {}
 const historyManager = require('./historyManager');
 const imageConverter = require('./imageConverter');
 const { getDb } = require('./db');
+const { ImageBedManager } = require('./imagebed');
+const { handleImagebedApi } = require('./imagebedApi');
 
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
 
@@ -75,6 +82,135 @@ function decryptAesGcm(payload) {
 function isEncryptedApiKey(v) {
   return v && typeof v === 'object' && v.__enc === ENC_PREFIX;
 }
+
+function maskApiKey(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.length <= 5) return '****';
+  const head = trimmed.slice(0, 3);
+  const tail = trimmed.slice(-2);
+  return `${head}****${tail}`;
+}
+
+function normalizeClientIp(raw) {
+  if (!raw) return '';
+  const first = String(raw).split(',')[0].trim();
+  if (!first) return '';
+  if (first.startsWith('::ffff:')) return first.slice(7);
+  return first;
+}
+
+function ipv4ToInt(ip) {
+  const parts = ip.split('.').map((p) => Number(p));
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return null;
+  return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
+}
+
+function isIpv4InCidr(ip, cidr) {
+  const [base, bitsRaw] = cidr.split('/');
+  const bits = Number(bitsRaw);
+  if (!base || Number.isNaN(bits) || bits < 0 || bits > 32) return false;
+  const ipInt = ipv4ToInt(ip);
+  const baseInt = ipv4ToInt(base);
+  if (ipInt == null || baseInt == null) return false;
+  const mask = bits === 0 ? 0 : (~((1 << (32 - bits)) - 1) >>> 0) >>> 0;
+  return (ipInt & mask) === (baseInt & mask);
+}
+
+function parseIpv6ToBigInt(ip) {
+  const lower = ip.toLowerCase();
+  const hasIpv4 = lower.includes('.');
+  const [leftRaw, rightRaw] = lower.split('::');
+  const left = leftRaw ? leftRaw.split(':').filter(Boolean) : [];
+  const right = rightRaw ? rightRaw.split(':').filter(Boolean) : [];
+
+  if (lower.includes('::') && rightRaw === undefined) return null;
+  if (lower.split('::').length > 2) return null;
+
+  if (hasIpv4) {
+    const ipv4Part = (right.length ? right[right.length - 1] : left[left.length - 1]) || '';
+    const ipInt = ipv4ToInt(ipv4Part);
+    if (ipInt == null) return null;
+    const high = ((ipInt >>> 16) & 0xffff).toString(16);
+    const low = (ipInt & 0xffff).toString(16);
+    if (right.length) {
+      right.splice(right.length - 1, 1, high, low);
+    } else {
+      left.splice(left.length - 1, 1, high, low);
+    }
+  }
+
+  const totalGroups = 8;
+  const missing = totalGroups - (left.length + right.length);
+  if (missing < 0) return null;
+  const groups = [...left, ...Array(missing).fill('0'), ...right];
+  if (groups.length !== totalGroups) return null;
+
+  let out = 0n;
+  for (const g of groups) {
+    if (g.length > 4) return null;
+    const val = BigInt(parseInt(g || '0', 16));
+    if (Number.isNaN(Number(val))) return null;
+    out = (out << 16n) + val;
+  }
+  return out;
+}
+
+function isIpv6InCidr(ip, cidr) {
+  const [base, bitsRaw] = cidr.split('/');
+  const bits = Number(bitsRaw);
+  if (!base || Number.isNaN(bits) || bits < 0 || bits > 128) return false;
+  const ipInt = parseIpv6ToBigInt(ip);
+  const baseInt = parseIpv6ToBigInt(base);
+  if (ipInt == null || baseInt == null) return false;
+  if (bits === 0) return true;
+  const shift = 128n - BigInt(bits);
+  return (ipInt >> shift) === (baseInt >> shift);
+}
+
+function isPrivateOrLoopbackIp(ip) {
+  if (!ip) return false;
+  if (ip === '127.0.0.1' || ip === '::1') return true;
+  if (ip.startsWith('10.')) return true;
+  if (ip.startsWith('192.168.')) return true;
+  if (ip.startsWith('172.')) {
+    const second = Number(ip.split('.')[1]);
+    if (!Number.isNaN(second) && second >= 16 && second <= 31) return true;
+  }
+  if (ip.startsWith('fc') || ip.startsWith('fd')) return true; // fc00::/7
+  if (ip.startsWith('fe80:')) return true; // link-local
+  return false;
+}
+
+function getSettingsSecretAllowedCidrs() {
+  const raw = process.env.SETTINGS_SECRET_ALLOWED_CIDRS || '';
+  if (!raw.trim()) return [];
+  return raw
+    .split(/[,\s]+/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function isSettingsSecretAllowed(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const direct = req.socket?.remoteAddress || req.connection?.remoteAddress || '';
+  const ip = normalizeClientIp(forwarded || direct);
+  if (!ip) return false;
+  const cidrs = getSettingsSecretAllowedCidrs();
+  if (cidrs.length) {
+    return cidrs.some((cidr) => {
+      const base = cidr.split('/')[0];
+      const isV4 = net.isIP(ip) === 4 && net.isIP(base) === 4;
+      const isV6 = net.isIP(ip) === 6 && net.isIP(base) === 6;
+      if (isV4) return isIpv4InCidr(ip, cidr);
+      if (isV6) return isIpv6InCidr(ip, cidr);
+      return false;
+    });
+  }
+  return isPrivateOrLoopbackIp(ip);
+}
+
 const STATIC_DIR = path.join(__dirname, '../ui/frontend/dist');
 
 // 共享路径解析：fnOS 用 TRIM_APPNAME 推导 shares，开发环境用相对路径
@@ -148,6 +284,83 @@ function resolveSafePath(requestedPath) {
   throw new Error('PATH_NOT_ALLOWED');
 }
 
+function cleanupEmptyDirs(startDir, baseDir, maxDepth = 3) {
+  if (!startDir || !baseDir) return;
+  let current = startDir;
+  for (let i = 0; i < maxDepth; i += 1) {
+    if (!current.startsWith(baseDir)) return;
+    try {
+      if (!fs.existsSync(current)) return;
+      const entries = fs.readdirSync(current);
+      if (entries.length > 0) return;
+      fs.rmdirSync(current);
+      current = path.dirname(current);
+    } catch (_) {
+      return;
+    }
+  }
+}
+
+function deleteLocalImageByUrl(imageUrl) {
+  if (!imageUrl) {
+    return { ok: false, code: 'INVALID_URL', message: '无效的图片URL' };
+  }
+
+  let pathname = '';
+  try {
+    if (/^https?:\/\//i.test(imageUrl)) {
+      const parsedUrl = new URL(imageUrl);
+      pathname = parsedUrl.pathname;
+    } else {
+      pathname = String(imageUrl);
+    }
+  } catch (_) {
+    pathname = String(imageUrl || '');
+  }
+
+  pathname = pathname.split('?')[0].split('#')[0];
+  try { pathname = decodeURIComponent(pathname); } catch (_) {}
+
+  const isImagesPath = pathname.startsWith('/images/');
+  const isLocalApiPath = pathname.startsWith('/api/image/local/');
+  if (!pathname || (!isImagesPath && !isLocalApiPath)) {
+    return { ok: false, code: 'INVALID_URL', message: '无效的图片URL' };
+  }
+
+  const relativePath = isImagesPath
+    ? pathname.replace(/^\/images\/?/, '')
+    : pathname.replace(/^\/api\/image\/local\/?/, '');
+
+  const baseImagesPath = getSharePath('images');
+  const imagePath = isImagesPath
+    ? path.join(baseImagesPath, relativePath)
+    : path.join(baseImagesPath, 'originals', relativePath);
+
+  const legacyBasePath = '/var/apps/App.Native.MdEditor2/shares/images';
+  const legacyImagePath = isImagesPath
+    ? path.join(legacyBasePath, relativePath)
+    : path.join(legacyBasePath, 'originals', relativePath);
+
+  const resolvedPath = fs.existsSync(imagePath) ? imagePath : legacyImagePath;
+  if (!fs.existsSync(resolvedPath)) {
+    return { ok: false, code: 'NOT_FOUND', message: '图片不存在' };
+  }
+
+  try {
+    fs.unlinkSync(resolvedPath);
+    const baseForCleanup = isImagesPath
+      ? (resolvedPath.startsWith(baseImagesPath) ? baseImagesPath : legacyBasePath)
+      : (resolvedPath.startsWith(baseImagesPath) ? path.join(baseImagesPath, 'originals') : path.join(legacyBasePath, 'originals'));
+    cleanupEmptyDirs(path.dirname(resolvedPath), baseForCleanup, 3);
+    return { ok: true, url: imageUrl };
+  } catch (err) {
+    if (err.code === 'EACCES') {
+      return { ok: false, code: 'EACCES', message: '无权限删除图片' };
+    }
+    return { ok: false, code: 'DELETE_ERROR', message: '删除图片失败' };
+  }
+}
+
 // CORS 允许头（飞牛 NAS 等环境下应用可能被嵌入或反向代理，需支持跨域）
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -190,8 +403,46 @@ function readJsonBody(req, res, maxBytes = 1024 * 64) {
   });
 }
 
+// 初始化图床管理器
+const imagebedManager = new ImageBedManager(getDb(), null, isSettingsSecretAllowed);
+
 const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
+
+  // multipart 表单解析函数
+  async function readMultipartBodyLocal(req, boundary) {
+    return new Promise((resolve, reject) => {
+      const busboy = require('busboy');
+      const bb = busboy({ 
+        headers: { 
+          'content-type': `multipart/form-data; boundary=${boundary}` 
+        } 
+      });
+      const files = [];
+      const fields = {};
+      
+      bb.on('file', (name, file, info) => {
+        const chunks = [];
+        file.on('data', chunk => chunks.push(chunk));
+        file.on('end', () => {
+          files.push({ 
+            name, 
+            buffer: Buffer.concat(chunks), 
+            info 
+          });
+        });
+      });
+      
+      bb.on('field', (name, val) => { 
+        fields[name] = val; 
+      });
+      
+      bb.on('finish', () => resolve({ files, fields }));
+      bb.on('error', reject);
+      
+      req.pipe(bb);
+    });
+  }
 
   // CORS 预检：OPTIONS 请求直接返回 204
   if (req.method === 'OPTIONS') {
@@ -204,6 +455,41 @@ const server = http.createServer(async (req, res) => {
   if (parsed.pathname === '/health') {
     sendJson(res, 200, { ok: true, app: 'App.Native.MdEditor' });
     return;
+  }
+
+  // 图床 API 路由
+  if (parsed.pathname.startsWith('/api/imagebed')) {
+    console.log('[DEBUG] Imagebed API request:', parsed.pathname, req.method);
+    try {
+      // 读取请求体（但 multipart 请求除外，因为需要流式处理）
+      let body = '';
+      const contentType = req.headers['content-type'] || '';
+      const isMultipart = contentType.includes('multipart/form-data');
+      
+      if ((req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') && !isMultipart) {
+        body = await new Promise((resolve, reject) => {
+          let data = '';
+          req.on('data', chunk => data += chunk);
+          req.on('end', () => resolve(data));
+          req.on('error', reject);
+        });
+        try {
+          body = JSON.parse(body || '{}');
+        } catch {
+          body = {};
+        }
+      }
+      
+      // 调用图床 API 处理
+      console.log('[DEBUG] Calling handleImagebedApi with imagebedManager:', !!imagebedManager);
+      const handled = handleImagebedApi(req, res, parsed.pathname, parsed.query, body, imagebedManager, sendJson);
+      console.log('[DEBUG] handleImagebedApi returned:', handled);
+      if (handled) return;
+    } catch (err) {
+      console.error('[Imagebed API Error]', err);
+      sendJson(res, 500, { ok: false, error: err.message });
+      return;
+    }
   }
 
   // 获取系统主题：GET /api/system/theme
@@ -246,8 +532,53 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 应用设置：GET /api/settings（返回时对 aiConfig.apiKey 解密）
+  // 应用设置：GET /api/settings（默认脱敏 apiKey）
   if (parsed.pathname === '/api/settings' && req.method === 'GET') {
+    try {
+      const db = getDb();
+      const rows = db.prepare('SELECT key, value FROM settings').all();
+      const settings = {};
+      for (const row of rows) {
+        try {
+          settings[row.key] = JSON.parse(row.value);
+        } catch {
+          settings[row.key] = row.value;
+        }
+      }
+      if (settings.aiConfig && typeof settings.aiConfig === 'object' && settings.aiConfig.apiKey !== undefined) {
+        const ak = settings.aiConfig.apiKey;
+        let plain = null;
+        if (isEncryptedApiKey(ak)) {
+          plain = decryptAesGcm(ak);
+        } else if (typeof ak === 'string') {
+          plain = ak;
+        }
+        settings.aiConfig = { ...settings.aiConfig, apiKey: maskApiKey(plain || '') };
+      }
+      if (settings.aiImageConfig && typeof settings.aiImageConfig === 'object' && settings.aiImageConfig.apiKey !== undefined) {
+        const ak = settings.aiImageConfig.apiKey;
+        let plain = null;
+        if (isEncryptedApiKey(ak)) {
+          plain = decryptAesGcm(ak);
+        } else if (typeof ak === 'string') {
+          plain = ak;
+        }
+        settings.aiImageConfig = { ...settings.aiImageConfig, apiKey: maskApiKey(plain || '') };
+      }
+      sendJson(res, 200, { ok: true, settings });
+    } catch (e) {
+      console.error('[api/settings][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取设置失败' });
+    }
+    return;
+  }
+
+  // 应用设置：GET /api/settings/secret（返回明文 apiKey，需要内网或白名单）
+  if (parsed.pathname === '/api/settings/secret' && req.method === 'GET') {
+    if (!isSettingsSecretAllowed(req)) {
+      sendJson(res, 403, { ok: false, code: 'FORBIDDEN', message: '仅允许内网或白名单访问' });
+      return;
+    }
     try {
       const db = getDb();
       const rows = db.prepare('SELECT key, value FROM settings').all();
@@ -275,7 +606,7 @@ const server = http.createServer(async (req, res) => {
       }
       sendJson(res, 200, { ok: true, settings });
     } catch (e) {
-      console.error('[api/settings][GET] error:', e);
+      console.error('[api/settings/secret][GET] error:', e);
       sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '读取设置失败' });
     }
     return;
@@ -1409,24 +1740,122 @@ const server = http.createServer(async (req, res) => {
   }
 
 
-  // 文件读取：GET /api/file?path=/abs/path/to/file.md
-  if (parsed.pathname === '/api/file' && req.method === 'GET') {
+  // 媒体文件服务：GET /api/media?path=/abs/path/to/image.jpg
+  // 直接返回文件内容，用于图片等资源的直接访问
+  if (parsed.pathname === '/api/media' && req.method === 'GET') {
     const requestedPath = parsed.query.path;
+    if (!requestedPath) {
+      sendJson(res, 400, { ok: false, message: '缺少 path 参数' });
+      return;
+    }
     try {
       const safePath = resolveSafePath(requestedPath);
-      fs.readFile(safePath, 'utf8', (err, content) => {
+      const ext = path.extname(safePath).toLowerCase();
+      const mimeTypes = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml',
+        '.bmp': 'image/bmp',
+        '.ico': 'image/x-icon'
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+      fs.readFile(safePath, (err, buf) => {
         if (err) {
           if (err.code === 'ENOENT') {
-            sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '文件不存在' });
+            sendJson(res, 404, { ok: false, message: '文件不存在' });
           } else if (err.code === 'EACCES') {
-            sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限读取文件' });
+            sendJson(res, 403, { ok: false, message: '无权限读取文件' });
           } else {
-            sendJson(res, 500, { ok: false, code: 'READ_ERROR', message: '读取文件失败' });
+            sendJson(res, 500, { ok: false, message: '读取文件失败' });
           }
           return;
         }
-        sendJson(res, 200, { ok: true, path: safePath, content });
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Content-Length': buf.length,
+          'Cache-Control': 'public, max-age=3600'
+        });
+        res.end(buf);
       });
+    } catch (e) {
+      const code = e && e.message;
+      if (code === 'PATH_NOT_ALLOWED') {
+        sendJson(res, 403, { ok: false, message: '目标路径不在授权目录内' });
+      } else {
+        sendJson(res, 400, { ok: false, message: '无效路径' });
+      }
+    }
+    return;
+  }
+
+  // 文件读取：GET /api/file?path=/abs/path/to/file&mode=text|binary|hex
+  // mode 默认 text（utf8），binary 返回 base64，hex 返回十六进制字符串
+  if (parsed.pathname === '/api/file' && req.method === 'GET') {
+    const requestedPath = parsed.query.path;
+    const mode = (parsed.query.mode || 'text').toLowerCase();
+    try {
+      const safePath = resolveSafePath(requestedPath);
+      const isPdf = safePath.toLowerCase().endsWith('.pdf');
+      if (mode === 'text' && isPdf && pdfParse) {
+        fs.readFile(safePath, (err, buf) => {
+          if (err) {
+            if (err.code === 'ENOENT') {
+              sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '文件不存在' });
+            } else if (err.code === 'EACCES') {
+              sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限读取文件' });
+            } else {
+              sendJson(res, 500, { ok: false, code: 'READ_ERROR', message: '读取文件失败' });
+            }
+            return;
+          }
+          const { PDFParse } = pdfParse;
+          const parser = new PDFParse({ data: buf });
+          parser.getText().then((result) => {
+            sendJson(res, 200, { ok: true, path: safePath, content: result?.text || '', encoding: 'utf8', extracted: true });
+          }).catch((pdfErr) => {
+            console.error('[pdf-parse] 提取失败:', pdfErr.message);
+            sendJson(res, 200, { ok: true, path: safePath, content: '', encoding: 'utf8', extracted: false, message: 'PDF 文本提取失败' });
+          });
+        });
+      } else if (mode === 'text') {
+        fs.readFile(safePath, 'utf8', (err, content) => {
+          if (err) {
+            if (err.code === 'ENOENT') {
+              sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '文件不存在' });
+            } else if (err.code === 'EACCES') {
+              sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限读取文件' });
+            } else {
+              sendJson(res, 500, { ok: false, code: 'READ_ERROR', message: '读取文件失败' });
+            }
+            return;
+          }
+          sendJson(res, 200, { ok: true, path: safePath, content, encoding: 'utf8' });
+        });
+      } else {
+        fs.readFile(safePath, (err, buf) => {
+          if (err) {
+            if (err.code === 'ENOENT') {
+              sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '文件不存在' });
+            } else if (err.code === 'EACCES') {
+              sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限读取文件' });
+            } else {
+              sendJson(res, 500, { ok: false, code: 'READ_ERROR', message: '读取文件失败' });
+            }
+            return;
+          }
+          if (mode === 'hex') {
+            const hex = buf.toString('hex');
+            sendJson(res, 200, { ok: true, path: safePath, content: hex, encoding: 'hex' });
+          } else {
+            const base64 = buf.toString('base64');
+            sendJson(res, 200, { ok: true, path: safePath, content: base64, encoding: 'base64' });
+          }
+        });
+      }
     } catch (e) {
       const code = e && e.message;
       if (code === 'PATH_NOT_ALLOWED') {
@@ -1435,6 +1864,58 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, code, message: '需要提供绝对路径' });
       } else {
         sendJson(res, 400, { ok: false, code: code || 'INVALID_PATH', message: '无效路径或未配置授权目录' });
+      }
+    }
+    return;
+  }
+
+  // 媒体文件服务：GET /api/media?path=/abs/path/to/image.jpg
+  // 直接返回文件内容，用于图片等资源的直接访问
+  if (parsed.pathname === '/api/media' && req.method === 'GET') {
+    const requestedPath = parsed.query.path;
+    if (!requestedPath) {
+      sendJson(res, 400, { ok: false, message: '缺少 path 参数' });
+      return;
+    }
+    try {
+      const safePath = resolveSafePath(requestedPath);
+      const ext = path.extname(safePath).toLowerCase();
+      const mimeTypes = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml',
+        '.bmp': 'image/bmp',
+        '.ico': 'image/x-icon'
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      
+      fs.readFile(safePath, (err, buf) => {
+        if (err) {
+          if (err.code === 'ENOENT') {
+            sendJson(res, 404, { ok: false, message: '文件不存在' });
+          } else if (err.code === 'EACCES') {
+            sendJson(res, 403, { ok: false, message: '无权限读取文件' });
+          } else {
+            sendJson(res, 500, { ok: false, message: '读取文件失败' });
+          }
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Content-Length': buf.length,
+          'Cache-Control': 'public, max-age=3600'
+        });
+        res.end(buf);
+      });
+    } catch (e) {
+      const code = e && e.message;
+      if (code === 'PATH_NOT_ALLOWED') {
+        sendJson(res, 403, { ok: false, message: '目标路径不在授权目录内' });
+      } else {
+        sendJson(res, 400, { ok: false, message: '无效路径' });
       }
     }
     return;
@@ -1506,17 +1987,28 @@ const server = http.createServer(async (req, res) => {
         const items = entries
           .filter(entry => {
             if (entry.name.startsWith('.')) return false;
-            if (entry.isFile() && !entry.name.endsWith('.md')) return false;
+            // 全格式支持：展示所有文件，不再仅限 .md
             // images、history 为内部目录，默认不在文件树中显示
             if (entry.isDirectory() && (entry.name === 'images' || entry.name === 'history')) return false;
             return true;
           })
-          .map(entry => ({
-            name: entry.name,
-            path: path.join(safePath, entry.name),
-            type: entry.isDirectory() ? 'directory' : 'file',
-            isRoot: false
-          }))
+          .map(entry => {
+            const fullPath = path.join(safePath, entry.name);
+            const item = {
+              name: entry.name,
+              path: fullPath,
+              type: entry.isDirectory() ? 'directory' : 'file',
+              isRoot: false
+            };
+            if (entry.isFile()) {
+              try {
+                const stat = fs.statSync(fullPath);
+                item.size = stat.size;
+                item.mtime = stat.mtimeMs;
+              } catch (_) {}
+            }
+            return item;
+          })
           .sort((a, b) => {
             if (a.type !== b.type) {
               return a.type === 'directory' ? -1 : 1;
@@ -1961,7 +2453,7 @@ const server = http.createServer(async (req, res) => {
   }
 
 
-  // 图片删除：DELETE /api/image/delete
+  // 图片删除：DELETE /api/image/delete（兼容旧调用，转为本地删除）
   if (parsed.pathname === '/api/image/delete' && req.method === 'DELETE') {
     let raw = '';
     req.on('data', chunk => {
@@ -1980,38 +2472,86 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
         return;
       }
-      
+
       const imageUrl = body && body.url;
-      if (!imageUrl || !imageUrl.startsWith('/images/')) {
-        sendJson(res, 400, { ok: false, code: 'INVALID_URL', message: '无效的图片URL' });
+      const result = deleteLocalImageByUrl(imageUrl);
+      if (result.ok) {
+        sendJson(res, 200, { ok: true, url: imageUrl });
+      } else {
+        const status = result.code === 'NOT_FOUND' ? 404 : (result.code === 'EACCES' ? 403 : 400);
+        sendJson(res, status, result);
+      }
+    });
+    return;
+  }
+
+  // 图片批量删除：POST /api/image/delete-batch
+  if (parsed.pathname === '/api/image/delete-batch' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 1024 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+    req.on('end', async () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
         return;
       }
-      
-      try {
-        const imagePath = path.join(getSharePath('images'), imageUrl.replace(/^\/images\/?/, ''));
-        
-        // 检查文件是否存在
-        if (!fs.existsSync(imagePath)) {
-          sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '图片不存在' });
-          return;
-        }
-        
-        // 删除文件
-        fs.unlink(imagePath, (err) => {
-          if (err) {
-            if (err.code === 'EACCES') {
-              sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限删除图片' });
-            } else {
-              sendJson(res, 500, { ok: false, code: 'DELETE_ERROR', message: '删除图片失败' });
-            }
-            return;
-          }
-          sendJson(res, 200, { ok: true, url: imageUrl });
-        });
-      } catch (err) {
-        console.error('Image delete error:', err);
-        sendJson(res, 500, { ok: false, code: 'DELETE_ERROR', message: '删除失败' });
+
+      const items = Array.isArray(body?.items) ? body.items : [];
+      if (items.length === 0) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_ITEMS', message: 'items 必须是非空数组' });
+        return;
       }
+
+      const results = [];
+      let success = 0;
+      let failed = 0;
+
+      for (const item of items) {
+        const url = item?.url;
+        const imagebedId = item?.imagebedId;
+        if (!url) {
+          failed += 1;
+          results.push({ url, ok: false, code: 'INVALID_URL', message: '无效的图片URL' });
+          continue;
+        }
+
+        try {
+          if (imagebedId) {
+            const bedId = parseInt(imagebedId, 10);
+            const result = await imagebedManager.deleteImageFromBed(bedId, url);
+            if (result.success) {
+              success += 1;
+              results.push({ url, ok: true, imagebedId: bedId });
+            } else {
+              failed += 1;
+              results.push({ url, ok: false, imagebedId: bedId, code: 'DELETE_ERROR', message: result.error || '删除失败' });
+            }
+          } else {
+            const result = deleteLocalImageByUrl(url);
+            if (result.ok) {
+              success += 1;
+              results.push({ url, ok: true });
+            } else {
+              failed += 1;
+              results.push({ url, ok: false, code: result.code, message: result.message });
+            }
+          }
+        } catch (err) {
+          failed += 1;
+          results.push({ url, ok: false, code: 'DELETE_ERROR', message: err.message || '删除失败' });
+        }
+      }
+
+      sendJson(res, 200, { ok: failed === 0, success, failed, results });
     });
     return;
   }
@@ -2211,6 +2751,9 @@ const server = http.createServer(async (req, res) => {
 
   // 图片上传：POST /api/image/upload
   if (parsed.pathname === '/api/image/upload' && req.method === 'POST') {
+    console.log('[Upload] 收到上传请求，Content-Type:', req.headers['content-type']);
+    console.log('[Upload] 请求对象状态 - readable:', req.readable, 'readableLength:', req.readableLength);
+    
     const contentType = req.headers['content-type'] || '';
     
     if (!contentType.includes('multipart/form-data')) {
@@ -2226,16 +2769,26 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     
+    console.log('[Upload] Boundary:', boundary);
     let rawData = Buffer.alloc(0);
+    let dataReceived = false;
+    
     req.on('data', chunk => {
+      dataReceived = true;
+      console.log('[Upload] 收到数据块:', chunk.length, '字节');
       rawData = Buffer.concat([rawData, chunk]);
       if (rawData.length > 10 * 1024 * 1024) { // 10MB 限制
+        console.log('[Upload] 文件过大，中止');
         sendJson(res, 413, { ok: false, code: 'FILE_TOO_LARGE', message: '文件过大' });
         req.destroy();
       }
     });
     
     req.on('end', async () => {
+      console.log('[Upload] 数据接收完成，总大小:', rawData.length, '字节，dataReceived:', dataReceived);
+      if (!dataReceived) {
+        console.log('[Upload] 警告：没有收到任何数据块！');
+      }
       try {
         // 使用 Buffer 处理，避免编码问题
         const boundaryBuffer = Buffer.from('--' + boundary);
@@ -2255,15 +2808,52 @@ const server = http.createServer(async (req, res) => {
         }
         
         const uploadedImages = [];
-        
-        // 创建图片存储目录
+
+        // 先扫描所有 parts，提取普通字段（如 imagebedId）
+        let requestedImagebedId = null;
+        for (const part of parts) {
+          const headerEnd = part.indexOf(Buffer.from('\r\n\r\n'));
+          if (headerEnd === -1) continue;
+          const headerSection = part.slice(0, headerEnd).toString('utf8');
+          if (!headerSection.includes('Content-Disposition')) continue;
+          // 只处理非文件字段（没有 filename=）
+          if (headerSection.includes('filename=')) continue;
+          const nameMatch = headerSection.match(/name="([^"]+)"/);
+          if (!nameMatch) continue;
+          const fieldName = nameMatch[1];
+          const fieldValue = part.slice(headerEnd + 4, part.length - 2).toString('utf8').trim();
+          if (fieldName === 'imagebedId' && fieldValue) {
+            requestedImagebedId = parseInt(fieldValue);
+          }
+        }
+
+        // 确定实际使用的图床
+        let useImagebed = null;
+        if (requestedImagebedId) {
+          try {
+            const configs = imagebedManager.getAllConfigs();
+            useImagebed = configs.find(c => c.id === requestedImagebedId) || null;
+          } catch (e) { /* ignore */ }
+        }
+        if (!useImagebed) {
+          try {
+            const configs = imagebedManager.getAllConfigs();
+            useImagebed = configs.find(c => c.isDefault) || configs[0] || null;
+          } catch (e) { /* ignore */ }
+        }
+
+        const useExternalImagebed = useImagebed && useImagebed.type !== 'local';
+        console.log('[Upload] 使用图床:', useImagebed ? `${useImagebed.name} (${useImagebed.type})` : '本地存储');
+        console.log('[Upload] 开始处理文件部分...');
+
+        // 创建图片存储目录（本地存储备用）
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
         
-        // 使用硬编码路径（与 git 63328a6 工作版本一致）
-        const imagesDir = path.join('/var/apps/App.Native.MdEditor2/shares/images', year.toString(), month, day);
+        // 使用共享 images 目录
+        const imagesDir = path.join(getSharePath('images'), year.toString(), month, day);
         
         // 确保目录存在（与 git 63328a6 一致）
         if (!fs.existsSync(imagesDir)) {
@@ -2373,30 +2963,43 @@ const server = http.createServer(async (req, res) => {
           }
           
           const safeFilename = `${timestamp}_${random}_${cleanBaseFilename}${finalExt}`;
-          const filepath = path.join(imagesDir, safeFilename);
-          
-          // 保存文件
-          fs.writeFileSync(filepath, fileContent);
-          
-          // 生成相对 URL（不需要 encodeURIComponent，因为文件名已经清理过）
-          const relativeUrl = `/images/${year}/${month}/${day}/${safeFilename}`;
-          
-          const imageInfo = {
-            url: relativeUrl,
-            filename: originalFilename,
-            size: fileContent.length,
-            alt: baseFilename
-          };
-          
-          // 如果是转换的文件，添加标记
-          if (convertedFrom) {
-            imageInfo.convertedFrom = convertedFrom;
+
+          const imageInfo = { filename: originalFilename, size: fileContent.length, alt: baseFilename };
+          if (convertedFrom) imageInfo.convertedFrom = convertedFrom;
+
+          if (useExternalImagebed) {
+            // 上传到外部图床（GitHub 等）
+            console.log('[Upload] 上传到外部图床:', useImagebed.name);
+            try {
+              console.log('[Upload] 调用 imagebedManager.uploadImage...');
+              const result = await imagebedManager.uploadImage(fileContent, {
+                filename: safeFilename,
+                mimeType: finalExt === '.jpg' ? 'image/jpeg' : `image/${finalExt.slice(1)}`,
+                imagebedId: useImagebed.id,
+              });
+              console.log('[Upload] 外部图床上传成功:', result.url);
+              imageInfo.url = result.url;
+              imageInfo.size = result.size || fileContent.length;
+            } catch (uploadErr) {
+              console.error('[Upload] 外部图床上传失败:', uploadErr);
+              // 降级到本地存储
+              const filepath = path.join(imagesDir, safeFilename);
+              fs.writeFileSync(filepath, fileContent);
+              imageInfo.url = `/images/${year}/${month}/${day}/${safeFilename}`;
+              imageInfo.fallback = true;
+            }
+          } else {
+            // 本地存储
+            console.log('[Upload] 上传到本地存储');
+            const filepath = path.join(imagesDir, safeFilename);
+            fs.writeFileSync(filepath, fileContent);
+            imageInfo.url = `/images/${year}/${month}/${day}/${safeFilename}`;
           }
-          
+
           uploadedImages.push(imageInfo);
           
           console.log('添加到上传列表:', {
-            url: relativeUrl,
+            url: imageInfo.url,
             filename: originalFilename,
             cleanFilename: safeFilename,
             alt: baseFilename,
@@ -2444,6 +3047,7 @@ const server = http.createServer(async (req, res) => {
       }
       const requestedPath = body && body.path;
       const content = typeof body.content === 'string' ? body.content : '';
+      const encoding = body.encoding || 'utf8'; // utf8 | base64
       try {
         const safePath = resolveSafePath(requestedPath);
         fs.mkdir(path.dirname(safePath), { recursive: true }, (mkErr) => {
@@ -2451,7 +3055,8 @@ const server = http.createServer(async (req, res) => {
             sendJson(res, 500, { ok: false, code: 'MKDIR_FAILED', message: '创建目录失败' });
             return;
           }
-          fs.writeFile(safePath, content, 'utf8', (wErr) => {
+          const writeContent = encoding === 'base64' ? Buffer.from(content, 'base64') : content;
+          const writeCb = (wErr) => {
             if (wErr) {
               if (wErr.code === 'EACCES') {
                 sendJson(res, 403, { ok: false, code: 'EACCES', message: '无权限写入文件' });
@@ -2461,7 +3066,12 @@ const server = http.createServer(async (req, res) => {
               return;
             }
             sendJson(res, 200, { ok: true, path: safePath });
-          });
+          };
+          if (encoding === 'base64') {
+            fs.writeFile(safePath, writeContent, writeCb);
+          } else {
+            fs.writeFile(safePath, writeContent, 'utf8', writeCb);
+          }
         });
       } catch (e) {
         const code = e && e.message;
@@ -2854,12 +3464,15 @@ const server = http.createServer(async (req, res) => {
     try {
       // 解码 URL 路径以处理中文文件名
       const decodedPathname = decodeURIComponent(parsed.pathname);
-      const imagePath = path.join('/var/apps/App.Native.MdEditor2/shares/images', decodedPathname.substring('/images/'.length));
+      const baseImagesPath = getSharePath('images');
+      const imagePath = path.join(baseImagesPath, decodedPathname.substring('/images/'.length));
+      const legacyImagePath = path.join('/var/apps/App.Native.MdEditor2/shares/images', decodedPathname.substring('/images/'.length));
       
       console.log('Image request:', imagePath);
       
-      if (fs.existsSync(imagePath) && fs.statSync(imagePath).isFile()) {
-        const ext = path.extname(imagePath).toLowerCase();
+      const resolvedPath = (fs.existsSync(imagePath) ? imagePath : legacyImagePath);
+      if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isFile()) {
+        const ext = path.extname(resolvedPath).toLowerCase();
         const mimeTypes = {
           '.jpg': 'image/jpeg',
           '.jpeg': 'image/jpeg',
@@ -2870,7 +3483,7 @@ const server = http.createServer(async (req, res) => {
         };
         const contentType = mimeTypes[ext] || 'application/octet-stream';
         
-        fs.readFile(imagePath, (err, data) => {
+        fs.readFile(resolvedPath, (err, data) => {
           if (err) {
             res.writeHead(500);
             res.end('Internal Server Error');

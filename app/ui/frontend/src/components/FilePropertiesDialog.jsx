@@ -54,6 +54,14 @@ function FilePropertiesDialog({
                 </span>
               </div>
             )}
+            {node.mtime !== undefined && (
+              <div className="property-item">
+                <span className="property-label">修改时间:</span>
+                <span className="property-value">
+                  {new Date(node.mtime).toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         

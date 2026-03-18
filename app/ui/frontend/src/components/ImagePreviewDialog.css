@@ -1,184 +1,128 @@
-.image-preview-overlay {
+/* 复用 ImageManagerDialog 的基础样式 */
+/* 遮罩层 - 与 ImageManagerDialog 保持一致 */
+.img-preview-mask {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
-  animation: fadeIn 0.2s ease-out;
+  animation: img-preview-fade-in 0.2s ease;
 }
 
-.image-preview-dialog {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 1200px;
-  max-height: 90vh;
+/* 卡片容器 - 与 ImageManagerDialog 保持一致 */
+.img-preview-card {
+  width: min(780px, 90vw);
+  border-radius: 16px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+  animation: img-preview-slide-up 0.22s ease;
+}
+
+/* 图片信息头部 */
+.img-preview-info-header {
+  padding: 16px 20px;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.img-preview-info-header .info-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  opacity: 0.95;
+}
+
+.img-preview-info-header .info-details {
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.3s ease-out;
+  gap: 6px;
 }
 
-/* 浅色主题 */
-.theme-light .image-preview-dialog {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --bg-info: #fafafa;
-  --border-color: #e0e0e0;
-  --text-primary: #333;
-  --text-secondary: #666;
-}
-
-/* 暗黑主题 */
-.theme-dark .image-preview-dialog {
-  --bg-primary: #0d1117;
-  --bg-secondary: #161b22;
-  --bg-info: #0d1117;
-  --border-color: #30363d;
-  --text-primary: #c9d1d9;
-  --text-secondary: #8b949e;
-}
-
-.image-preview-dialog.dark {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.image-preview-dialog.dark .image-preview-header {
-  border-bottom-color: var(--border-color);
-}
-
-.image-preview-dialog.dark .action-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.image-preview-dialog.dark .image-preview-content {
-  background: var(--bg-secondary);
-}
-
-.image-preview-dialog.dark .image-preview-info {
-  border-top-color: var(--border-color);
-  background: var(--bg-info);
-}
-
-.image-preview-dialog.dark .info-icon {
-  color: var(--text-secondary);
-}
-
-.image-preview-dialog.dark .info-label {
-  color: var(--text-secondary);
-}
-
-.image-preview-dialog.dark .info-value {
-  color: var(--text-primary);
-}
-
-.image-preview-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 70%;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.action-button,
-.close-button {
-  background: transparent;
-  border: none;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 6px;
+.img-preview-info-header .info-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-
-.image-preview-dialog.dark .action-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.image-preview-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  overflow: auto;
-  background: #f5f5f5;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.image-preview-info {
-  padding: 16px 20px;
-  border-top: 1px solid #e0e0e0;
-  background: #fafafa;
-}
-
-.info-icon {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #666;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 12px;
-}
-
-.info-item {
-  display: flex;
   gap: 8px;
   font-size: 13px;
 }
 
-.info-label {
-  color: #666;
-  font-weight: 500;
-  white-space: nowrap;
+.img-preview-info-header .info-label {
+  color: rgba(255,255,255,0.7);
+  min-width: 70px;
 }
 
-.info-value {
-  color: #333;
+.img-preview-info-header .info-value {
+  color: rgba(255,255,255,0.95);
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.img-preview-info-header .actions-row {
+  margin-top: 4px;
 }
 
-@keyframes slideUp {
+.img-preview-info-header .info-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.info-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.info-action-btn:hover {
+  background: rgba(255,255,255,0.25);
+  border-color: rgba(255,255,255,0.3);
+}
+
+.info-action-btn.close-btn {
+  background: rgba(239, 68, 68, 0.6);
+  border-color: rgba(239, 68, 68, 0.8);
+}
+
+.info-action-btn.close-btn:hover {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+/* 图片预览主体 - 与 ImageManagerDialog 保持一致 */
+.img-preview-body {
+  padding: 16px;
+}
+
+.img-preview-body img {
+  max-height: 65vh;
+  width: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 0;
+}
+
+/* 动画 - 复用 ImageManagerDialog 的动画 */
+@keyframes img-preview-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes img-preview-slide-up {
   from {
     transform: translateY(20px);
     opacity: 0;
@@ -189,14 +133,21 @@
   }
 }
 
-/* 响应式设计 */
+/* 响应式 */
 @media (max-width: 767px) {
-  .image-preview-dialog {
-    width: 95%;
-    max-height: 95vh;
+  .img-preview-card {
+    width: 95vw;
   }
 
-  .info-grid {
-    grid-template-columns: 1fr;
+  .img-preview-body img {
+    max-height: 55vh;
+  }
+
+  .img-preview-info-header {
+    padding: 12px 14px;
+  }
+
+  .img-preview-body {
+    padding: 12px;
   }
 }

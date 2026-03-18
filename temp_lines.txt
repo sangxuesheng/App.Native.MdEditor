@@ -1,0 +1,160 @@
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
+import { unified } from 'unified'
+import remarkParse from 'remark-parse'
+import remarkMath from 'remark-math'
+import remarkBreaks from 'remark-breaks'
+import remarkRehype from 'remark-rehype'
+import rehypeKatex from 'rehype-katex'
+import rehypeStringify from 'rehype-stringify'
+import { applyExportConfigStyles } from './utils/cssVariables'
+import { sandboxCSS, sandboxCSSForElement } from './utils/sandboxCSS'
+import rehypeRaw from 'rehype-raw'
+import rehypeHighlight from 'rehype-highlight'
+import remarkGfmCompat from './utils/remarkGfmCompat'
+import html2canvas from 'html2canvas'
+import 'katex/dist/katex.min.css'
+// github-markdown-css 将根据主题动态加载
+
+import FileTree from './components/FileTree'
+import OutlinePanel from './components/OutlinePanel'
+import Resizer from './components/Resizer'
+import markdownLogo from './assets/markdown.svg'
+import EditorToolbar from './components/EditorToolbar'
+import MenuBar from './components/MenuBar'
+import NewFileDialog from './components/NewFileDialog'
+import SaveAsDialog from './components/SaveAsDialog'
+import ExportDialog from './components/ExportDialog'
+import ExportConfigPanel from './components/ExportConfigPanel'
+import SettingsDialog from './components/SettingsDialog'
+import MarkdownHelpDialog from './components/MarkdownHelpDialog'
+import ShortcutsDialog from './components/ShortcutsDialog'
+import ImageManagerDialog from './components/ImageManagerDialog'
+import TableInsertDialog from './components/TableInsertDialog'
+import AboutDialog from './components/AboutDialog'
+import SyncDialog from './components/SyncDialog'
+import FileHistoryDialog from './components/FileHistoryDialog'
+import EditorContextMenu from './components/EditorContextMenu'
+import ConfirmDialog from './components/ConfirmDialog'
+import { ToastContainer } from './components/Toast'
+import { useDebounce } from './hooks/useDebounce'
+import { debounce, throttle, rafThrottle } from './utils/performanceUtils'
+import { saveFileHistory, getFileHistory as getFileHistoryVersions, deleteVersion } from './utils/fileHistoryManagerV2'
+import { handleError, logError, getUserFriendlyMessage } from './utils/errorHandler'
+import './App.css'
+import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentFilesManager'
+
+import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
+import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2, ListCollapse } from 'lucide-react'
+import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
+import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
+import { saveEditorDraft, loadEditorDraft, clearEditorDraft } from './utils/editorLocalStorage'
+import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting, mergeExportConfigWithDefaults } from './utils/settingsApi'
+import { safeParseJsonResponse } from './utils/fetchUtils'
+import { copyToWeChat } from './utils/wechatExporter'
+import { detectCOSE } from './utils/coseClient'
+import { DEFAULT_DOCUMENT_CONTENT } from './constants/defaultDocument'
+import { AppUiProvider } from './context/AppUiContext'
+
+// 性能优化：首屏加载动画
+import FirstScreenLoader from './components/FirstScreenLoader'
+import { useMobileFirstScreenLoader } from './hooks/useFirstScreenLoader.jsx'
+import { usePreventScrollThrough } from './hooks/usePreventScrollThrough.jsx'
+import { preloadCommonComponents } from './utils/lazyComponents'
+
+import AISidebar from './components/ai/AISidebar'
+const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+
+/** 明暗模式仅存 localStorage，不写数据库，由用户自行设定；手机端跟随系统 */
+const THEME_STORAGE_KEY = 'md-editor-theme'
+// Breakpoints:
+// - mobile single-column: < 768px (<= 767px)
+// - compact (tablet + mobile): <= 1024px
+const MOBILE_SINGLE_COLUMN_MEDIA_QUERY = '(max-width: 767px)'
+const getInitialTheme = () => {
+  if (typeof window === 'undefined') return 'light'
+  const isMobile = window.matchMedia?.(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)?.matches
+  if (isMobile) {
+    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'
+  }
+  const stored = localStorage.getItem(THEME_STORAGE_KEY)
+  if (stored === 'light' || stored === 'dark') return stored
+  if (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) return 'dark'
+  return 'light'
+}
+
+// 初始化 unified 处理器
+const createMarkdownProcessor = () => {
+  return unified()
+    .use(remarkParse)
+    .use(remarkGfmCompat)
+    .use(remarkBreaks) // 支持硬换行：单个换行符转换为 <br>
+    .use(remarkMath)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeRaw)
+    .use(rehypeKatex)
+    .use(rehypeHighlight)
+    .use(rehypeStringify, {
+      allowDangerousHtml: true,
+      allowDangerousCharacters: true
+    })
+}
+
+// Mermaid 懒加载 - 按需动态 import('mermaid')（window.mermaid 作为兼容兜底）
+let mermaidModule = null
+let mermaidLoadPromise = null
+const loadMermaid = async () => {
+  if (mermaidModule) return mermaidModule
+  if (typeof window === 'undefined') throw new Error('Mermaid not available')
+  if (mermaidLoadPromise) return mermaidLoadPromise
+
+  const initMermaid = (m) => {
+    if (!m?.initialize) throw new Error('Mermaid not available')
+    m.initialize({
+      startOnLoad: false,
+      theme: 'default', // 使用 default 主题，蓝紫色节点
+      securityLevel: 'loose'
+    })
+    return m
+  }
+
+  // 兼容：如果外部已提前注入（例如旧版 index.html 或其它入口脚本），直接复用。
+  if (window.mermaid) {
+    mermaidModule = initMermaid(window.mermaid)
+    return mermaidModule
+  }
+
+  // Ensure concurrent callers share a single in-flight load.
+  mermaidLoadPromise = (async () => {
+    // 首选：按需动态加载本地依赖（构建产物也能工作，不依赖 CDN）。
+    try {
+      const mod = await import('mermaid')
+      const m = mod?.default || mod
+      window.mermaid = m
+      mermaidModule = initMermaid(m)
+      return mermaidModule
+    } catch (err) {
+      // 兜底：等待 window.mermaid 被注入（最多 5s），避免直接失败。
+      let attempts = 0
+      while (!window.mermaid && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+      }
+      if (!window.mermaid) throw err
+      mermaidModule = initMermaid(window.mermaid)
+      return mermaidModule
+    } finally {
+      mermaidLoadPromise = null
+    }
+  })()
+  return mermaidLoadPromise
+}
+
+// 默认导出配置（用于合并持久化数据）
+const DEFAULT_EXPORT_CONFIG = {
+  theme: 'default',
+  customCSS: '',
+  fontFamily: 'sans-serif',
+  fontSize: '16px',
+  textAlign: 'left',
+  lineHeight: 1.8,
+  themeColor: '',

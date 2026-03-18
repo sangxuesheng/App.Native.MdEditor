@@ -5,6 +5,7 @@ import { compressImage } from '../utils/imageCompressor'
 import ImagePreviewDialog from './ImagePreviewDialog'
 import ElasticSlider from './ElasticSlider'
 import AnimatedSelect from './AnimatedSelect'
+import ImagebedSettingsPanel from './ImagebedSettingsPanel'
 import {
   DEFAULT_IMAGE_MANAGER_SETTINGS,
   loadImageManagerSettings,
@@ -26,6 +27,13 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
   const [selectedImages, setSelectedImages] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [contextMenu, setContextMenu] = useState(null) // { x, y, image }
+  const [defaultImagebed, setDefaultImagebed] = useState(null) // { id, name, type }
+  const [imagebedConfigs, setImagebedConfigs] = useState([]) // 所有图床配置
+  const [activeImagebed, setActiveImagebed] = useState(null) // 当前图片库选中的图床 id
+  const [imagebedNotification, setImagebedNotification] = useState(null) // 图床选择通知
+  const [testNotification, setTestNotification] = useState(null) // 测试连接通知
+  const [uploadNotification, setUploadNotification] = useState(null) // 上传通知
+  const [deleteNotification, setDeleteNotification] = useState(null) // 删除提示
   const longPressTimerRef = useRef(null)
   const longPressTriggeredRef = useRef(false)
   const fileInputRef = useRef(null)
@@ -50,6 +58,39 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
     loadSettings()
   }, [])
 
+  // 加载默认图床
+  const loadDefaultImagebed = useCallback(async () => {
+    try {
+      const [defaultRes, listRes] = await Promise.all([
+        fetch('/api/imagebed/default'),
+        fetch('/api/imagebed/list'),
+      ])
+      const defaultResult = await defaultRes.json()
+      const listResult = await listRes.json()
+      if (defaultResult.ok && defaultResult.config) {
+        setDefaultImagebed(defaultResult.config)
+      }
+      if (listResult.ok && listResult.configs) {
+        setImagebedConfigs(listResult.configs)
+        // 默认选中默认图床
+        const def = defaultResult.ok && defaultResult.config
+        if (def) {
+          setActiveImagebed(def.id)
+        } else if (listResult.configs.length > 0) {
+          setActiveImagebed(listResult.configs[0].id)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load default imagebed:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      loadDefaultImagebed()
+    }
+  }, [isOpen, loadDefaultImagebed])
+
   // 处理图片设置变更
   const handleImageSettingChange = (key, value) => {
     setImageSettings(prev => ({ ...prev, [key]: value }))
@@ -68,24 +109,58 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
     }
   }
 
-  // 加载图片库
-  const loadLibraryImages = useCallback(async () => {
+  const sortLibraryImages = (images = []) => {
+    return [...images].sort((a, b) => {
+      const aTime = a.createdAt ? Number(a.createdAt) : 0
+      const bTime = b.createdAt ? Number(b.createdAt) : 0
+      if (aTime !== bTime) return bTime - aTime
+      const aName = a.filename || a.originalName || ''
+      const bName = b.filename || b.originalName || ''
+      return bName.localeCompare(aName)
+    })
+  }
+
+  // 加载图片库（根据当前选中图床）
+  const loadLibraryImages = useCallback(async (imagebedId, force = false) => {
+    const startedAt = Date.now()
     setLoadingLibrary(true)
     try {
-      const response = await fetch('/api/image/list')
-      const result = await response.json()
-      
-      if (result.ok) {
-        setLibraryImages(result.images || [])
+      const bedId = imagebedId ?? activeImagebed
+      let images = []
+
+      if (!bedId) {
+        const response = await fetch('/api/image/list')
+        const result = await response.json()
+        if (result.ok) images = result.images || []
       } else {
-        console.error('加载图片库失败:', result.error)
+        const bed = imagebedConfigs.find(c => c.id === bedId)
+        if (bed && bed.type === 'local') {
+          const response = await fetch('/api/image/list')
+          const result = await response.json()
+          if (result.ok) images = result.images || []
+        } else {
+          const url = `/api/imagebed/${bedId}/images${force ? '?force=true' : ''}`
+          const response = await fetch(url)
+          const result = await response.json()
+          if (result.ok) images = result.images || []
+        }
       }
+
+      setLibraryImages(sortLibraryImages(images))
     } catch (error) {
       console.error('加载图片库错误:', error)
+      setLibraryImages([])
     } finally {
-      setLoadingLibrary(false)
+      const elapsed = Date.now() - startedAt
+      const minDuration = 350
+      const delay = Math.max(0, minDuration - elapsed)
+      if (delay > 0) {
+        setTimeout(() => setLoadingLibrary(false), delay)
+      } else {
+        setLoadingLibrary(false)
+      }
     }
-  }, [])
+  }, [activeImagebed, imagebedConfigs])
 
   // 打开时若指定了 initialTab，切换到该标签页
   useEffect(() => {
@@ -94,12 +169,12 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
     }
   }, [isOpen, initialTab])
 
-  // 当切换到图片库标签页时加载图片
+  // 当切换到图片库标签页或切换图床时加载图片
   useEffect(() => {
-    if (isOpen && activeTab === 'library') {
-      loadLibraryImages()
+    if (isOpen && activeTab === 'library' && activeImagebed !== null) {
+      loadLibraryImages(activeImagebed)
     }
-  }, [isOpen, activeTab, loadLibraryImages])
+  }, [isOpen, activeTab, activeImagebed, loadLibraryImages])
 
   // 当对话框关闭时清空输入
   useEffect(() => {
@@ -117,6 +192,9 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
 
     setUploading(true)
     const formData = new FormData()
+    if (defaultImagebed?.id) {
+      formData.append('imagebedId', String(defaultImagebed.id))
+    }
     
     // 统计 HEIC 文件数量
     let heicCount = 0;
@@ -217,7 +295,10 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
         if (activeTab === 'library') {
           loadLibraryImages()
         }
-        onNotify?.(`成功上传 ${result.images.length} 张图片`, 'success')
+        setUploadNotification(`✓ 成功上传 ${result.images.length} 张图片`)
+        setTimeout(() => {
+          setUploadNotification(null)
+        }, 3000)
         
         // 自动滚动到上传的图片位置
         setTimeout(() => {
@@ -229,11 +310,17 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
           }
         }, 100)
       } else {
-        onNotify?.(`上传失败: ${result.error}`, 'error')
+        setUploadNotification(`✗ 上传失败: ${result.error}`)
+        setTimeout(() => {
+          setUploadNotification(null)
+        }, 3000)
       }
     } catch (error) {
       console.error('上传错误:', error)
-      onNotify?.('上传失败，请重试', 'error')
+      setUploadNotification('✗ 上传失败，请重试')
+      setTimeout(() => {
+        setUploadNotification(null)
+      }, 3000)
     } finally {
       setUploading(false)
     }
@@ -366,31 +453,39 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
 
   // 删除图片
   const doDeleteImage = useCallback(async (image) => {
-    // 直接删除，不再显示系统确认框
-    
     try {
-      const response = await fetch('/api/image/delete', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url: image.url })
+      const bed = imagebedConfigs.find(c => c.id === activeImagebed)
+      const isExternal = bed && bed.type !== 'local'
+      setDeleteNotification(isExternal ? '正在删除，云端同步中' : '正在删除')
+
+      const response = await fetch('/api/image/delete-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{
+            url: image.url,
+            imagebedId: isExternal ? activeImagebed : undefined,
+          }]
+        })
       })
-      
       const result = await response.json()
-      
+
       if (result.ok) {
-        // 刷新图片库
         loadLibraryImages()
         onNotify?.('图片已删除', 'success')
       } else {
-        onNotify?.(`删除失败: ${result.message}`, 'error')
+        const firstError = Array.isArray(result.results) ? result.results.find(r => !r.ok) : null
+        onNotify?.(`删除失败: ${firstError?.message || result.message || result.error}`, 'error')
       }
     } catch (error) {
       console.error('删除图片错误:', error)
       onNotify?.('删除失败，请重试', 'error')
+    } finally {
+      setTimeout(() => {
+        setDeleteNotification(null)
+      }, 2000)
     }
-  }, [loadLibraryImages])
+  }, [loadLibraryImages, activeImagebed, imagebedConfigs])
 
   // 批量删除图片
   const doBatchDeleteImages = useCallback(async () => {
@@ -398,48 +493,40 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
       onNotify?.('请先选择要删除的图片', 'error')
       return
     }
-    
-    // 直接删除，不再显示系统确认框
-    
+
     try {
-      let successCount = 0
-      let failCount = 0
-      
-      for (const image of selectedImages) {
-        try {
-          const response = await fetch('/api/image/delete', {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: image.url })
-          })
-          
-          const result = await response.json()
-          if (result.ok) {
-            successCount++
-          } else {
-            failCount++
-          }
-        } catch (error) {
-          console.error('删除图片错误:', error)
-          failCount++
-        }
-      }
-      
-      // 刷新图片库
+      const bed = imagebedConfigs.find(c => c.id === activeImagebed)
+      const isExternal = bed && bed.type !== 'local'
+
+      setDeleteNotification(isExternal ? '正在删除，云端同步中' : '正在删除')
+
+      const response = await fetch('/api/image/delete-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: selectedImages.map(image => ({
+            url: image.url,
+            imagebedId: isExternal ? activeImagebed : undefined,
+          }))
+        })
+      })
+      const result = await response.json()
+
+      const successCount = result?.success || 0
+      const failCount = result?.failed || 0
+
       loadLibraryImages()
-      
-      // 清空选择
       setSelectedImages([])
       setSelectionMode(false)
-      
+      setTimeout(() => {
+        setDeleteNotification(null)
+      }, isExternal ? 3000 : 1500)
       onNotify?.(`删除完成！成功: ${successCount}，失败: ${failCount}`, successCount > 0 ? 'success' : 'error')
     } catch (error) {
       console.error('批量删除错误:', error)
       onNotify?.('批量删除失败，请重试', 'error')
     }
-  }, [selectedImages, loadLibraryImages])
+  }, [selectedImages, loadLibraryImages, activeImagebed, imagebedConfigs])
 
   // 切换图片选择
   const doToggleImageSelection = useCallback((image) => {
@@ -518,7 +605,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
   }
 
   const handleRefreshLibraryClick = () => {
-    loadLibraryImages()
+    loadLibraryImages(activeImagebed, true)
   }
 
   const handlePreviewOpenClick = (e, image) => {
@@ -660,18 +747,18 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
             <span>图片库</span>
           </button>
           <button
-            className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            <Settings size={18} />
-            <span>图床设置</span>
-          </button>
-          <button
             className={`tab-button ${activeTab === 'compression' ? 'active' : ''}`}
             onClick={() => setActiveTab('compression')}
           >
             <ImageUp size={18} />
             <span>图片设置</span>
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'imagebed' ? 'active' : ''}`}
+            onClick={() => setActiveTab('imagebed')}
+          >
+            <Settings size={18} />
+            <span>图床设置</span>
           </button>
         </div>
 
@@ -717,9 +804,9 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
               <div className="current-storage">
                 <Folder size={16} />
                 <span>当前图床：</span>
-                <strong>本地存储</strong>
+                <strong>{defaultImagebed ? defaultImagebed.name : '加载中...'}</strong>
                 <span className="star"><Star size={16} fill="currentColor" /></span>
-                <button className="settings-icon-btn">
+                <button className="settings-icon-btn" onClick={() => setActiveTab('imagebed')} title="图床设置">
                   <Settings size={16} />
                 </button>
               </div>
@@ -792,16 +879,30 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
           {activeTab === 'library' && (
             <div className="library-tab">
               <div className="library-header">
-                <h4>图片库 ({libraryImages.length})</h4>
-                <button 
-                  className="refresh-button"
-                  onClick={handleRefreshLibraryClick}
-                  disabled={loadingLibrary}
-                  title="刷新图片库"
-                >
-                  <RefreshCw size={18} className={loadingLibrary ? 'spinning' : ''} />
-                  刷新
-                </button>
+                <div className="library-imagebed-tabs">
+                  {imagebedConfigs.map(bed => (
+                    <button
+                      key={bed.id}
+                      className={`library-imagebed-tab ${activeImagebed === bed.id ? 'active' : ''}`}
+                      onClick={() => setActiveImagebed(bed.id)}
+                    >
+                      {bed.name}
+                      {bed.isDefault && <span className="default-badge">默认</span>}
+                    </button>
+                  ))}
+                </div>
+                <div className="library-header-right">
+                  <span className="library-count">{libraryImages.length} 张</span>
+                  <button
+                    className={`refresh-button ${loadingLibrary ? 'spinning' : ''}`}
+                    onClick={handleRefreshLibraryClick}
+                    disabled={loadingLibrary}
+                    title="刷新图片库"
+                  >
+                    <RefreshCw size={18} className={loadingLibrary ? 'spinning' : ''} />
+                    刷新
+                  </button>
+                </div>
               </div>
               
               {loadingLibrary ? (
@@ -836,8 +937,9 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
                           </div>
                         )}
                         <img 
-                          src={image.url} 
-                          alt={image.alt || '图片'} 
+                          src={image.thumbUrl || image.url} 
+                          alt={image.alt || image.filename || '图片'} 
+                          loading="lazy"
                         />
                         {!selectionMode && (
                           <button 
@@ -873,25 +975,6 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
                   })}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* 图床设置标签页 */}
-          {activeTab === 'settings' && (
-            <div className="settings-tab">
-              <div className="placeholder-state">
-                <Settings size={64} />
-                <h3>图床设置</h3>
-                <p>此功能正在开发中...</p>
-                <p className="hint">未来将支持：</p>
-                <ul>
-                  <li>本地存储</li>
-                  <li>七牛云</li>
-                  <li>阿里云 OSS</li>
-                  <li>腾讯云 COS</li>
-                  <li>自定义图床</li>
-                </ul>
-              </div>
             </div>
           )}
 
@@ -1029,52 +1112,81 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
               </div>
             </div>
           )}
+
+          {/* 图床设置标签页 */}
+          {activeTab === 'imagebed' && (
+            <div className="imagebed-tab">
+              <ImagebedSettingsPanel
+                onNotify={onNotify}
+                theme={theme}
+                onDefaultChanged={loadDefaultImagebed}
+                onImagebedNotification={setImagebedNotification}
+              />
+            </div>
+          )}
         </div>
 
         {/* 底部按钮 */}
         <div className="image-manager-footer">
-          {activeTab === 'library' && libraryImages.length > 0 && (
-            <div className="footer-left-actions">
-              {!selectionMode ? (
-                <button 
-                  className="selection-mode-button"
-                  onClick={handleEnterSelectionModeClick}
-                  title="批量管理"
-                >
-                  <CheckSquare size={18} />
-                  批量管理
-                </button>
-              ) : (
-                <>
-                  <button 
-                    className="select-all-button"
-                    onClick={handleSelectAllClick}
-                    title={selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
-                  >
-                    {selectedImages.length === libraryImages.length ? <CheckSquare size={18} /> : <Square size={18} />}
-                    {selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
-                  </button>
-                  <button 
-                    className="batch-delete-button"
-                    onClick={handleBatchDeleteClick}
-                    disabled={selectedImages.length === 0}
-                    title="删除选中"
-                  >
-                    <Trash2 size={18} />
-                    删除选中 ({selectedImages.length})
-                  </button>
-                  <button 
-                    className="cancel-selection-button"
-                    onClick={handleCancelSelectionClick}
-                    title="取消选择"
-                  >
-                    取消
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+          <div className="footer-left">
+            {uploadNotification && (
+              <span className={`imagebed-notification ${uploadNotification.includes('✓') ? 'success' : 'error'}`}>
+                {uploadNotification}
+              </span>
+            )}
+            {imagebedNotification && (
+              <span className="imagebed-notification">
+                {imagebedNotification}
+              </span>
+            )}
+            {deleteNotification && (
+              <span className="imagebed-notification">
+                {deleteNotification}
+              </span>
+            )}
+          </div>
           <div className="footer-right-actions">
+            {activeTab === 'library' && libraryImages.length > 0 && (
+              <div className="footer-left-actions">
+                {!selectionMode ? (
+                  <button 
+                    className="selection-mode-button"
+                    onClick={handleEnterSelectionModeClick}
+                    title="批量管理"
+                  >
+                    <CheckSquare size={18} />
+                    批量管理
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      className="select-all-button"
+                      onClick={handleSelectAllClick}
+                      title={selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
+                    >
+                      {selectedImages.length === libraryImages.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                      {selectedImages.length === libraryImages.length ? '取消全选' : '全选'}
+                    </button>
+                    <button 
+                      className="batch-delete-button"
+                      onClick={handleBatchDeleteClick}
+                      disabled={selectedImages.length === 0}
+                      title="删除选中"
+                    >
+                      <Trash2 size={18} />
+                      删除选中 ({selectedImages.length})
+                    </button>
+                    <button 
+                      className="cancel-selection-button"
+                      onClick={handleCancelSelectionClick}
+                      title="取消选择"
+                    >
+                      取消
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             {activeTab === 'link' ? (
               <>
                 <button className="cancel-button" onClick={handleCancelClick}>

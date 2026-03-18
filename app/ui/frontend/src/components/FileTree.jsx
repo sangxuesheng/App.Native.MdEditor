@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight, File, Folder, Star, FileText, FileJson, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, File, Folder, Star, FileText, FileJson, MoreHorizontal, Image } from 'lucide-react';
 import FavoritesPanel from './FavoritesPanel';
 import FileSearchBox from './FileSearchBox';
 import OutlinePanel from './OutlinePanel';
@@ -15,6 +15,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { toggleFavorite, getFavorites, updateFavoritePath } from '../utils/favoritesManager';
 import { loadSetting, parseStoredArray, persistSetting } from '../utils/settingsApi';
 import { useAppUi } from '../context/AppUiContext';
+import { getFormatFromPath, getFormatColorClass, FORMAT_IMAGE, isSupportedFormat } from '../constants/fileFormats';
 import './FileTree.css';
 
 const FileTree = forwardRef(({ 
@@ -69,6 +70,9 @@ const FileTree = forwardRef(({
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+
+  // 格式筛选：'all' | 'supported'
+  const [fileFormatFilter, setFileFormatFilter] = useState('all');
 
   useEffect(() => {
     const loadActiveTab = async () => {
@@ -129,6 +133,34 @@ const FileTree = forwardRef(({
   // 文件属性对话框状态
   const [showPropertiesDialog, setShowPropertiesDialog] = useState(false);
   const [propertiesNode, setPropertiesNode] = useState(null);
+
+  // 格式化文件大小显示
+  const formatFileSize = (bytes) => {
+    if (bytes === undefined || bytes === null) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  };
+
+  // 格式化修改时间显示（简洁版）
+  const formatModifyTime = (mtimeMs) => {
+    if (!mtimeMs) return '';
+    const date = new Date(mtimeMs);
+    const now = new Date();
+    const diff = now - date;
+    
+    // 今天内只显示时间
+    if (diff < 24 * 60 * 60 * 1000) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    // 今年内显示月日
+    if (date.getFullYear() === now.getFullYear()) {
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+    // 往年显示完整日期
+    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+  };
 
   const openContextMenuAt = (x, y, node = null, type = undefined) => {
     setSelectedNode(node || null);
@@ -439,7 +471,7 @@ const FileTree = forwardRef(({
   const doOpenNode = (node) => {
     if (node.type === 'file') {
       setFocusedDirectoryPath(null);
-      onFileSelect(node.path);
+      onFileSelect(node.path, node);
     } else {
       if (compactInteractionMode) {
         setFocusedDirectoryPath(node.path);
@@ -938,13 +970,6 @@ const FileTree = forwardRef(({
     }
   };
 
-  // 格式化文件大小
-  const formatFileSize = (bytes) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  };
-
   // 过滤树节点（搜索）
   const filterTree = (nodes, query) => {
     return filterFileTree(nodes, query);
@@ -966,12 +991,24 @@ const FileTree = forwardRef(({
     );
   };
 
-  // 根据文件类型获取图标
-  const getFileIcon = (path) => {
-    if (path.endsWith('.md')) return <FileText size={16} />
-    if (path.endsWith('.txt')) return <File size={16} />
-    if (path.endsWith('.json')) return <FileJson size={16} />
-    return <File size={16} />
+  // 根据文件类型获取图标（全格式支持）
+  const getFileIcon = (filePath) => {
+    const format = getFormatFromPath(filePath);
+    if (format === 'md') return <FileText size={16} />;
+    if (format === FORMAT_IMAGE) return <Image size={16} />;
+    if (filePath.endsWith('.json')) return <FileJson size={16} />;
+    return <File size={16} />;
+  };
+
+  /**
+   * 方案一：动态缩进。层级越深缩进越小，避免深层文件显示不全。
+   * 1–3 级 16px/级，4–6 级 12px/级，7 级及以上 8px/级。
+   */
+  const getIndentPx = (level, hasChildren) => {
+    const base = hasChildren ? 4 : 8;
+    if (level <= 2) return level * 16 + base;
+    if (level <= 5) return 48 + (level - 3) * 12 + base;
+    return 84 + (level - 6) * 8 + base;
   };
 
   // 渲染树节点
@@ -991,7 +1028,7 @@ const FileTree = forwardRef(({
       <div key={node.path} className="tree-node" data-path={node.path}>
         <div
           className={`tree-node-content ${isActive ? 'active' : ''} ${isFocusedDirectory ? 'focused-directory' : ''} ${isTouchPreview ? 'touch-preview' : ''} ${hasLongPressFeedback ? 'long-press-feedback' : ''} ${isMenuOpen ? 'menu-open' : ''}`}
-          style={{ paddingLeft: `${level * 16 + (hasChildren ? 4 : 8)}px`, userSelect: 'none' }}
+          style={{ paddingLeft: `${getIndentPx(level, hasChildren)}px`, userSelect: 'none' }}
           onClick={(e) => handleFileClick(e, node)}
           onContextMenu={(e) => handleContextMenu(e, node)}
           onPointerDown={(e) => handleNodePointerDown(e, node)}
@@ -1022,9 +1059,15 @@ const FileTree = forwardRef(({
             </span>
           )}
           <div className="tree-node-text">
-            <span className="tree-node-name" title={node.path}>
+            <span className={`tree-node-name ${node.type === 'file' ? getFormatColorClass(node.path) : ''}`} title={node.path}>
               {debouncedQuery ? renderHighlightedName(node.name, debouncedQuery) : node.name}
             </span>
+            {node.type === 'file' && (node.size !== undefined || node.mtime !== undefined) && (
+              <span className="tree-node-meta">
+                {node.size !== undefined && <span className="tree-node-size">{formatFileSize(node.size)}</span>}
+                {node.mtime !== undefined && <span className="tree-node-mtime">{formatModifyTime(node.mtime)}</span>}
+              </span>
+            )}
             {isFocusedDirectory && (
               <span className="tree-node-focus-hint">
                 点左侧箭头展开，长按或右侧更多操作
@@ -1055,7 +1098,20 @@ const FileTree = forwardRef(({
     );
   };
 
-  const filteredTree = filterTree([...tree], debouncedQuery);
+  // 按格式筛选：supported 时仅显示首批支持格式文件
+  const filterByFormat = (nodes, filter) => {
+    if (filter === 'all') return nodes;
+    return nodes.filter(node => {
+      if (node.type === 'directory') return true;
+      return isSupportedFormat(node.path);
+    }).map(node => {
+      if (node.type === 'directory' && node.children) {
+        return { ...node, children: filterByFormat(node.children, filter) };
+      }
+      return node;
+    });
+  };
+  const filteredTree = filterTree(filterByFormat([...tree], fileFormatFilter), debouncedQuery);
 
   return (
     <div className={`file-tree ${compactInteractionMode ? 'compact-interaction-mode' : ''}`} style={style}>
@@ -1100,6 +1156,15 @@ const FileTree = forwardRef(({
                 <MoreHorizontal size={16} />
               </button>
             </div>
+            <select
+              className="file-tree-format-filter"
+              value={fileFormatFilter}
+              onChange={(e) => setFileFormatFilter(e.target.value)}
+              title="格式筛选"
+            >
+              <option value="all">所有文件</option>
+              <option value="supported">首批支持格式</option>
+            </select>
           </div>
           
           <FavoritesPanel

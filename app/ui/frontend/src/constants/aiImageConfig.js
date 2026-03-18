@@ -42,38 +42,6 @@ export const AI_IMAGE_SERVICES = [
     sizes: DEFAULT_SIZES,
   },
   {
-    value: 'deepseek',
-    label: 'DeepSeek',
-    endpoint: 'https://api.deepseek.com/v1',
-    needsApiKey: true,
-    models: [], // DeepSeek 暂无文生图 API
-    sizes: DEFAULT_SIZES,
-  },
-  {
-    value: 'openai',
-    label: 'OpenAI',
-    endpoint: 'https://api.openai.com/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-    sizes: ['1024x1024', '1024x1792', '1792x1024', '512x512', '256x256'],
-  },
-  {
-    value: 'qwen',
-    label: '通义千问',
-    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-    sizes: DEFAULT_SIZES,
-  },
-  {
-    value: 'aliyun-bailian',
-    label: '阿里云百炼',
-    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    needsApiKey: true,
-    models: ['wan2.6-t2i', 'wan2.5-t2i-preview', 'z-image-turbo'],
-    sizes: DEFAULT_SIZES,
-  },
-  {
     value: 'hunyuan',
     label: '腾讯混元',
     endpoint: 'https://hunyuan.tencentcloudapi.com',
@@ -84,43 +52,11 @@ export const AI_IMAGE_SERVICES = [
     sizes: ['1024x1024', '768x768', '768x1024', '1024x768', '1280x720', '720x1280', '768x1280', '1280x768', '1920x1080', '1080x1920'],
   },
   {
-    value: 'doubao',
-    label: '火山方舟（豆包）',
-    endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
+    value: 'deepseek',
+    label: 'DeepSeek',
+    endpoint: 'https://api.deepseek.com/v1',
     needsApiKey: true,
-    models: [], // Seedream API 格式不同，暂用自定义
-    sizes: DEFAULT_SIZES,
-  },
-  {
-    value: 'siliconflow',
-    label: '硅基流动',
-    endpoint: 'https://api.siliconflow.cn/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-    sizes: DEFAULT_SIZES,
-  },
-  {
-    value: '302ai',
-    label: '302.AI',
-    endpoint: 'https://api.302.ai/v1',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-    sizes: ['1024x1024', '1024x1792', '1792x1024', '512x512', '256x256'],
-  },
-  {
-    value: 'zhipu',
-    label: '智谱 AI',
-    endpoint: 'https://open.bigmodel.cn/api/paas/v4',
-    needsApiKey: true,
-    models: [], // 在线拉取，不默认配置
-    sizes: DEFAULT_SIZES,
-  },
-  {
-    value: 'baichuan',
-    label: '百川智能',
-    endpoint: 'https://api.baichuan-ai.com/v1',
-    needsApiKey: true,
-    models: [],
+    models: [], // DeepSeek 暂无文生图 API
     sizes: DEFAULT_SIZES,
   },
   {
@@ -132,10 +68,58 @@ export const AI_IMAGE_SERVICES = [
     sizes: DEFAULT_SIZES,
   },
   {
-    value: 'qianfan',
+    value: 'aliyun-bailian',
+    label: 'Aliyun Bailian',
+    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    needsApiKey: true,
+    models: ['wan2.6-t2i', 'wan2.5-t2i-preview', 'z-image-turbo'],
+    sizes: DEFAULT_SIZES,
+  },
+  {
+    value: 'wenxin',
     label: '百度千帆',
     endpoint: 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop',
     needsApiKey: true,
+    models: [],
+    sizes: DEFAULT_SIZES,
+  },
+  {
+    value: 'zhipu',
+    label: '智谱 AI',
+    endpoint: 'https://open.bigmodel.cn/api/paas/v4',
+    needsApiKey: true,
+    models: [],
+    sizes: DEFAULT_SIZES,
+  },
+  {
+    value: 'siliconflow',
+    label: '硅基流动',
+    endpoint: 'https://api.siliconflow.cn/v1',
+    needsApiKey: true,
+    models: [], // 在线拉取，不默认配置
+    sizes: DEFAULT_SIZES,
+  },
+  {
+    value: 'doubao',
+    label: '火山方舟（豆包）',
+    endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
+    needsApiKey: true,
+    models: [], // Seedream API 格式不同，暂用自定义
+    sizes: DEFAULT_SIZES,
+  },
+  {
+    value: 'openai',
+    label: 'OpenAI',
+    endpoint: 'https://api.openai.com/v1',
+    needsApiKey: true,
+    models: [], // 在线拉取，不默认配置
+    sizes: ['1024x1024', '1024x1792', '1792x1024', '512x512', '256x256'],
+  },
+  {
+    value: 'ollama',
+    label: 'Ollama',
+    endpoint: 'http://localhost:11434/v1',
+    needsApiKey: false,
     models: [],
     sizes: DEFAULT_SIZES,
   },
@@ -152,12 +136,11 @@ export const AI_IMAGE_SERVICES = [
 /** 连通性检查专用默认图片模型（按服务商，用于测试图片 endpoint/apiKey 是否可用） */
 export const CONNECTIVITY_TEST_DEFAULT_IMAGE_MODELS = {
   builtin: ['Kwai-Kolors/Kolors'],
-  siliconflow: ['black-forest-labs/FLUX.1-schnell', 'black-forest-labs/FLUX.1-dev'], // 硅基流动
-  'aliyun-bailian': ['wan2.6-t2i', 'wan2.5-t2i-preview'],
-  qwen: ['wan2.6-t2i'],
-  openai: ['dall-e-3', 'dall-e-2'],
-  '302ai': ['black-forest-labs/FLUX.1-schnell'],
   hunyuan: ['hunyuan-image-lite', 'hunyuan-image'],
+  'aliyun-bailian': ['wan2.6-t2i', 'wan2.5-t2i-preview'],
+  openai: ['dall-e-3', 'dall-e-2'],
+  siliconflow: ['black-forest-labs/FLUX.1-schnell', 'black-forest-labs/FLUX.1-dev'],
+  doubao: ['seedream-3.0'],
   custom: ['dall-e-2', 'black-forest-labs/FLUX.1-schnell'],
 }
 

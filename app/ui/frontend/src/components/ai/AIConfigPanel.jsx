@@ -6,6 +6,11 @@ import { AI_SERVICES, AI_SERVICE_CATEGORIES, DEFAULT_CONFIG, CONNECTIVITY_TEST_D
 import { AI_IMAGE_SERVICES, DEFAULT_IMAGE_CONFIG, isImageModel, CONNECTIVITY_TEST_DEFAULT_IMAGE_MODELS } from '../../constants/aiImageConfig'
 
 const API_KEY_MASK = '••••••••••••' // 已保存的 API Key 在页面上仅显示星号，不展示明文
+const maskEndpoint = (value) => {
+  if (typeof value !== 'string') return ''
+  if (!value) return ''
+  return '*'.repeat(value.length)
+} // 已保存的 API 代理地址在页面上仅显示同长度星号，不展示明文
 
 /** 检测是否为移动端视口 */
 function useIsMobile() {
@@ -53,6 +58,7 @@ export default function AIConfigPanel({
   const [configSearch, setConfigSearch] = React.useState('') // 顶部搜索：同时过滤服务商与模型
   const [showApiKey, setShowApiKey] = React.useState(false) // 对话 API Key 是否显示明文（否则显示星号）
   const [showImageApiKey, setShowImageApiKey] = React.useState(false) // 文生图 API Key 是否显示明文
+  const [showEndpoint, setShowEndpoint] = React.useState(false) // API 代理地址是否显示明文（否则脱敏）
   const [viewingService, setViewingService] = React.useState(config?.type || 'builtin')
   const [modelListTab, setModelListTab] = React.useState(initialModelListTab) // 模型列表下：'chat' | 'image'
   const [imageCustomModelInput, setImageCustomModelInput] = React.useState('')
@@ -81,6 +87,7 @@ export default function AIConfigPanel({
   const handleClose = () => {
     setShowApiKey(false)
     setShowImageApiKey(false)
+    setShowEndpoint(false)
     onClose()
   }
 
@@ -88,6 +95,7 @@ export default function AIConfigPanel({
   const handleSave = () => {
     setShowApiKey(false)
     setShowImageApiKey(false)
+    setShowEndpoint(false)
   }
 
   React.useEffect(() => {
@@ -98,6 +106,12 @@ export default function AIConfigPanel({
   React.useEffect(() => {
     setViewingService((prev) => (config?.type != null ? config.type : prev))
   }, [config?.type])
+
+  React.useEffect(() => {
+    if (!showEndpoint) return
+    const t = setTimeout(() => setShowEndpoint(false), 8000)
+    return () => clearTimeout(t)
+  }, [showEndpoint])
 
   const currentService = AI_SERVICES.find((s) => s.value === viewingService)
   // 对话模型：内置用预设，其他从拉取结果中排除文生图模型
@@ -634,6 +648,12 @@ export default function AIConfigPanel({
   }, [testResult])
 
   React.useEffect(() => {
+    if (!showEndpoint) return
+    const t = setTimeout(() => setShowEndpoint(false), 8000)
+    return () => clearTimeout(t)
+  }, [showEndpoint])
+
+  React.useEffect(() => {
     if (!imageTestResult) return
     const t = setTimeout(() => setImageTestResult(null), 3000)
     return () => clearTimeout(t)
@@ -877,28 +897,52 @@ export default function AIConfigPanel({
               <label className="config-field-label">API 代理地址</label>
               <p className="config-field-desc">必须包含 http(s)://</p>
               {modelListTab === 'chat' ? (
-                <input
-                  type="text"
-                  value={getViewingEndpoint()}
-                  onChange={(e) =>
-                    onConfigChange({
-                      endpoints: { ...(config.endpoints || {}), [viewingService]: e.target.value },
-                    })
-                  }
-                  placeholder={currentService?.endpoint || 'https://api.example.com/v1'}
-                />
-              ) : (
-                <>
+                <div className="config-input-with-icon">
                   <input
                     type="text"
-                    value={getViewingImageEndpoint()}
+                    value={showEndpoint ? getViewingEndpoint() : maskEndpoint(getViewingEndpoint())}
                     onChange={(e) =>
-                      onImageConfigChange?.({
-                        endpoints: { ...(imageConfig?.endpoints || {}), [viewingService]: e.target.value },
+                      onConfigChange({
+                        endpoints: { ...(config.endpoints || {}), [viewingService]: e.target.value },
                       })
                     }
-                    placeholder={AI_IMAGE_SERVICES.find((s) => s.value === viewingService)?.endpoint || 'https://api.example.com/v1'}
+                    onFocus={() => { const v = getViewingEndpoint(); if (v && !showEndpoint) setShowEndpoint(true) }}
+                    readOnly={!showEndpoint && !!getViewingEndpoint()}
+                    placeholder={currentService?.endpoint || 'https://api.example.com/v1'}
                   />
+                  <button
+                    type="button"
+                    className="ai-icon-btn"
+                    onClick={() => setShowEndpoint((v) => !v)}
+                    title={showEndpoint ? '隐藏' : '显示'}
+                  >
+                    {showEndpoint ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="config-input-with-icon">
+                    <input
+                      type="text"
+                      value={showEndpoint ? getViewingImageEndpoint() : maskEndpoint(getViewingImageEndpoint())}
+                      onChange={(e) =>
+                        onImageConfigChange?.({
+                          endpoints: { ...(imageConfig?.endpoints || {}), [viewingService]: e.target.value },
+                        })
+                      }
+                      onFocus={() => { const v = getViewingImageEndpoint(); if (v && !showEndpoint) setShowEndpoint(true) }}
+                      readOnly={!showEndpoint && !!getViewingImageEndpoint()}
+                      placeholder={AI_IMAGE_SERVICES.find((s) => s.value === viewingService)?.endpoint || 'https://api.example.com/v1'}
+                    />
+                    <button
+                      type="button"
+                      className="ai-icon-btn"
+                      onClick={() => setShowEndpoint((v) => !v)}
+                      title={showEndpoint ? '隐藏' : '显示'}
+                    >
+                      {showEndpoint ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                   <p className="config-hint" style={{ marginTop: 6, fontSize: 12, color: 'var(--muted-color, #8b949e)' }}>
                     {imageServiceForViewing?.modelHint || '不同服务商可能需要更换图片的代理地址，请参考各服务商文档'}
                   </p>

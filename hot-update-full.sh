@@ -61,9 +61,9 @@ if [ -d "${APP_INSTALL_PATH}/ui/frontend/dist" ]; then
 fi
 
 # 备份后端
-if [ -d "${APP_INSTALL_PATH}/app/server" ]; then
+if [ -d "${APP_INSTALL_PATH}/server" ]; then
     mkdir -p "$BACKUP_DIR/backend"
-    cp -r "${APP_INSTALL_PATH}/app/server" "$BACKUP_DIR/backend/"
+    cp -r "${APP_INSTALL_PATH}/server" "$BACKUP_DIR/backend/"
 fi
 
 echo -e "${GREEN}✓ 备份完成: $BACKUP_DIR${NC}"
@@ -84,7 +84,7 @@ cp -r app/ui/frontend/dist "${APP_INSTALL_PATH}/ui/frontend/"
 echo -e "${GREEN}✓ 前端文件已替换${NC}"
 
 # 替换后端
-cp -r app/server/* "${APP_INSTALL_PATH}/app/server/"
+cp -r app/server/* "${APP_INSTALL_PATH}/server/"
 echo -e "${GREEN}✓ 后端文件已替换${NC}"
 
 echo ""
@@ -111,7 +111,7 @@ else
     fi
     
     if [ -d "$BACKUP_DIR/backend/server" ]; then
-        cp -r "$BACKUP_DIR/backend/server"/* "${APP_INSTALL_PATH}/app/server/"
+        cp -r "$BACKUP_DIR/backend/server"/* "${APP_INSTALL_PATH}/server/"
     fi
     
     appcenter-cli start ${APP_NAME}
