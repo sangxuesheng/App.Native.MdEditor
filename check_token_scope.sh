@@ -1,12 +1,24 @@
 #!/bin/bash
 
-TOKEN="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"
+TOKEN="${GITHUB_TOKEN}"
+OWNER="tingwen-img"
 
-echo "🔐 检查 Token 权限范围..."
+echo "🔍 检查 GitHub Token 权限范围..."
+echo ""
+
+# 验证 token 是否有效
+echo "1️⃣  验证 Token 有效性..."
+USER_INFO=$(curl -s -H "Authorization: token $TOKEN" https://api.github.com/user)
+if echo "$USER_INFO" | grep -q '"message"'; then
+    echo "❌ Token 无效: $(echo "$USER_INFO" | jq -r '.message')"
+    exit 1
+fi
+
+echo "✅ Token 有效"
 echo ""
 
 # 获取 token 信息
-curl -s -H "Authorization: token $TOKEN" https://api.github.com/user | python3 << 'PYTHON'
+echo "$USER_INFO" | python3 << 'PYTHON'
 import sys, json
 data = json.load(sys.stdin)
 print(f"✅ 登录用户: {data.get('login')}")

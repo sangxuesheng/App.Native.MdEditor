@@ -1,7 +1,7 @@
 #!/bin/bash
 
 OWNER="tingwen-img"
-TOKEN="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"
+TOKEN="${GITHUB_TOKEN}"
 
 echo "🔍 检查 GitHub 账户信息..."
 echo ""

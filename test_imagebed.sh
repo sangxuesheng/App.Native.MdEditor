@@ -2,10 +2,34 @@
 # 测试 GitHub 图床 - 仅使用 img0 仓库
 
 OWNER="tingwen-img"
-TOKEN="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"
+TOKEN="${GITHUB_TOKEN}"
 PATH_IN_REPO="img/"
 BRANCH="main"
 REPO="img0"
+
+echo "🔍 测试 GitHub 图床功能..."
+echo ""
+
+# 验证 token
+echo "1️⃣  验证 Token..."
+if [ -z "$TOKEN" ]; then
+    echo "❌ 错误：未设置 GITHUB_TOKEN 环境变量"
+    echo "请先运行：export GITHUB_TOKEN=your_token_here"
+    exit 1
+fi
+
+USER_INFO=$(curl -s -H "Authorization: token $TOKEN" https://api.github.com/user)
+LOGIN=$(echo "$USER_INFO" | jq -r '.login' 2>/dev/null)
+
+if [ "$LOGIN" = "null" ] || [ -z "$LOGIN" ]; then
+    echo "❌ 错误：GitHub Token 无效或权限不足"
+    echo "请确保已设置有效的 GITHUB_TOKEN 环境变量"
+    exit 1
+fi
+
+echo "✅ 已登录为：$LOGIN"
+echo ""
+echo "2️⃣  准备上传..."
 
 if [ $# -ne 1 ]; then
     echo "用法：$0 图片文件"
