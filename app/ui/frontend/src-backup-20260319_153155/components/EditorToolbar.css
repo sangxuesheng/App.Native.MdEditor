@@ -1,0 +1,629 @@
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+  border-bottom: 1px solid #30363d;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  min-height: 53px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.editor-toolbar.mobile-compact {
+  padding: 6px 8px;
+  gap: 0;
+  min-height: 0;
+}
+
+.mobile-compact-group {
+  width: 100%;
+  gap: 6px;
+}
+
+.editor-toolbar.mobile-compact .toolbar-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+}
+
+.editor-toolbar.mobile-compact .chart-btn {
+  min-width: 44px;
+  padding: 0 10px;
+}
+
+.mobile-chart-group {
+  flex-shrink: 0;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-btn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  background: transparent;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: #2a2a2a;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+.toolbar-btn:active:not(:disabled) {
+  background: #333;
+  transform: scale(0.95);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #444;
+  margin: 0 4px;
+}
+
+/* 图表按钮 */
+.chart-group {
+  position: relative;
+}
+
+.chart-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  touch-action: manipulation;
+}
+
+.chart-btn.active {
+  background: #2a2a2a;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+/* AI 工具栏按钮：区别于其他功能按钮的配色 */
+.ai-toolbar-btn {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(124, 58, 237, 0.2) 100%);
+  border-color: #8b5cf6;
+  color: #a78bfa;
+}
+
+.ai-toolbar-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(124, 58, 237, 0.35) 100%);
+  border-color: #a78bfa;
+  color: #c4b5fd;
+}
+
+.ai-toolbar-btn:active:not(:disabled) {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* 图注按钮 */
+.caption-group {
+  position: relative;
+}
+
+.caption-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.caption-btn.active {
+  background: #2a2a2a;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+/* 图表下拉菜单 - 使用 fixed 定位 */
+.chart-dropdown {
+  position: fixed;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  min-width: 320px;
+  max-width: 400px;
+  overflow: hidden;
+}
+
+/* 图注下拉菜单 */
+.caption-dropdown {
+  position: fixed;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  min-width: 360px;
+  max-width: 420px;
+  overflow: hidden;
+}
+
+.chart-dropdown-header {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ccc;
+  border-bottom: 1px solid #444;
+  background: #252525;
+}
+
+.chart-dropdown-footer {
+  padding: 10px 16px;
+  font-size: 12px;
+  color: #888;
+  border-top: 1px solid #444;
+  background: #252525;
+  text-align: center;
+}
+
+.caption-dropdown-header {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ccc;
+  border-bottom: 1px solid #444;
+  background: #252525;
+}
+
+.caption-dropdown-footer {
+  padding: 10px 16px;
+  font-size: 12px;
+  color: #888;
+  border-top: 1px solid #444;
+  background: #252525;
+  text-align: center;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 12px;
+}
+
+.caption-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.chart-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.caption-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.caption-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.caption-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.caption-badge {
+  padding: 2px 8px;
+  background: #58a6ff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+}
+
+.caption-description {
+  font-size: 12px;
+  color: #888;
+}
+
+.caption-example {
+  font-size: 11px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #58a6ff;
+  background: #0d1117;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #30363d;
+}
+
+.chart-item:hover:not(:disabled) {
+  background: #2a2a2a;
+  border-color: #58a6ff;
+  color: #58a6ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.2);
+}
+
+.chart-item:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.caption-item:hover:not(:disabled) {
+  background: #2a2a2a;
+  border-color: #58a6ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.2);
+}
+
+.caption-item:hover:not(:disabled) .caption-label {
+  color: #58a6ff;
+}
+
+.caption-item:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.chart-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chart-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+/* 滚动条样式 */
+.editor-toolbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.editor-toolbar::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.editor-toolbar::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.editor-toolbar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.caption-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.caption-list::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.caption-list::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.caption-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* 响应式 */
+@media (max-width: 767px) {
+  .editor-toolbar {
+    padding: 6px 8px;
+    scroll-snap-type: x proximity;
+  }
+
+  .editor-toolbar.mobile-compact {
+    margin-bottom: 6px;
+    padding: 4px 6px;
+  }
+
+  .mobile-compact-group,
+  .toolbar-group {
+    scroll-snap-align: start;
+  }
+
+  .toolbar-btn {
+    min-width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .chart-dropdown {
+    min-width: min(280px, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px));
+    max-width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px);
+  }
+  
+  .caption-dropdown {
+    min-width: min(300px, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px));
+    max-width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px);
+  }
+  
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (pointer: coarse) {
+  .editor-toolbar {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .toolbar-group {
+    gap: 6px;
+  }
+
+  .toolbar-btn {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 8px;
+  }
+
+  .chart-btn,
+  .caption-btn,
+  .wechat-copy-btn,
+  .ai-toolbar-btn {
+    min-width: 44px;
+    gap: 6px;
+    padding: 0 12px;
+  }
+
+  .toolbar-divider {
+    height: 28px;
+  }
+}
+
+
+/* ==================== 浅色主题 ==================== */
+.theme-light .editor-toolbar {
+  background: #f6f8fa;
+  border-bottom-color: #d0d7de;
+}
+
+.theme-light .toolbar-btn {
+  border-color: #d0d7de;
+  color: #57606a;
+}
+
+.theme-light .toolbar-btn:hover:not(:disabled) {
+  background: #eaeef2;
+  border-color: #0969da;
+  color: #0969da;
+}
+
+.theme-light .toolbar-btn:active:not(:disabled) {
+  background: #d0d7de;
+}
+
+.theme-light .toolbar-divider {
+  background: #d0d7de;
+}
+
+.theme-light .chart-btn.active,
+.theme-light .caption-btn.active {
+  background: #eaeef2;
+  border-color: #0969da;
+  color: #0969da;
+}
+
+/* AI 按钮 - 浅色模式：紫色系，区别于蓝色功能按钮 */
+.theme-light .ai-toolbar-btn {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.12) 100%);
+  border-color: #8b5cf6;
+  color: #6d28d9;
+}
+
+.theme-light .ai-toolbar-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(124, 58, 237, 0.2) 100%);
+  border-color: #7c3aed;
+  color: #5b21b6;
+}
+
+.theme-light .ai-toolbar-btn:active:not(:disabled) {
+  background: rgba(139, 92, 246, 0.3);
+}
+
+.theme-light .chart-dropdown,
+.theme-light .caption-dropdown,
+.chart-dropdown.theme-light {
+  background: #ffffff;
+  border-color: #d0d7de;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .chart-dropdown-header,
+.theme-light .caption-dropdown-header,
+.chart-dropdown.theme-light .chart-dropdown-header {
+  background: #f6f8fa;
+  border-bottom-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-light .chart-dropdown-footer,
+.theme-light .caption-dropdown-footer,
+.chart-dropdown.theme-light .chart-dropdown-footer {
+  background: #f6f8fa;
+  border-top-color: #d0d7de;
+  color: #57606a;
+}
+
+.theme-light .chart-item,
+.theme-light .caption-item,
+.chart-dropdown.theme-light .chart-item {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-light .chart-item:hover:not(:disabled),
+.theme-light .caption-item:hover:not(:disabled),
+.chart-dropdown.theme-light .chart-item:hover:not(:disabled) {
+  background: #eaeef2;
+  border-color: #0969da;
+  box-shadow: 0 2px 8px rgba(9, 105, 218, 0.2);
+}
+
+.theme-light .caption-item:hover:not(:disabled) .caption-label {
+  color: #0969da;
+}
+
+.theme-light .caption-label {
+  color: #24292f;
+}
+
+.theme-light .caption-badge {
+  background: #0969da;
+}
+
+.theme-light .caption-description {
+  color: #57606a;
+}
+
+.theme-light .caption-example {
+  color: #0969da;
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+.theme-light .editor-toolbar::-webkit-scrollbar-track,
+.theme-light .caption-list::-webkit-scrollbar-track {
+  background: #f6f8fa;
+}
+
+.theme-light .editor-toolbar::-webkit-scrollbar-thumb,
+.theme-light .caption-list::-webkit-scrollbar-thumb {
+  background: #d0d7de;
+}
+
+.theme-light .editor-toolbar::-webkit-scrollbar-thumb:hover,
+.theme-light .caption-list::-webkit-scrollbar-thumb:hover {
+  background: #afb8c1;
+}
+
+/* ==================== 微信复制按钮样式 ==================== */
+.wechat-copy-btn {
+  background: linear-gradient(135deg, #07c160 0%, #06ae56 100%);
+  border-color: #07c160;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0 12px;
+  gap: 6px;
+}
+
+.wechat-copy-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #06ae56 0%, #059a4d 100%);
+  border-color: #06ae56;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(7, 193, 96, 0.4);
+}
+
+.wechat-copy-btn:active:not(:disabled) {
+  background: linear-gradient(135deg, #059a4d 0%, #048844 100%);
+}
+
+.wechat-copy-btn.copying {
+  background: linear-gradient(135deg, #888 0%, #666 100%);
+  border-color: #888;
+  cursor: wait;
+}
+
+.wechat-copy-btn .btn-text {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* 浅色主题下的微信按钮 */
+.theme-light .wechat-copy-btn {
+  background: linear-gradient(135deg, #07c160 0%, #06ae56 100%);
+  border-color: #07c160;
+  color: #ffffff;
+}
+
+.theme-light .wechat-copy-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #06ae56 0%, #059a4d 100%);
+  border-color: #06ae56;
+  box-shadow: 0 2px 8px rgba(7, 193, 96, 0.4);
+}
+
+.theme-light .wechat-copy-btn:active:not(:disabled) {
+  background: linear-gradient(135deg, #059a4d 0%, #048844 100%);
+}
+
+.theme-light .wechat-copy-btn.copying {
+  background: linear-gradient(135deg, #999 0%, #777 100%);
+  border-color: #999;
+}
+
+/* ==================== MD3 主题 ==================== */
+
+
+
+
+
+
+
+
+
+
+
+

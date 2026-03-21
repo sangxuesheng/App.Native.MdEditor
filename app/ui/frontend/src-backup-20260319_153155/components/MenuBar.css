@@ -1,0 +1,333 @@
+.menu-item {
+  position: relative;
+  z-index: 10001;
+}
+
+.menu-item-compact {
+  display: flex;
+}
+
+.menu-button {
+  background: transparent;
+  border: 1px solid var(--menu-button-border);
+  color: var(--text-color);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.menu-button.compact-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-button:hover,
+.menu-button.active {
+  background: var(--menu-hover-bg);
+  border-color: var(--menu-button-border-hover);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  background: var(--dropdown-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  margin-top: 2px;
+  z-index: 10000;
+  animation: menuFadeIn 0.15s ease-out;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menu-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  transition: background-color 0.1s;
+  position: relative;
+}
+
+.menu-dropdown-item:hover:not(:disabled) {
+  background: var(--menu-item-hover-bg);
+}
+
+.menu-dropdown-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.menu-dropdown-item.has-submenu {
+  padding-right: 24px;
+}
+
+.menu-dropdown-item.checked {
+  background: var(--menu-item-checked-bg);
+}
+
+.menu-check {
+  margin-right: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--menu-check-color);
+}
+
+.menu-label {
+  flex: 1;
+}
+
+.menu-shortcut {
+  margin-left: 24px;
+  font-size: 11px;
+  opacity: 0.6;
+  font-family: monospace;
+}
+
+.menu-arrow {
+  position: absolute;
+  right: 8px;
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 8px;
+}
+
+.menu-submenu {
+  position: absolute;
+  top: -4px;
+  left: 100%;
+  min-width: 200px;
+  background: var(--dropdown-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  margin-left: 4px;
+  display: none;
+  z-index: 10001;
+  animation: menuFadeIn 0.15s ease-out;
+}
+
+.menu-dropdown-item.has-submenu:hover .menu-submenu {
+  display: block;
+}
+
+/* 浅色主题 */
+.theme-light {
+  --menubar-bg: #f3f3f3;
+  --menu-hover-bg: #f6f8fa;
+  --dropdown-bg: #FFFFFF;
+  --menu-item-hover-bg: #f6f8fa;
+  --menu-item-checked-bg: #e6f2ff;
+  --border-color: #d0d7de;
+  --text-color: #24292f;
+  --menu-button-border: #d0d7de;
+  --menu-button-border-hover: #0969da;
+  --menu-check-color: #0969da;
+}
+
+.theme-light .menu-button {
+  color: #24292f;
+  font-weight: 500;
+}
+
+.theme-light .menu-button:hover,
+.theme-light .menu-button.active {
+  background: #f6f8fa;
+  border-color: #0969da;
+  color: #0969da;
+}
+
+/* 暗黑主题 */
+.theme-dark {
+  --menubar-bg: #161b22;
+  --menu-hover-bg: #21262d;
+  --dropdown-bg: #161b22;
+  --menu-item-hover-bg: #21262d;
+  --menu-item-checked-bg: #1c2d41;
+  --border-color: #30363d;
+  --text-color: #c9d1d9;
+  --menu-button-border: #30363d;
+  --menu-button-border-hover: #58a6ff;
+  --menu-check-color: #58a6ff;
+}
+
+.theme-dark .menu-button {
+  color: #c9d1d9;
+  font-weight: 500;
+}
+
+.theme-dark .menu-button:hover,
+.theme-dark .menu-button.active {
+  background: #21262d;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+/* 最近文件样式 */
+.recent-files-submenu {
+  min-width: 300px;
+  max-width: 400px;
+  max-height: 400px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.recent-file-item .menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 250px;
+}
+
+.recent-time {
+  font-size: 10px;
+  opacity: 0.5;
+  margin-left: 12px;
+}
+
+.recent-files-submenu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.recent-files-submenu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recent-files-submenu::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.recent-files-submenu::-webkit-scrollbar-thumb:hover {
+  background: var(--text-color);
+  opacity: 0.5;
+}
+
+.compact-menu-dropdown {
+  min-width: 320px;
+  max-width: min(420px, calc(100vw - 24px));
+  max-height: min(70vh, 680px);
+  overflow-y: auto;
+  padding: 8px 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  /* 移动端由 JS 设置 position:fixed + left/top 实现自适应 */
+}
+
+.compact-menu-section-title {
+  padding: 4px 12px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.72;
+}
+
+.theme-light .compact-menu-section-title {
+  color: #0969da;
+  opacity: 1;
+}
+
+.theme-dark .compact-menu-section-title {
+  color: #58a6ff;
+  opacity: 1;
+}
+
+.compact-menu-section-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.compact-menu-block + .compact-menu-block {
+  margin-top: 4px;
+}
+
+.compact-submenu-label {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.78;
+}
+
+.theme-light .compact-submenu-label {
+  color: #0969da;
+  opacity: 0.9;
+}
+
+.theme-dark .compact-submenu-label {
+  color: #58a6ff;
+  opacity: 0.9;
+}
+
+.compact-submenu-item {
+  padding-left: 28px;
+}
+
+.compact-menu-divider {
+  margin: 6px 8px;
+}
+
+@media (max-width: 1024px) {
+  .menu-shortcut {
+    margin-left: 12px;
+  }
+}
+
+@media (max-width: 767px) {
+  .compact-menu-dropdown {
+    min-width: 260px;
+    max-width: min(300px, calc(100vw - 24px));
+    max-height: calc(100vh - 120px);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .compact-menu-dropdown::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .menu-button,
+  .compact-submenu-item,
+  .compact-menu-item,
+  .menu-dropdown-item {
+    min-height: 40px;
+  }
+
+  .menu-button {
+    padding: 8px 14px;
+  }
+}

@@ -309,6 +309,18 @@ html, body {
   gap: 6px;
 }
 
+.focus-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.focus-mode-btn.active {
+  background: var(--primary-color, #086ADA);
+  color: #fff;
+  border-color: var(--primary-color, #086ADA);
+}
+
 @media (pointer: coarse) {
   .btn-icon {
     width: 44px;
@@ -722,10 +734,6 @@ html, body {
 }
 
 /* 平板/移动端打开导出配置时：工具栏保持顶部，编辑器与配置面板并排（避免工具栏被拉伸占满） */
-.editor-preview-wrapper.mobile-export-config-split {
-  /* 保持 column 布局，工具栏在顶部 */
-}
-
 .mobile-export-config-split-body {
   flex: 1;
   display: flex;
@@ -973,6 +981,68 @@ html, body {
   touch-action: pan-y;
 }
 
+.document-title-input-wrap {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  z-index: 6;
+}
+
+.document-title-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 34px;
+  line-height: 1.2;
+  font-weight: 700;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.document-title-input::placeholder {
+  opacity: 0.55;
+}
+
+.app.theme-light .document-title-input {
+  color: #1f2937;
+}
+
+.app.theme-dark .document-title-input {
+  color: #e5e7eb;
+}
+
+.app.theme-light .document-title-input::placeholder {
+  color: #6b7280;
+}
+
+.app.theme-dark .document-title-input::placeholder {
+  color: #9ca3af;
+}
+
+.editor-firstline-placeholder {
+  position: absolute;
+  /* 对齐到 Monaco 正文第一行输入区（标题区下方） */
+  top: 90px;
+  left: 52px;
+  z-index: 5;
+  pointer-events: none;
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 500;
+  opacity: 0.55;
+  user-select: none;
+}
+
+.app.theme-light .editor-firstline-placeholder {
+  color: #6b7280;
+}
+
+.app.theme-dark .editor-firstline-placeholder {
+  color: #9ca3af;
+}
+
 .editor-loading-placeholder {
   width: 100%;
   height: 100%;
@@ -1108,10 +1178,18 @@ html, body {
   background: #ffffff;
 }
 
-/* 单独显示时占满空间 */
-.main-content.layout-editor-only .editor-pane,
-.main-content.layout-preview-only .preview-pane {
-  flex: 1;
+/* 单独显示时改为居中窄栏（桌面端） */
+.main-content.layout-editor-only:not(.mobile-single-column) .editor-preview-content,
+.main-content.layout-preview-only:not(.mobile-single-column) .editor-preview-content {
+  justify-content: center;
+  align-items: stretch;
+}
+
+.main-content.layout-editor-only:not(.mobile-single-column) .editor-pane,
+.main-content.layout-preview-only:not(.mobile-single-column) .preview-pane {
+  flex: 0 1 980px;
+  width: min(980px, calc(100vw - 64px));
+  max-width: min(980px, calc(100vw - 64px));
 }
 
 /* Markdown 样式增强 */
@@ -2419,6 +2497,13 @@ img[style*="width"] {
   z-index: 10;
 }
 
+/* 仅编辑布局：工具栏与编辑区同宽并居中对齐（桌面端） */
+.main-content.layout-editor-only:not(.mobile-single-column) .editor-preview-wrapper > .editor-toolbar {
+  align-self: center;
+  width: min(980px, calc(100vw - 64px));
+  max-width: min(980px, calc(100vw - 64px));
+}
+
 /* ==================== 行号右对齐 ==================== */
 .monaco-editor .line-numbers {
   text-align: right !important;
@@ -2768,4 +2853,141 @@ mark {
     align-items: center !important;
     justify-content: center !important;
   }
+}
+
+/* ==================== 专注模式（CSS-only） ==================== */
+.focus-floating-switch {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+}
+
+.focus-floating-btn {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.focus-floating-btn.active {
+  background: var(--primary-color, #086ADA);
+  color: #fff;
+  border-color: var(--primary-color, #086ADA);
+}
+
+.app.theme-light .focus-floating-switch {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #d0d7de;
+}
+
+.app.theme-light .focus-floating-btn {
+  color: #24292f;
+}
+
+.app.theme-dark .focus-floating-switch {
+  background: rgba(13, 17, 23, 0.88);
+  border: 1px solid #30363d;
+}
+
+.app.theme-dark .focus-floating-btn {
+  color: #c9d1d9;
+}
+
+/* 专注模式：隐藏顶部菜单/工具栏、侧栏、导出配置（保留底部状态栏） */
+.app.focus-mode-split .toolbar,
+.app.focus-mode-editor-only .toolbar,
+.app.focus-mode-split .filetree-side-panel,
+.app.focus-mode-editor-only .filetree-side-panel,
+.app.focus-mode-split .filetree-overlay-panel,
+.app.focus-mode-editor-only .filetree-overlay-panel,
+.app.focus-mode-split .filetree-overlay-backdrop,
+.app.focus-mode-editor-only .filetree-overlay-backdrop,
+.app.focus-mode-split .filetree-close-hit-area,
+.app.focus-mode-editor-only .filetree-close-hit-area,
+.app.focus-mode-split .filetree-edge-swipe-zone,
+.app.focus-mode-editor-only .filetree-edge-swipe-zone,
+.app.focus-mode-split .export-config-side-panel,
+.app.focus-mode-editor-only .export-config-side-panel,
+.app.focus-mode-split .mobile-export-config-split-panel,
+.app.focus-mode-editor-only .mobile-export-config-split-panel,
+.app.focus-mode-split .mobile-pane-switcher,
+.app.focus-mode-editor-only .mobile-pane-switcher,
+.app.focus-mode-split .editor-toolbar,
+.app.focus-mode-editor-only .editor-toolbar {
+  display: none !important;
+}
+
+.app.focus-mode-split .focus-floating-switch,
+.app.focus-mode-editor-only .focus-floating-switch {
+  display: inline-flex;
+}
+
+/* 专注模式容器占满空间 */
+.app.focus-mode-split .main-content,
+.app.focus-mode-editor-only .main-content {
+  padding: 0 !important;
+}
+
+.app.focus-mode-split .editor-preview-container,
+.app.focus-mode-editor-only .editor-preview-container,
+.app.focus-mode-split .editor-preview-wrapper,
+.app.focus-mode-editor-only .editor-preview-wrapper,
+.app.focus-mode-split .editor-preview-content,
+.app.focus-mode-editor-only .editor-preview-content {
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+/* 左右专注：保留编辑+预览 */
+.app.focus-mode-split .main-content {
+  display: flex !important;
+}
+
+/* 仅编辑专注：隐藏预览，并让编辑区居中 */
+.app.focus-mode-editor-only .preview-pane {
+  display: none !important;
+}
+
+.app.focus-mode-editor-only .editor-preview-content {
+  justify-content: center !important;
+  align-items: stretch !important;
+}
+
+.app.focus-mode-editor-only .editor-pane {
+  flex: 0 1 980px !important;
+  width: min(980px, calc(100vw - 64px)) !important;
+  max-width: min(980px, calc(100vw - 64px)) !important;
+  border-radius: 12px !important;
+}
+
+.app.focus-mode-editor-only .editor-pane > section,
+.app.focus-mode-editor-only .editor-pane .monaco-editor,
+.app.focus-mode-editor-only .editor-pane .monaco-editor .overflow-guard {
+  border-radius: 12px !important;
+}
+
+/* 移动端不显示专注模式入口（双保险） */
+@media (max-width: 767px) {
+  .focus-mode-switch,
+  .focus-floating-switch {
+    display: none !important;
+  }
+}
+
+/* 底部状态栏存在时，专注浮动按钮上移避免遮挡 */
+.app.focus-mode-split .focus-floating-switch,
+.app.focus-mode-editor-only .focus-floating-switch {
+  bottom: calc(12px + var(--safe-area-bottom));
 }

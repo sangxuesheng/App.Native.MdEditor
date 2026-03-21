@@ -1,0 +1,863 @@
+/* ──────────────────────────────────────────────
+   SyncDialog — 多平台发布对话框样式
+   支持 theme-dark / theme-light / theme-md3
+────────────────────────────────────────────── */
+
+.sync-dialog {
+  width: 580px;
+  max-width: 96vw;
+  max-height: 88vh;
+}
+
+.sync-dialog .dialog-content {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* ── 头部标题区 ──────────────────────────────── */
+.sync-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sync-article-title {
+  font-size: 13px;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+/* ── 元信息配置区 ──────────────────────────────── */
+.sync-meta-section {
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--sync-border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sync-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sync-meta-row--desc {
+  align-items: center;
+}
+
+.sync-meta-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sync-text);
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.sync-meta-input {
+  flex: 1;
+  padding: 7px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--sync-border);
+  background: transparent;
+  color: var(--sync-text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.sync-meta-input:focus {
+  border-color: #086ADA;
+  box-shadow: 0 0 0 2px rgba(8,106,218,0.12);
+}
+
+.sync-meta-textarea {
+  resize: none;
+  line-height: 1.5;
+}
+
+.sync-meta-auto-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--sync-border);
+  background: transparent;
+  color: var(--sync-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  transition: background 0.12s, color 0.12s;
+}
+
+.sync-meta-auto-btn:hover {
+  background: var(--sync-hover-bg);
+  color: var(--sync-text);
+}
+.sync-meta-section {
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--sync-border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sync-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sync-meta-row--desc {
+  align-items: flex-start;
+}
+
+.sync-meta-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sync-text);
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.sync-meta-input {
+  flex: 1;
+  padding: 7px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--sync-border);
+  background: transparent;
+  color: var(--sync-text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.sync-meta-input:focus {
+  border-color: #086ADA;
+  box-shadow: 0 0 0 2px rgba(8,106,218,0.12);
+}
+
+.sync-meta-textarea {
+  resize: none;
+  line-height: 1.5;
+}
+
+.sync-meta-auto-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--sync-border);
+  background: transparent;
+  color: var(--sync-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+
+.sync-meta-auto-btn:hover {
+  background: var(--sync-hover-bg);
+  color: var(--sync-text);
+}
+
+/* ── 平台分组 ───────────────────────────────────── */
+.sync-category {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.sync-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+
+.sync-category-header:hover {
+  background: var(--sync-hover-bg);
+}
+
+.sync-category-arrow {
+  font-size: 10px;
+  color: var(--sync-muted);
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.sync-category-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+.sync-checkbox-sm {
+  width: 15px !important;
+  height: 15px !important;
+  border-radius: 4px !important;
+}
+
+.sync-checkbox-sm svg {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.sync-category-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sync-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+
+.sync-category-count {
+  font-size: 11px;
+  color: var(--sync-muted);
+  opacity: 0.7;
+}
+
+/* ── 工具栏 ──────────────────────────────────── */
+.sync-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--sync-border);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.sync-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sync-select-count {
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.sync-tool-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--sync-border);
+  background: transparent;
+  color: var(--sync-text);
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.sync-tool-btn:hover:not(:disabled) {
+  background: var(--sync-hover-bg);
+}
+
+.sync-tool-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── 平台列表 ────────────────────────────────── */
+.sync-platform-list {
+  padding: 12px 16px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sync-empty {
+  text-align: center;
+  padding: 40px 0;
+  opacity: 0.5;
+  font-size: 14px;
+}
+
+.sync-platform-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.sync-platform-row:hover {
+  background: var(--sync-hover-bg);
+}
+
+.sync-platform-row.checked {
+  background: var(--sync-checked-bg);
+  border-color: var(--sync-checked-border);
+}
+
+.sync-platform-row.synced {
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.sync-platform-row.sync-failed {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* 勾选框 */
+.sync-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid var(--sync-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+  color: #fff;
+}
+
+.sync-checkbox.sync-checkbox-on {
+  background: #086ADA;
+  border-color: #086ADA;
+}
+
+.sync-checkbox svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* 平台图标 */
+.sync-platform-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* 平台名称 */
+.sync-platform-name {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+  color: var(--sync-text);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 状态区 */
+.sync-platform-status {
+  font-size: 12px;
+  flex-shrink: 0;
+  max-width: 180px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-loggedin {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #22c55e;
+}
+
+.login-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.login-username {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-notlogin {
+  color: var(--sync-muted);
+}
+
+.status-login-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #086ADA;
+  color: #fff !important;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.theme-dark .status-login-btn {
+  background: #59A6FF;
+  color: #0d1117 !important;
+}
+
+.status-login-btn:hover {
+  background: #0558b8;
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: #fff !important;
+}
+
+.theme-dark .status-login-btn:hover {
+  background: #79B8FF;
+  color: #0d1117 !important;
+}
+
+.theme-md3 .status-login-btn {
+  background: #6750a4;
+}
+
+.theme-md3 .status-login-btn:hover {
+  background: #4f3d8a;
+}
+
+.status-detecting {
+  color: var(--sync-muted);
+  animation: sync-pulse 1.2s ease-in-out infinite;
+}
+
+.status-syncing {
+  color: #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-ok {
+  color: #22c55e;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-err {
+  color: #ef4444;
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes sync-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── 底部 ────────────────────────────────────── */
+.sync-footer {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sync-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+@media (pointer: coarse) {
+  .sync-meta-row {
+    gap: 12px;
+  }
+
+  .sync-meta-auto-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .sync-tool-btn,
+  .status-login-btn,
+  .sync-footer-actions .btn-secondary,
+  .sync-footer-actions .btn-primary {
+    min-height: 40px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .sync-category-header {
+    min-height: 40px;
+    padding: 8px 10px;
+  }
+
+  .sync-checkbox,
+  .sync-checkbox-sm {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 6px !important;
+  }
+
+  .sync-checkbox svg,
+  .sync-checkbox-sm svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .sync-platform-row {
+    min-height: 48px;
+    padding: 10px 12px;
+  }
+
+  .sync-platform-icon {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+@media (max-width: 767px) {
+  .sync-platform-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .sync-platform-status {
+    max-width: none;
+    width: 100%;
+    text-align: left;
+    padding-left: 28px;
+  }
+
+  .sync-footer-actions {
+    width: 100%;
+  }
+
+  .sync-footer-actions .btn-secondary,
+  .sync-footer-actions .btn-primary {
+    flex: 1 1 0;
+  }
+}
+
+.sync-packing-tip,
+.sync-done-tip {
+  font-size: 13px;
+  opacity: 0.75;
+  align-self: center;
+}
+
+/* ── 检测中 loading ──────────────────────────── */
+.sync-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px !important;
+  gap: 16px;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.sync-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--sync-border);
+  border-top-color: #086ADA;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── 安装引导界面 ────────────────────────────── */
+.cose-install-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+.cose-install-icon {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cose-logo-img {
+  max-width: 320px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.cose-install-guide h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--sync-text);
+}
+
+.cose-install-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--sync-muted);
+  max-width: 400px;
+  margin: 0;
+}
+
+.cose-install-desc strong {
+  color: var(--sync-text);
+  font-weight: 600;
+}
+
+/* 平台预览标签 */
+.cose-platforms-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-width: 440px;
+}
+
+.cose-platform-tag {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--sync-tag-bg);
+  color: var(--sync-tag-color);
+  border: 1px solid var(--sync-border);
+}
+
+.cose-platform-tag.more {
+  background: transparent;
+  color: var(--sync-muted);
+  border-style: dashed;
+}
+
+/* 安装步骤 */
+.cose-install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  width: 100%;
+  max-width: 380px;
+  background: var(--sync-step-bg);
+  border-radius: 10px;
+  padding: 16px 20px;
+  border: 1px solid var(--sync-border);
+}
+
+.cose-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--sync-text);
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #086ADA;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+/* 安装按钮区 */
+.cose-install-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.cose-install-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s !important;
+  cursor: pointer;
+}
+
+.cose-install-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(8, 106, 218, 0.4) !important;
+  text-decoration: none;
+  color: #fff;
+}
+
+/* 开发者模式折叠 */
+.cose-dev-mode {
+  width: 100%;
+  max-width: 380px;
+  text-align: left;
+}
+
+.cose-dev-mode summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--sync-muted);
+  padding: 4px 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cose-dev-mode summary::before {
+  content: '▶';
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.cose-dev-mode[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.cose-dev-mode ol {
+  margin: 8px 0 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--sync-muted);
+}
+
+.cose-dev-mode code {
+  background: var(--sync-code-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── 主题变量 ────────────────────────────────── */
+.theme-dark .sync-dialog {
+  --sync-text:           #c9d1d9;
+  --sync-muted:          #8b949e;
+  --sync-border:         #30363d;
+  --sync-hover-bg:       #21262d;
+  --sync-checked-bg:     rgba(8, 106, 218, 0.12);
+  --sync-checked-border: rgba(8, 106, 218, 0.5);
+  --sync-tag-bg:         #161b22;
+  --sync-tag-color:      #58a6ff;
+  --sync-step-bg:        #161b22;
+  --sync-code-bg:        #0d1117;
+}
+
+.theme-light .sync-dialog {
+  --sync-text:           #24292f;
+  --sync-muted:          #57606a;
+  --sync-border:         #d0d7de;
+  --sync-hover-bg:       #f6f8fa;
+  --sync-checked-bg:     rgba(8, 106, 218, 0.07);
+  --sync-checked-border: rgba(8, 106, 218, 0.4);
+  --sync-tag-bg:         #f6f8fa;
+  --sync-tag-color:      #0969da;
+  --sync-step-bg:        #f6f8fa;
+  --sync-code-bg:        #eaeef2;
+}
+
+.theme-md3 .sync-dialog {
+  --sync-text:           #1c1b1f;
+  --sync-muted:          #49454f;
+  --sync-border:         #e6e0e9;
+  --sync-hover-bg:       #f3edf7;
+  --sync-checked-bg:     rgba(103, 80, 164, 0.1);
+  --sync-checked-border: rgba(103, 80, 164, 0.45);
+  --sync-tag-bg:         #f6edff;
+  --sync-tag-color:      #6750a4;
+  --sync-step-bg:        #f6edff;
+  --sync-code-bg:        #ede8f5;
+}
+
+.theme-md3 .sync-checkbox.sync-checkbox-on {
+  background: #6750a4;
+  border-color: #6750a4;
+}
+
+.theme-md3 .sync-spinner {
+  border-top-color: #6750a4;
+}
+
+.theme-md3 .step-num {
+  background: #6750a4;
+}
+
+.theme-md3 .cose-install-btn {
+  background: #6750a4 !important;
+}
+
+.theme-md3 .cose-install-btn:hover {
+  background: #4f3d8a !important;
+  box-shadow: 0 6px 18px rgba(103, 80, 164, 0.4) !important;
+}
+
+/* Dialog.css 中 .theme-md3 的变量补丁 */
+.theme-md3 .dialog-container {
+  background: #fef7ff;
+  border: 1px solid #e6e0e9;
+}
+
+.theme-md3 .dialog-header {
+  border-bottom-color: #e6e0e9;
+}
+
+.theme-md3 .dialog-header h2 {
+  color: #1c1b1f;
+}
+
+.theme-md3 .dialog-footer {
+  border-top-color: #e6e0e9;
+}
+
+.theme-md3 .sync-toolbar {
+  border-bottom-color: #e6e0e9;
+}

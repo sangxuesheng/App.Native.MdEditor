@@ -1,0 +1,327 @@
+.settings-dialog {
+  width: min(600px, 92vw) !important;
+  height: min(500px, 88vh) !important;
+  max-width: 92vw !important;
+  max-height: 90vh !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-dialog .dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 24px;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 4px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 10px 0;
+}
+
+.setting-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-select-control {
+  width: min(220px, 100%);
+  min-width: 180px;
+  max-width: 220px;
+  flex-shrink: 0;
+  --asel-trigger-height: 36px;
+  --asel-trigger-padding-x: 12px;
+  --asel-trigger-radius: 8px;
+  --asel-trigger-gap: 8px;
+  --asel-font-size: 13px;
+  --asel-arrow-width: 4.5px;
+  --asel-arrow-height: 5.5px;
+  --asel-item-height: 36px;
+  --asel-item-padding-x: 12px;
+  --asel-item-margin-x: 6px;
+  --asel-item-radius: 6px;
+  --asel-selected-font-weight: 600;
+}
+
+.setting-select-control .asel-trigger {
+  line-height: 1;
+}
+
+.setting-label label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.setting-description {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--toggle-bg);
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--primary-color);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+/* Form Controls */
+.form-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.form-input[type="number"] {
+  text-align: center;
+  width: 80px;
+}
+
+/* Footer */
+.settings-dialog .dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-dialog .footer-right {
+  display: flex;
+  gap: 12px;
+}
+
+  .settings-dialog .dialog-footer > .btn-secondary,
+  .settings-dialog .footer-right > .btn-secondary,
+  .settings-dialog .footer-right > .btn-primary {
+  min-height: 38px;
+  min-width: 90px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 浅色主题 */
+.theme-light .settings-dialog {
+  --bg-secondary: #f6f8fa;
+  --border-color: #d0d7de;
+  --text-primary: #24292f;
+  --text-secondary: #57606a;
+  --primary-color: #0969da;
+  --toggle-bg: #d0d7de;
+  --focus-ring: rgba(9, 105, 218, 0.3);
+  --bg-primary: #f6f8fa;
+  --hover-bg: #eef2f6;
+  --select-item-hover-bg: rgba(9, 105, 218, 0.12);
+  --select-item-active-bg: rgba(9, 105, 218, 0.18);
+  --select-item-active-color: #24292f;
+}
+
+/* 暗黑主题 */
+.theme-dark .settings-dialog {
+  --bg-secondary: #161b22;
+  --border-color: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #b1bac4;
+  --primary-color: #58a6ff;
+  --toggle-bg: #30363d;
+  --focus-ring: rgba(88, 166, 255, 0.3);
+  --bg-primary: #0d1117;
+  --hover-bg: #161b22;
+  --select-item-hover-bg: rgba(88, 166, 255, 0.12);
+  --select-item-active-bg: rgba(88, 166, 255, 0.18);
+  --select-item-active-color: #f0f6fc;
+}
+
+.theme-dark .settings-dialog .setting-label label {
+  color: #f0f6fc;
+}
+
+.theme-dark .settings-dialog .setting-description {
+  color: #b8c0c9;
+}
+
+.theme-dark .settings-dialog .form-input {
+  background: #0d1117;
+  border-color: #3d444d;
+  color: #f0f6fc;
+}
+.theme-dark .settings-dialog .form-input:hover {
+  border-color: #4f5863;
+}
+
+/* 滚动条样式 */
+.settings-dialog .dialog-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-dialog .dialog-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-dialog .dialog-body::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.settings-dialog .dialog-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+@media (max-width: 1024px) {
+  .settings-dialog {
+    width: min(720px, 100%) !important;
+    height: calc(100vh - 24px) !important;
+    max-height: none !important;
+  }
+
+  .settings-dialog .dialog-body {
+    padding: 18px 20px;
+  }
+
+  .settings-form {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 767px) {
+  .settings-dialog {
+    width: 100% !important;
+    height: calc(100vh - 16px) !important;
+  }
+
+  .setting-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+  }
+
+  .setting-select-control,
+  .form-input {
+    width: 100%;
+    max-width: none;
+  }
+
+  .setting-select-control {
+    min-width: 0;
+  }
+
+  .settings-dialog .dialog-footer {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+    flex-wrap: nowrap;
+  }
+
+  /* 覆盖 Dialog.css 的 flex: 1 1 140px，避免恢复默认按钮高度/宽度异常；放宽 min-width 以自适应窄屏 */
+  .settings-dialog .dialog-footer .btn-secondary,
+  .settings-dialog .dialog-footer .btn-primary {
+    min-width: 0;
+  }
+
+  .settings-dialog .dialog-footer > .btn-secondary {
+    flex: none;
+    width: 100%;
+  }
+
+  .settings-dialog .footer-right {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .settings-dialog .footer-right .btn-secondary,
+  .settings-dialog .footer-right .btn-primary {
+    flex: none;
+    min-width: 0;
+    width: 100%;
+  }
+}

@@ -1,0 +1,609 @@
+/* 对话框遮罩层 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 对话框内容 */
+.dialog-content {
+  background: #1e1e1e;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+/* 新建文件对话框 - 固定尺寸 */
+.dialog-overlay .dialog-content.new-file-dialog {
+  width: 600px !important;
+  min-width: 600px !important;
+  max-width: 600px !important;
+  height: 500px !important;
+  max-height: 85vh !important;
+  box-sizing: border-box !important;
+}
+
+/* 确保所有子元素不超出宽度 */
+.dialog-overlay .dialog-content.new-file-dialog > * {
+  max-width: 600px !important;
+  box-sizing: border-box !important;
+}
+
+.theme-light .dialog-content {
+  background: #ffffff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.theme-dark .dialog-content {
+  background: #0d1117;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid #30363d;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.dialog-content.new-file-dialog {
+  width: 450px !important;
+  height: 480px !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+}
+
+.new-file-dialog {
+  width: 450px !important;
+  height: 480px !important;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+/* 对话框头部 */
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #333;
+}
+
+.theme-light .dialog-header {
+  border-bottom-color: #d0d7de;
+}
+
+.theme-dark .dialog-header {
+  border-bottom-color: #30363d;
+}
+
+.dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.theme-light .dialog-header h2 {
+  color: #24292f;
+}
+
+.theme-dark .dialog-header h2 {
+  color: #c9d1d9;
+}
+
+.dialog-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #8b949e;
+  font-size: 24px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.dialog-close:hover {
+  background: #30363d;
+  color: #c9d1d9;
+}
+
+.theme-light .dialog-close:hover {
+  background: #f6f8fa;
+  color: #24292f;
+}
+
+.theme-dark .dialog-close:hover {
+  background: #21262d;
+  color: #c9d1d9;
+}
+
+/* 对话框主体 */
+.new-file-dialog .dialog-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  background: #0d1117;
+}
+
+.theme-light .new-file-dialog .dialog-body {
+  background: #ffffff;
+}
+
+.theme-dark .new-file-dialog .dialog-body {
+  background: #0d1117;
+}
+
+.dialog-body h3 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.theme-light .dialog-body h3 {
+  color: #57606a;
+}
+
+.theme-dark .dialog-body h3 {
+  color: #8b949e;
+}
+
+/* 模板选择 */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.template-card {
+  position: relative;
+  padding: 16px;
+  background: #161b22;
+  border: 2px solid #30363d;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  gap: 12px;
+}
+
+.theme-light .template-card {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+.theme-dark .template-card {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+.template-card:hover {
+  border-color: #58a6ff;
+  background: #1c2128;
+}
+
+.theme-light .template-card:hover {
+  border-color: #0969da;
+  background: #eaeef2;
+}
+
+.theme-dark .template-card:hover {
+  border-color: #58a6ff;
+  background: #21262d;
+}
+
+.template-card.selected {
+  border-color: #58a6ff;
+  background: #1c2128;
+}
+
+.theme-light .template-card.selected {
+  border-color: #0969da;
+  background: #ddf4ff;
+}
+
+.theme-dark .template-card.selected {
+  border-color: #58a6ff;
+  background: #1c2d41;
+}
+
+.template-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.template-info {
+  flex: 1;
+}
+
+.template-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.theme-light .template-info h4 {
+  color: #24292f;
+}
+
+.theme-dark .template-info h4 {
+  color: #c9d1d9;
+}
+
+.template-info p {
+  margin: 0;
+  font-size: 12px;
+  color: #8b949e;
+  line-height: 1.4;
+}
+
+.theme-light .template-info p {
+  color: #57606a;
+}
+
+.theme-dark .template-info p {
+  color: #8b949e;
+}
+
+.template-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background: #58a6ff;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.theme-light .template-check {
+  background: #0969da;
+}
+
+/* 文件详情 */
+.file-details {
+  max-width: 500px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.theme-light .form-group label {
+  color: #24292f;
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: #c9d1d9;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.theme-light .form-input,
+.theme-light .form-select {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.form-input:focus,
+.form-select:focus {
+  border-color: #58a6ff;
+}
+
+.theme-light .form-input:focus,
+.theme-light .form-select:focus {
+  border-color: #0969da;
+}
+
+.file-name-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.file-name-input .form-input {
+  flex: 1;
+}
+
+.file-extension {
+  color: #8b949e;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.theme-light .file-extension {
+  color: #57606a;
+}
+
+.selected-template-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+}
+
+.theme-light .selected-template-info {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+.template-name {
+  font-size: 14px;
+  color: #c9d1d9;
+  font-weight: 500;
+}
+
+.theme-light .template-name {
+  color: #24292f;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #58a6ff;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.theme-light .btn-link {
+  color: #0969da;
+}
+
+.btn-link:hover {
+  background: #30363d;
+}
+
+.theme-light .btn-link:hover {
+  background: #ddf4ff;
+}
+
+.error-message {
+  padding: 12px;
+  background: #f851491a;
+  border: 1px solid #f85149;
+  border-radius: 8px;
+  color: #f85149;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.theme-light .error-message {
+  background: #ffebe9;
+  border-color: #cf222e;
+  color: #cf222e;
+}
+
+/* 对话框底部 */
+.new-file-dialog .dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #30363d;
+  background: #0d1117;
+}
+
+.theme-light .new-file-dialog .dialog-footer {
+  border-top-color: #d0d7de;
+  background: #ffffff;
+}
+
+.theme-dark .new-file-dialog .dialog-footer {
+  border-top-color: #30363d;
+  background: #0d1117;
+}
+
+.btn-secondary,
+.btn-primary {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+}
+
+.theme-light .btn-secondary {
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-dark .btn-secondary {
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+
+.btn-secondary:hover {
+  background: #30363d;
+}
+
+.theme-light .btn-secondary:hover {
+  background: #f6f8fa;
+}
+
+.theme-dark .btn-secondary:hover {
+  background: #21262d;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 160, 67, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 响应式 - 桌面端保持默认 600px */
+@media (max-width: 1200px) {
+  .new-file-dialog {
+    width: 85vw;
+  }
+}
+
+/* 移动端自适应 */
+@media (max-width: 767px) {
+  .dialog-overlay.new-file-dialog-overlay {
+    padding: calc(12px + var(--safe-area-top)) calc(12px + var(--safe-area-right)) calc(12px + var(--safe-area-bottom)) calc(12px + var(--safe-area-left));
+    align-items: center;
+    box-sizing: border-box;
+  }
+
+  .dialog-overlay.new-file-dialog-overlay .dialog-content.new-file-dialog {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 280px !important;
+    max-height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom) - 24px) !important;
+    flex: 1 1 auto;
+  }
+
+  .dialog-overlay.new-file-dialog-overlay .dialog-content.new-file-dialog > * {
+    max-width: 100% !important;
+  }
+
+  .new-file-dialog .dialog-header {
+    padding: 16px 20px;
+  }
+
+  .new-file-dialog .dialog-body {
+    padding: 16px 20px;
+  }
+
+  .new-file-dialog .dialog-footer {
+    padding: 12px 20px;
+    flex-wrap: wrap;
+  }
+
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .new-file-dialog .dialog-body {
+    max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* 统一按钮样式 */
+.new-file-dialog .btn-secondary,
+.new-file-dialog .btn-primary {
+  height: 38px;
+  min-width: 90px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.new-file-dialog .btn-primary {
+  background: #086ADA;
+  color: #ffffff;
+  border: none;
+}
+
+.theme-dark .new-file-dialog .btn-primary {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
+.new-file-dialog .btn-primary:hover:not(:disabled) {
+  background: #0757b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.theme-dark .new-file-dialog .btn-primary:hover:not(:disabled) {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
+}
+
+.new-file-dialog .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

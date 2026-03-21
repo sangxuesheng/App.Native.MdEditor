@@ -1,0 +1,132 @@
+.slash-menu {
+  position: fixed;
+  min-width: 220px;
+  max-height: 320px;
+  overflow: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--menu-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 10020;
+  padding: 6px;
+}
+
+.slash-menu::-webkit-scrollbar {
+  display: none;
+}
+
+.slash-menu-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 2px 6px;
+}
+
+.slash-menu-reset-btn {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.slash-menu-reset-btn:hover {
+  background: var(--menu-hover-bg);
+}
+
+.slash-menu-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.slash-menu-row.submenu-row {
+  padding-left: 18px;
+}
+
+.slash-menu-row.dragging {
+  opacity: 0.55;
+}
+
+.slash-menu-row.drag-over {
+  outline: 1px dashed var(--border-color);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.slash-menu-item {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+
+.slash-menu-item.submenu-item {
+  font-size: 12.5px;
+}
+
+.slash-submenu-arrow {
+  margin-left: auto;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.slash-submenu-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.slash-menu-item:hover,
+.slash-menu-item.active {
+  background: var(--menu-hover-bg);
+}
+
+.slash-item-order-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  color: var(--text-color);
+  opacity: 0.5;
+  cursor: grab;
+  user-select: none;
+}
+
+.slash-menu-row:active .slash-item-order-actions {
+  cursor: grabbing;
+}
+
+.slash-menu-row:hover .slash-item-order-actions {
+  opacity: 0.85;
+}
+
+.slash-menu-empty {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+.theme-light {
+  --menu-bg: #ffffff;
+  --menu-hover-bg: #f5f5f5;
+  --border-color: #d1d5db;
+  --text-color: #1f2937;
+}
+
+.theme-dark {
+  --menu-bg: #1f2937;
+  --menu-hover-bg: #374151;
+  --border-color: #4b5563;
+  --text-color: #f9fafb;
+}

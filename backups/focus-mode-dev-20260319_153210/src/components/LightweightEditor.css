@@ -1,0 +1,57 @@
+/* 轻量级编辑器样式 */
+
+.lightweight-editor {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.lightweight-editor-textarea {
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  tab-size: 2;
+  -moz-tab-size: 2;
+}
+
+/* 亮色主题 */
+.lightweight-editor-light .lightweight-editor-textarea {
+  background: #ffffff;
+  color: #24292e;
+}
+
+/* 暗色主题 */
+.lightweight-editor-dark .lightweight-editor-textarea {
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+/* 移动端优化 */
+@media (max-width: 767px) {
+  .lightweight-editor-textarea {
+    font-size: 16px; /* 防止 iOS 自动缩放 */
+    padding: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* 占位符样式 */
+.lightweight-editor-textarea::placeholder {
+  color: #999;
+  opacity: 0.6;
+}
+
+/* 选中文本样式 */
+.lightweight-editor-textarea::selection {
+  background: #b3d4fc;
+}
+
+.lightweight-editor-dark .lightweight-editor-textarea::selection {
+  background: #264f78;
+}

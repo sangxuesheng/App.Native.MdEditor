@@ -11,6 +11,7 @@ const SettingsDialog = ({
   lineNumbers = true,
   wordWrap = true,
   syncPreviewWithEditor = true,
+  enableSlashMenuReorder = false,
   onThemeChange,
   onSave
 }) => {
@@ -24,6 +25,7 @@ const SettingsDialog = ({
     fontFamily,
     // 编辑与预览联动（编辑滚动时预览是否跟随）
     syncPreviewWithEditor,
+    enableSlashMenuReorder,
   });
 
   const [hasChanges, setHasChanges] = useState(false);
@@ -39,9 +41,10 @@ const SettingsDialog = ({
       lineNumbers,
       wordWrap,
       syncPreviewWithEditor,
+      enableSlashMenuReorder,
     }))
     setHasChanges(false)
-  }, [theme, fontSize, lineHeight, fontFamily, lineNumbers, wordWrap, syncPreviewWithEditor]);
+  }, [theme, fontSize, lineHeight, fontFamily, lineNumbers, wordWrap, syncPreviewWithEditor, enableSlashMenuReorder]);
 
   const handleChange = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -73,6 +76,7 @@ const SettingsDialog = ({
       lineNumbers: true,
       fontFamily: 'JetBrains Mono',
       syncPreviewWithEditor: true,
+      enableSlashMenuReorder: false,
     };
     setSettings(defaultSettings);
     setHasChanges(true);
@@ -240,6 +244,21 @@ const SettingsDialog = ({
                     type="checkbox"
                     checked={settings.syncPreviewWithEditor}
                     onChange={(e) => handleChange('syncPreviewWithEditor', e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-label">
+                  <label>启用斜杠菜单拖拽排序</label>
+                  <p className="setting-description">开启后，可在 / 命令菜单中拖拽调整条目顺序</p>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.enableSlashMenuReorder}
+                    onChange={(e) => handleChange('enableSlashMenuReorder', e.target.checked)}
                   />
                   <span className="toggle-slider"></span>
                 </label>

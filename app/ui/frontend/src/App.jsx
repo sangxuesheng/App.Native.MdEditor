@@ -35,6 +35,7 @@ import AboutDialog from './components/AboutDialog'
 import SyncDialog from './components/SyncDialog'
 import FileHistoryDialog from './components/FileHistoryDialog'
 import EditorContextMenu from './components/EditorContextMenu'
+import SlashCommandMenu from './components/SlashCommandMenu'
 import ConfirmDialog from './components/ConfirmDialog'
 import { ToastContainer } from './components/Toast'
 import { useDebounce } from './hooks/useDebounce'
@@ -46,9 +47,11 @@ import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentF
 import { compressImage } from './utils/imageCompressor'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
-import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2, ListCollapse } from 'lucide-react'
+import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2, ListCollapse, Scan, FilePenLine } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
+import PdfViewer from './components/PdfViewer'
+
 import { saveEditorDraft, loadEditorDraft, clearEditorDraft } from './utils/editorLocalStorage'
 import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting, mergeExportConfigWithDefaults } from './utils/settingsApi'
 import { safeParseJsonResponse } from './utils/fetchUtils'
@@ -198,6 +201,15 @@ const getInitialEditorState = () => {
   return { content: DEFAULT_DOCUMENT_CONTENT, currentPath: '' }
 }
 
+const sanitizeFileNameFromTitle = (title) => {
+  const raw = (title || '').trim()
+  if (!raw) return ''
+  return raw
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // Content-driven mermaid detection: fast check, no markdown parse.
 const hasMermaid = (content) => {
   if (!content || typeof content !== 'string') return false
@@ -217,6 +229,7 @@ function App() {
   const { isLoading, loadingMessage } = useMobileFirstScreenLoader()
   
   const [content, setContent] = useState(() => getInitialEditorState().content)
+  const [documentTitle, setDocumentTitle] = useState('')
   const [showImageManager, setShowImageManager] = useState(false)
   const [imageManagerInitialTab, setImageManagerInitialTab] = useState(null) // 'library' | null，打开时指定标签页
   const [currentPath, setCurrentPath] = useState(() => getInitialEditorState().currentPath)
@@ -225,6 +238,7 @@ function App() {
   const [showTableDialog, setShowTableDialog] = useState(false)
   const [editorTheme, setEditorTheme] = useState(getInitialTheme)
   const [layout, setLayout] = useState('vertical')
+  const [focusMode, setFocusMode] = useState('off') // off | split | editor-only
   const [showFileTree, setShowFileTree] = useState(false)
   const [showNewFileDialog, setShowNewFileDialog] = useState(false)
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false)
@@ -247,6 +261,8 @@ function App() {
   const [editorLineNumbers, setEditorLineNumbers] = useState(true)
   const [editorWordWrap, setEditorWordWrap] = useState(true)
   const [syncPreviewWithEditor, setSyncPreviewWithEditor] = useState(true)
+  const [enableSlashMenuReorder, setEnableSlashMenuReorder] = useState(false)
+  const [slashCommandOrder, setSlashCommandOrder] = useState([])
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
   const [imageCaptionFormat, setImageCaptionFormat] = useState(DEFAULT_APP_STATE.imageCaptionFormat)
@@ -259,6 +275,9 @@ function App() {
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState(null)
   const [clipboardContent, setClipboardContent] = useState(null)
+
+  // 斜杠菜单状态
+  const [slashMenu, setSlashMenu] = useState({ visible: false, x: 0, y: 0, query: '', range: null })
 
   // 全格式支持：当前文件格式、图片预览数据、PDF预览数据、非支持格式弹窗、保存确认弹窗
   const [currentFileFormat, setCurrentFileFormat] = useState(null) // 'md'|'text'|'image'|'pdf'|'unsupported'
@@ -1640,8 +1659,46 @@ function App() {
   // 编辑器 onChange：同步更新 ref（供 AI 引用全文），防抖更新 state
   const handleEditorChange = useCallback(
     (value) => {
-      editorContentRef.current = value || ''
-      debouncedSetContent(value)
+      const nextValue = value || ''
+      editorContentRef.current = nextValue
+      debouncedSetContent(nextValue)
+
+      const editor = editorRef.current
+      if (!editor) return
+
+      const model = editor.getModel()
+      const position = editor.getPosition()
+      if (!model || !position) return
+
+      const lineText = model.getLineContent(position.lineNumber)
+      const textBeforeCursor = lineText.slice(0, Math.max(position.column - 1, 0))
+      const slashMatch = textBeforeCursor.match(/\/(\S*)$/)
+
+      if (!slashMatch) {
+        setSlashMenu((prev) => (prev.visible ? { ...prev, visible: false } : prev))
+        return
+      }
+
+      const query = slashMatch[1] || ''
+      const triggerStartColumn = position.column - slashMatch[0].length
+      const cursorCoords = editor.getScrolledVisiblePosition(position)
+      const editorDomNode = editor.getDomNode()
+
+      if (!cursorCoords || !editorDomNode) return
+
+      const editorRect = editorDomNode.getBoundingClientRect()
+      setSlashMenu({
+        visible: true,
+        x: editorRect.left + cursorCoords.left,
+        y: editorRect.top + cursorCoords.top + cursorCoords.height + 6,
+        query,
+        range: {
+          startLineNumber: position.lineNumber,
+          startColumn: triggerStartColumn,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column,
+        },
+      })
     },
     [debouncedSetContent]
   )
@@ -1691,6 +1748,7 @@ function App() {
   const [isFileTreeClosing, setIsFileTreeClosing] = useState(false)
   const [isExportConfigClosing, setIsExportConfigClosing] = useState(false)
   const [editorInstance, setEditorInstance] = useState(null)
+  const [editorScrollTop, setEditorScrollTop] = useState(0)
   const syncPreviewWithEditorRef = useRef(syncPreviewWithEditor)
   const editorThemeRef = useRef(editorTheme)
   // 跟踪上次保存的内容（用于自动保存优化）
@@ -1723,6 +1781,14 @@ function App() {
     : 0
 
   const effectiveLayout = useMemo(() => {
+    if (focusMode === 'split') {
+      return 'vertical'
+    }
+
+    if (focusMode === 'editor-only') {
+      return 'editor-only'
+    }
+
     if (!isAdaptiveSinglePaneViewport) {
       return layout
     }
@@ -1732,7 +1798,14 @@ function App() {
     }
 
     return mobileActivePane === 'preview' ? 'preview-only' : 'editor-only'
-  }, [isAdaptiveSinglePaneViewport, layout, mobileActivePane, showExportConfigPanel])
+  }, [focusMode, isAdaptiveSinglePaneViewport, layout, mobileActivePane, showExportConfigPanel])
+
+  // 移动端禁用专注模式（不显示入口且自动回退）
+  useEffect(() => {
+    if (isAdaptiveSinglePaneViewport && focusMode !== 'off') {
+      setFocusMode('off')
+    }
+  }, [isAdaptiveSinglePaneViewport, focusMode])
 
   // 当预览区变为可见时触发样式应用（解决移动端切换后 Mac 代码块、代码主题未加载的问题）
   useEffect(() => {
@@ -1742,12 +1815,16 @@ function App() {
   }, [effectiveLayout])
 
   const currentDocumentName = useMemo(() => {
+    if (documentTitle?.trim()) {
+      return documentTitle.trim()
+    }
+
     if (!currentPath) {
       return '未命名文档'
     }
 
     return currentPath.split('/').pop() || currentPath
-  }, [currentPath])
+  }, [documentTitle, currentPath])
 
   const currentDocumentMeta = useMemo(() => {
     return currentPath || '未保存'
@@ -1776,6 +1853,8 @@ function App() {
         if (typeof s.editorLineNumbers === 'boolean') setEditorLineNumbers(s.editorLineNumbers)
         if (typeof s.editorWordWrap === 'boolean') setEditorWordWrap(s.editorWordWrap)
         if (typeof s.syncPreviewWithEditor === 'boolean') setSyncPreviewWithEditor(s.syncPreviewWithEditor)
+        if (typeof s.enableSlashMenuReorder === 'boolean') setEnableSlashMenuReorder(s.enableSlashMenuReorder)
+        if (Array.isArray(s.slashCommandOrder)) setSlashCommandOrder(s.slashCommandOrder)
         if (typeof s.layout === 'string') setLayout(s.layout)
         if (typeof s.showFileTree === 'boolean') setShowFileTree(s.showFileTree)
         if (typeof s.showToolbar === 'boolean') setShowToolbar(s.showToolbar)
@@ -1830,6 +1909,7 @@ function App() {
 
     // 编辑器 → 预览
     const scrollDisposable = editor.onDidScrollChange(() => {
+      setEditorScrollTop(editor.getScrollTop())
       if (!syncPreviewWithEditorRef.current) return
       if (syncFromPreviewRef.current) return // 正在从预览同步过来，避免回环
       if (!previewRef.current) return
@@ -2967,6 +3047,44 @@ function App() {
     }
   }, [isAdaptiveSinglePaneViewport, showExportConfigPanel, handleCloseExportConfigPanel, openExportConfigPanel])
 
+  // 合并后的布局/专注模式单按钮（桌面端）
+  const handleCycleViewMode = useCallback(() => {
+    if (isAdaptiveSinglePaneViewport) {
+      setMobileActivePane((prev) => (prev === 'editor' ? 'preview' : 'editor'))
+      return
+    }
+
+    const modeOrder = [
+      { focus: 'off', layout: 'vertical' },
+      { focus: 'off', layout: 'editor-only' },
+      { focus: 'off', layout: 'preview-only' },
+      { focus: 'split' },
+      { focus: 'editor-only' },
+    ]
+
+    const currentIndex = modeOrder.findIndex((item) => {
+      if (focusMode === 'off') {
+        return item.focus === 'off' && item.layout === layout
+      }
+      return item.focus === focusMode
+    })
+
+    const nextMode = modeOrder[(currentIndex + 1 + modeOrder.length) % modeOrder.length]
+
+    setFocusMode(nextMode.focus)
+    if (nextMode.focus === 'off' && nextMode.layout) {
+      updateLayout(nextMode.layout)
+    }
+  }, [isAdaptiveSinglePaneViewport, focusMode, layout, updateLayout])
+
+  const currentViewModeLabel = useMemo(() => {
+    if (focusMode === 'split') return '专注左右'
+    if (focusMode === 'editor-only') return '专注仅编辑'
+    if (layout === 'editor-only') return '仅编辑'
+    if (layout === 'preview-only') return '仅预览'
+    return '左右'
+  }, [focusMode, layout])
+
   useEffect(() => {
     return () => {
       if (exportConfigClosingTimerRef.current) {
@@ -3303,7 +3421,10 @@ function App() {
       setCurrentFileFormat(format)
 
       setStatus('正在加载...')
-      const modeParam = mode === 'binary' ? 'binary' : mode === 'hex' ? 'hex' : 'text'
+      // 对于PDF文件，始终使用binary模式获取原始内容
+      const modeParam = format === FORMAT_PDF ? 'binary' : 
+                       mode === 'binary' ? 'binary' : 
+                       mode === 'hex' ? 'hex' : 'text'
       const response = await fetch(`/api/file?path=${encodeURIComponent(path)}&mode=${modeParam}`)
       const data = await response.json()
 
@@ -3358,15 +3479,15 @@ function App() {
           lastSavedContentRef.current = ''
           lastSavedPathRef.current = path
           imageDataRef.current = null
-          // PDF文件布局规则：单窗口模式（仅编辑/仅预览）时，切换到仅预览模式
-          if (layout === 'editor-only' || layout === 'preview-only') {
+          // PDF文件布局规则：打开时自动切换到仅预览模式
+          if (layout !== 'preview-only') {
             // 记录原布局（用于后续恢复）
             originalLayoutRef.current = layout
             isImageAutoSwitchRef.current = true
             setLayout('preview-only')
           }
           // 移动端：切换到预览视图
-          if (isAdaptiveSinglePaneViewport && mobileActivePane === 'editor') {
+          if (isAdaptiveSinglePaneViewport && mobileActivePane !== 'preview') {
             originalMobilePaneRef.current = mobileActivePane
             isMobileImageAutoSwitchRef.current = true
             setMobileActivePane('preview')
@@ -3391,6 +3512,8 @@ function App() {
         }
 
         setCurrentPath(path)
+        const loadedName = path.split('/').pop() || ''
+        setDocumentTitle(loadedName.replace(/\.[^.]+$/, ''))
         setStatus(`已加载: ${path}`)
         return true
       } else {
@@ -3561,6 +3684,7 @@ function App() {
     lastSavedContentRef.current = fileContent
     lastSavedPathRef.current = ''
     setContent(fileContent)
+    setDocumentTitle('')
     setCurrentPath('')
     setInitialFileName('')
     setStatus('新建文件 - 未保存')
@@ -3571,6 +3695,8 @@ function App() {
     const success = await saveFile(newPath, content)
     if (success) {
       setCurrentPath(newPath)
+      const savedName = newPath.split('/').pop() || ''
+      setDocumentTitle(savedName.replace(/\.[^.]+$/, ''))
       setStatus(`已保存: ${newPath}`)
       
       // 另存为后创建历史版本（标记为手动保存）
@@ -3827,10 +3953,12 @@ function App() {
         })
       }
     } else {
+      const titleBasedName = sanitizeFileNameFromTitle(documentTitle)
+      setInitialFileName(titleBasedName || '')
       setIsSaveAsMode(false)
       setShowSaveAsDialog(true)
     }
-  }, [currentPath, content, currentFileFormat])
+  }, [currentPath, content, currentFileFormat, documentTitle])
 
   // 恢复历史版本
   const handleVersionRestore = useCallback(async (restoredContent, version) => {
@@ -6293,6 +6421,43 @@ function App() {
     editor.focus()
   }, []) // 添加依赖数组
 
+  const handleSlashCommandSelect = useCallback((command) => {
+    const editor = editorRef.current
+    if (!editor || !slashMenu?.range || !command) {
+      setSlashMenu((prev) => ({ ...prev, visible: false }))
+      return
+    }
+
+    editor.executeEdits('slash-command-remove-trigger', [{
+      range: slashMenu.range,
+      text: '',
+      forceMoveMarkers: true,
+    }])
+
+    const triggerStart = {
+      lineNumber: slashMenu.range.startLineNumber,
+      column: slashMenu.range.startColumn,
+    }
+    editor.setPosition(triggerStart)
+    editor.focus()
+
+    if (command.id === 'image') {
+      setShowImageManager(true)
+      setImageManagerInitialTab(null)
+      setSlashMenu((prev) => ({ ...prev, visible: false }))
+      return
+    }
+
+    if (command.id === 'table') {
+      setShowTableDialog(true)
+      setSlashMenu((prev) => ({ ...prev, visible: false }))
+      return
+    }
+
+    handleToolbarInsert(command.before, command.after, command.mode)
+    setSlashMenu((prev) => ({ ...prev, visible: false }))
+  }, [slashMenu, handleToolbarInsert])
+
   const handleImageInsert = useCallback((markdown) => {
     if (!editorRef.current || !markdown) return
     const editor = editorRef.current
@@ -7402,6 +7567,8 @@ function App() {
     onZoomReset: handleZoomReset,
     layout,
     onLayoutChange: updateLayout,
+    focusMode,
+    onFocusModeChange: setFocusMode,
     onShowMarkdownHelp: handleShowMarkdownHelp,
     onShowShortcuts: handleShowShortcuts,
     onShowAbout: handleShowAbout,
@@ -7416,6 +7583,40 @@ function App() {
     theme: editorTheme,
   }
 
+  const renderPreviewPane = () => (
+    <div 
+      className="preview-pane" 
+      style={(effectiveLayout === 'vertical') ? { flex: '1 1 0', minWidth: '120px', minHeight: 0 } : { flex: 1, minHeight: 0 }}
+      onContextMenu={(e) => {
+        console.log('[preview-pane] onContextMenu 触发，target:', e.target, 'currentTarget:', e.currentTarget)
+        handlePreviewContextMenu(e)
+      }}
+    >
+      {/* PDF 文件使用专门的 PDF Viewer */}
+      {currentFileFormat === FORMAT_PDF && pdfDataRef.current ? (
+        <PdfViewer 
+          pdfBase64={pdfDataRef.current}
+          fileName={currentPath ? currentPath.split('/').pop() : 'document.pdf'}
+          theme={editorTheme}
+          onReady={() => console.log('[PdfViewer] PDF loaded successfully')}
+          onError={(err) => console.error('[PdfViewer] PDF load error:', err)}
+        />
+      ) : (
+        <div 
+          ref={previewRef}
+          className="markdown-body"
+          style={{
+            fontSize: exportConfig.fontSize || '16px',
+            lineHeight: exportConfig.lineHeight || 1.8,
+            textAlign: exportConfig.textAlign || 'left',
+            fontFamily: exportConfig.fontFamily === 'serif' ? 'Georgia, serif' :
+                       exportConfig.fontFamily === 'monospace' ? 'Monaco, Consolas, monospace' :
+                       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          }}
+        />
+      )}
+    </div>
+  )
 
   return (
     <>
@@ -7425,7 +7626,7 @@ function App() {
       {/* 主应用内容 - 始终渲染，加载时隐藏 */}
       <AppUiProvider value={appUi}>
         <div 
-          className={`app theme-${editorTheme} ${isVirtualKeyboardOpen ? 'keyboard-open' : ''}`}
+          className={`app theme-${editorTheme} focus-mode-${focusMode} ${isVirtualKeyboardOpen ? 'keyboard-open' : ''}`}
           style={{ 
             visibility: isLoading ? 'hidden' : 'visible',
             opacity: isLoading ? 0 : 1,
@@ -7549,6 +7750,7 @@ function App() {
           lineNumbers={editorLineNumbers}
           wordWrap={editorWordWrap}
           syncPreviewWithEditor={syncPreviewWithEditor}
+          enableSlashMenuReorder={enableSlashMenuReorder}
           onThemeChange={(t) => toggleEditorTheme(t)}
           onSave={(s) => {
             if (s.fontSize) {
@@ -7574,6 +7776,10 @@ function App() {
             if (typeof s.syncPreviewWithEditor === 'boolean') {
               setSyncPreviewWithEditor(s.syncPreviewWithEditor)
               persistSetting('syncPreviewWithEditor', s.syncPreviewWithEditor)
+            }
+            if (typeof s.enableSlashMenuReorder === 'boolean') {
+              setEnableSlashMenuReorder(s.enableSlashMenuReorder)
+              persistSetting('enableSlashMenuReorder', s.enableSlashMenuReorder)
             }
           }}
         />
@@ -7875,6 +8081,15 @@ function App() {
                     : { flex: 1, minHeight: 0 }
                 }
               >
+              <div className="document-title-input-wrap" style={{ transform: `translateY(${-Math.min(editorScrollTop, 86)}px)` }}>
+                <input
+                  type="text"
+                  className="document-title-input"
+                  placeholder="添加标题"
+                  value={documentTitle}
+                  onChange={(e) => setDocumentTitle(e.target.value)}
+                />
+              </div>
               <Suspense
                 fallback={
                   <div className={`editor-loading-placeholder ${editorTheme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
@@ -7897,6 +8112,7 @@ function App() {
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
                     tabSize: 2,
+                    padding: { top: 86 },
                     fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
                     fontLigatures: true,
                     contextmenu: false, // 禁用默认右键菜单
@@ -7931,27 +8147,7 @@ function App() {
         )}
 
         {(effectiveLayout === 'vertical' || effectiveLayout === 'preview-only') && (
-          <div 
-            className="preview-pane" 
-            style={(effectiveLayout === 'vertical') ? { flex: '1 1 0', minWidth: '120px', minHeight: 0 } : { flex: 1, minHeight: 0 }}
-            onContextMenu={(e) => {
-              console.log('[preview-pane] onContextMenu 触发，target:', e.target, 'currentTarget:', e.currentTarget)
-              handlePreviewContextMenu(e)
-            }}
-          >
-            <div 
-              ref={previewRef}
-              className="markdown-body"
-              style={{
-                fontSize: exportConfig.fontSize || '16px',
-                lineHeight: exportConfig.lineHeight || 1.8,
-                textAlign: exportConfig.textAlign || 'left',
-                fontFamily: exportConfig.fontFamily === 'serif' ? 'Georgia, serif' :
-                           exportConfig.fontFamily === 'monospace' ? 'Monaco, Consolas, monospace' :
-                           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-              }}
-            />
-          </div>
+          renderPreviewPane()
         )}
                 </div>
                 <div className={`mobile-export-config-split-panel ${isExportConfigClosing ? 'export-config-closing' : ''}`}>
@@ -7965,96 +8161,89 @@ function App() {
               </div>
             ) : (
               <div className="editor-preview-content">
-              {(effectiveLayout === 'vertical' || effectiveLayout === 'editor-only') && (
-            <>
-              <div
-                className="editor-pane"
-                style={
-                  (effectiveLayout === 'vertical')
-                    ? {
-                        width: `${editorWidth}%`,
-                        flex: `0 0 ${editorWidth}%`,
-                        minWidth: '120px',
-                        minHeight: 0
+                {(effectiveLayout === 'vertical' || effectiveLayout === 'editor-only') && (
+                  <>
+                    <div
+                      className="editor-pane"
+                      style={
+                        (effectiveLayout === 'vertical')
+                          ? {
+                              width: `${editorWidth}%`,
+                              flex: `0 0 ${editorWidth}%`,
+                              minWidth: '120px',
+                              minHeight: 0
+                            }
+                          : { flex: 1, minHeight: 0 }
                       }
-                    : { flex: 1, minHeight: 0 }
-                }
-              >
-              <Suspense
-                fallback={
-                  <div className={`editor-loading-placeholder ${editorTheme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
-                    编辑器加载中...
-                  </div>
-                }
-              >
-                <MonacoEditor
-                  height="100%"
-                  language={currentPath ? getLanguageFromPath(currentPath) : 'markdown'}
-                  theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
-                  value={content}
-                  onChange={handleEditorChange}
-                  onMount={handleEditorMount}
-                  options={{
-                    fontSize: editorFontSize,
-                    lineHeight: editorLineHeight,
-                    minimap: { enabled: false },
-                    wordWrap: editorWordWrap ? 'on' : 'off',
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    tabSize: 2,
-                    fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
-                    fontLigatures: true,
-                    contextmenu: false,
-                    lineNumbers: editorLineNumbers ? 'on' : 'off',
-                    lineNumbersMinChars: 2,
-                    folding: true,
-                    showFoldingControls: 'always',
-                    foldingStrategy: 'auto',
-                    foldingHighlight: true,
-                    foldingMaximumRegions: 5000,
-                    unfoldOnClickAfterEndOfLine: true,
-                    scrollbar: {
-                      vertical: 'visible',
-                      horizontal: 'visible',
-                      useShadows: false,
-                      verticalHasArrows: false,
-                      horizontalHasArrows: false,
-                      verticalScrollbarSize: 10,
-                      horizontalScrollbarSize: 10
-                    }
-                  }}
-                />
-              </Suspense>
-            </div>
-            {effectiveLayout === 'vertical' && (
-              <Resizer direction="vertical" onResize={handleEditorResize} />
-            )}
-          </>
-        )}
+                    >
+                      <div className="document-title-input-wrap" style={{ transform: `translateY(${-Math.min(editorScrollTop, 86)}px)` }}>
+                        <input
+                          type="text"
+                          className="document-title-input"
+                          placeholder="添加标题"
+                          value={documentTitle}
+                          onChange={(e) => setDocumentTitle(e.target.value)}
+                        />
+                      </div>
+                      {content === '' && (
+                        <div className="editor-firstline-placeholder">输入 / 来选择一个区块</div>
+                      )}
+                      <Suspense
+                        fallback={
+                          <div className={`editor-loading-placeholder ${editorTheme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
+                            编辑器加载中...
+                          </div>
+                        }
+                      >
+                        <MonacoEditor
+                          height="100%"
+                          language={currentPath ? getLanguageFromPath(currentPath) : 'markdown'}
+                          theme={editorTheme === 'dark' ? 'vs-dark' : 'vs'}
+                          value={content}
+                          onChange={handleEditorChange}
+                          onMount={handleEditorMount}
+                          options={{
+                            fontSize: editorFontSize,
+                            lineHeight: editorLineHeight,
+                            minimap: { enabled: false },
+                            wordWrap: editorWordWrap ? 'on' : 'off',
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            tabSize: 2,
+                            padding: { top: 86 },
+                            fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
+                            fontLigatures: true,
+                            contextmenu: false,
+                            lineNumbers: editorLineNumbers ? 'on' : 'off',
+                            lineNumbersMinChars: 2,
+                            folding: true,
+                            showFoldingControls: 'always',
+                            foldingStrategy: 'auto',
+                            foldingHighlight: true,
+                            foldingMaximumRegions: 5000,
+                            unfoldOnClickAfterEndOfLine: true,
+                            scrollbar: {
+                              vertical: 'visible',
+                              horizontal: 'visible',
+                              useShadows: false,
+                              verticalHasArrows: false,
+                              horizontalHasArrows: false,
+                              verticalScrollbarSize: 10,
+                              horizontalScrollbarSize: 10
+                            }
+                          }}
+                        />
+                      </Suspense>
+                    </div>
+                    {effectiveLayout === 'vertical' && (
+                      <Resizer direction="vertical" onResize={handleEditorResize} />
+                    )}
+                  </>
+                )}
 
-        {(effectiveLayout === 'vertical' || effectiveLayout === 'preview-only') && (
-          <div 
-            className="preview-pane" 
-            style={(effectiveLayout === 'vertical') ? { flex: '1 1 0', minWidth: '120px', minHeight: 0 } : { flex: 1, minHeight: 0 }}
-            onContextMenu={(e) => {
-              console.log('[preview-pane] onContextMenu 触发，target:', e.target, 'currentTarget:', e.currentTarget)
-              handlePreviewContextMenu(e)
-            }}
-          >
-            <div 
-              ref={previewRef}
-              className="markdown-body"
-              style={{
-                fontSize: exportConfig.fontSize || '16px',
-                lineHeight: exportConfig.lineHeight || 1.8,
-                textAlign: exportConfig.textAlign || 'left',
-                fontFamily: exportConfig.fontFamily === 'serif' ? 'Georgia, serif' :
-                           exportConfig.fontFamily === 'monospace' ? 'Monaco, Consolas, monospace' :
-                           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-              }}
-            />
-          </div>
-        )}
+                {(effectiveLayout === 'vertical' || effectiveLayout === 'preview-only') && (
+                  renderPreviewPane()
+                )}
               </div>
             )}
           </div>
@@ -8105,21 +8294,16 @@ function App() {
             </span>
           )}
           <button 
-            className="statusbar-btn" 
-            onClick={() => {
-              if (isAdaptiveSinglePaneViewport) {
-                setMobileActivePane((prev) => (prev === 'editor' ? 'preview' : 'editor'))
-                return
-              }
-              const layouts = ['vertical', 'editor-only', 'preview-only']
-              const currentIndex = layouts.indexOf(layout)
-              const nextIndex = (currentIndex + 1) % layouts.length
-              updateLayout(layouts[nextIndex])
-            }}
-            title={isAdaptiveSinglePaneViewport ? (mobileActivePane === 'editor' ? '切换到预览' : '切换到编辑') : '切换布局'}
+            className="statusbar-btn"
+            onClick={handleCycleViewMode}
+            title={isAdaptiveSinglePaneViewport ? (mobileActivePane === 'editor' ? '切换到预览' : '切换到编辑') : `切换布局/专注模式（当前：${currentViewModeLabel}）`}
           >
             {isAdaptiveSinglePaneViewport ? (
               mobileActivePane === 'editor' ? <Eye size={16} /> : <FileText size={16} />
+            ) : focusMode === 'split' ? (
+              <Scan size={16} />
+            ) : focusMode === 'editor-only' ? (
+              <FilePenLine size={16} />
             ) : layout === 'vertical' ? (
               <Columns size={16} />
             ) : layout === 'editor-only' ? (
@@ -8177,6 +8361,31 @@ function App() {
           onClose={() => setContextMenu(null)}
         />
       )}
+
+      {/* 编辑器斜杠菜单 */}
+      <SlashCommandMenu
+        visible={slashMenu.visible}
+        x={slashMenu.x}
+        y={slashMenu.y}
+        query={slashMenu.query}
+        theme={editorTheme}
+        enableReorder={enableSlashMenuReorder}
+        commandOrder={slashCommandOrder}
+        onCommandOrderChange={(nextOrder) => {
+          setSlashCommandOrder(nextOrder)
+          persistSetting('slashCommandOrder', nextOrder).catch((e) => {
+            console.error('[App] 保存斜杠菜单顺序失败:', e)
+          })
+        }}
+        onResetOrder={(defaultOrder) => {
+          setSlashCommandOrder(defaultOrder)
+          persistSetting('slashCommandOrder', defaultOrder).catch((e) => {
+            console.error('[App] 重置斜杠菜单顺序失败:', e)
+          })
+        }}
+        onSelect={handleSlashCommandSelect}
+        onClose={() => setSlashMenu((prev) => ({ ...prev, visible: false }))}
+      />
 
       {/* AI 对话（由工具栏按钮打开） */}
       <AISidebar

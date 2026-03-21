@@ -1,0 +1,327 @@
+/* 通用对话框样式 */
+
+/* 对话框遮罩层 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + var(--safe-area-top)) calc(16px + var(--safe-area-right)) calc(16px + var(--safe-area-bottom)) calc(16px + var(--safe-area-left));
+  z-index: 100000;
+  animation: fadeIn 0.2s ease;
+  backdrop-filter: blur(4px);
+  overscroll-behavior: contain;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 对话框容器 */
+.dialog-container {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  max-width: min(90vw, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 32px));
+  max-height: min(85vh, calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 32px));
+  width: 600px;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+  border: none;
+  overflow: hidden;
+}
+
+.theme-light .dialog-container {
+  background: #ffffff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: none;
+}
+
+.theme-dark .dialog-container {
+  background: #0d1117;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid #30363d;
+}
+
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 对话框头部 */
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #30363d;
+  flex-shrink: 0;
+}
+
+.theme-light .dialog-header {
+  border-bottom-color: #d0d7de;
+}
+
+.theme-dark .dialog-header {
+  border-bottom-color: #30363d;
+}
+
+.dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.theme-light .dialog-header h2 {
+  color: #24292f;
+}
+
+.theme-dark .dialog-header h2 {
+  color: #c9d1d9;
+}
+
+
+.dialog-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #8b949e;
+  font-size: 24px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dialog-close:hover {
+  background: #30363d;
+  color: #e6edf3;
+}
+
+.theme-light .dialog-close:hover {
+  background: #f6f8fa;
+  color: #24292f;
+}
+
+.theme-dark .dialog-close:hover {
+  background: #21262d;
+  color: #c9d1d9;
+}
+
+
+/* 对话框内容 */
+.dialog-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  /* 隐藏滚动条但保留滚动功能 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.dialog-content::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.theme-light .dialog-content {
+  color: #24292f;
+}
+
+.theme-dark .dialog-content {
+  color: #c9d1d9;
+}
+
+.theme-dark .dialog-content {
+  color: #c9d1d9;
+}
+
+
+/* 对话框底部 */
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #30363d;
+  flex-shrink: 0;
+}
+
+.theme-light .dialog-footer {
+  border-top-color: #d0d7de;
+}
+
+.theme-dark .dialog-footer {
+  border-top-color: #30363d;
+}
+
+
+/* 按钮样式 */
+.btn-secondary,
+.btn-primary {
+  min-height: 38px;
+  min-width: 90px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.btn-secondary {
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+}
+
+.theme-light .btn-secondary {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-dark .btn-secondary {
+  background: #21262d;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+
+.btn-secondary:hover {
+  background: #30363d;
+}
+
+.theme-light .btn-secondary:hover {
+  background: #f6f8fa;
+}
+
+.theme-dark .btn-secondary:hover {
+  background: #30363d;
+}
+
+
+.btn-primary {
+  background: #086ADA;
+  color: #ffffff;
+}
+
+.theme-dark .btn-primary {
+  background: #59A6FF;
+  color: #0d1117;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0757b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
+}
+
+.theme-dark .btn-primary:hover:not(:disabled) {
+  background: #79B8FF;
+  box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (pointer: coarse) {
+  .dialog-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .btn-secondary,
+  .btn-primary {
+    min-height: 40px;
+    padding: 10px 18px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dialog-overlay.compact-panel-overlay {
+    padding: calc(12px + var(--safe-area-top)) calc(12px + var(--safe-area-right)) calc(12px + var(--safe-area-bottom)) calc(12px + var(--safe-area-left));
+    align-items: flex-end;
+  }
+
+  .dialog-overlay.compact-panel-overlay .dialog-container.compact-panel-dialog {
+    width: min(100%, 920px);
+    max-width: 100%;
+    max-height: calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 24px);
+    border-radius: 18px;
+  }
+}
+
+/* 响应式 */
+@media (max-width: 767px) {
+  .dialog-container {
+    width: min(100%, calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 16px));
+    max-height: calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 16px);
+  }
+
+  .dialog-overlay.compact-panel-overlay {
+    padding: calc(8px + var(--safe-area-top)) calc(8px + var(--safe-area-right)) calc(8px + var(--safe-area-bottom)) calc(8px + var(--safe-area-left));
+  }
+
+  .dialog-overlay.compact-panel-overlay .dialog-container.compact-panel-dialog {
+    width: 100%;
+    max-height: calc(var(--app-viewport-height) - var(--safe-area-top) - var(--safe-area-bottom) - 16px);
+    border-radius: 20px;
+  }
+
+  .dialog-header {
+    padding: 16px 20px;
+  }
+
+  .dialog-content {
+    padding: 20px;
+  }
+
+  .dialog-footer {
+    padding: 12px 20px;
+    flex-wrap: wrap;
+  }
+
+  .dialog-footer > .btn-secondary,
+  .dialog-footer > .btn-primary,
+  .dialog-footer > .btn-danger {
+    flex: 1 1 140px;
+  }
+}

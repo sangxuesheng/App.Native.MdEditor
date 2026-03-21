@@ -92,7 +92,11 @@ ln -s /var/apps/python312/target/bin/python3 /usr/local/bin/python
 
 开发服务
 
+# 使用服务器上的Node.js环境启动开发服务
 cd /vol4/1000/开发文件夹/mac/app/ui/frontend && export PATH=/var/apps/nodejs_v22/target/bin:$PATH && npm run dev
+
+# 或者使用完整的服务器环境配置
+# cd /vol4/1000/开发文件夹/mac/app/ui/frontend && /var/apps/nodejs_v22/target/bin/npm run dev
 
 
 
