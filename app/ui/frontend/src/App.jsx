@@ -51,6 +51,7 @@ import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Shar
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
 import PdfViewer from './components/PdfViewer'
+import OfficeViewer from './components/office/OfficeViewer'
 
 import { saveEditorDraft, loadEditorDraft, clearEditorDraft } from './utils/editorLocalStorage'
 import { DEFAULT_APP_STATE, fetchAllSettings, persistSetting, mergeExportConfigWithDefaults } from './utils/settingsApi'
@@ -58,7 +59,7 @@ import { safeParseJsonResponse } from './utils/fetchUtils'
 import { copyToWeChat } from './utils/wechatExporter'
 import { detectCOSE } from './utils/coseClient'
 import { DEFAULT_DOCUMENT_CONTENT } from './constants/defaultDocument'
-import { getFormatFromPath, getLanguageFromPath, FORMAT_MD, FORMAT_TEXT, FORMAT_IMAGE, FORMAT_PDF, FORMAT_UNSUPPORTED } from './constants/fileFormats'
+import { getFormatFromPath, getLanguageFromPath, FORMAT_DOCX, FORMAT_IMAGE, FORMAT_MD, FORMAT_PDF, FORMAT_PPTX_EXPERIMENTAL, FORMAT_TEXT, FORMAT_UNSUPPORTED, FORMAT_XLSX } from './constants/fileFormats'
 import { AppUiProvider } from './context/AppUiContext'
 
 // 性能优化：首屏加载动画
@@ -283,6 +284,13 @@ function App() {
   const [currentFileFormat, setCurrentFileFormat] = useState(null) // 'md'|'text'|'image'|'pdf'|'unsupported'
   const imageDataRef = useRef(null) // 图片 base64 dataURL
   const pdfDataRef = useRef(null) // PDF base64 dataURL
+  const [officePreviewData, setOfficePreviewData] = useState(null) // docx: string | xlsx: table object | pptx: info object
+  const [officePreviewMetadata, setOfficePreviewMetadata] = useState(null)
+  const [officePreviewLoading, setOfficePreviewLoading] = useState(false)
+  const [officePreviewLoadingMore, setOfficePreviewLoadingMore] = useState(false)
+  const [officePreviewError, setOfficePreviewError] = useState(null)
+  const officeLoadControllerRef = useRef(null)
+  const [officeXlsxSheetIndex, setOfficeXlsxSheetIndex] = useState(0)
   const currentFileEncodingRef = useRef('utf8') // 'utf8'|'hex' - 用于 Hex 保存时转换
   const [currentFileSize, setCurrentFileSize] = useState(null) // 当前文件大小
   const [currentFileMtime, setCurrentFileMtime] = useState(null) // 当前文件修改时间戳
@@ -295,6 +303,14 @@ function App() {
   const originalMobilePaneRef = useRef(null) // 图片自动切换（移动端）前用户原来的视图
   const isImageAutoSwitchRef = useRef(false) // 桌面端：标记是否是通过图片自动切换的布局
   const isMobileImageAutoSwitchRef = useRef(false) // 移动端：标记是否是通过图片自动切换的视图
+
+  const isOfficeReadOnly = currentFileFormat === FORMAT_DOCX || currentFileFormat === FORMAT_XLSX || currentFileFormat === FORMAT_PPTX_EXPERIMENTAL
+
+  useEffect(() => {
+    if (!isOfficeReadOnly) return
+    // Office 只读预览：强制关闭专注模式，避免渲染编辑区
+    setFocusMode('off')
+  }, [isOfficeReadOnly])
 
   const handleExportConfigChange = useCallback((nextConfig) => {
     setExportConfig(nextConfig)
@@ -2696,11 +2712,21 @@ function App() {
   }, [])
 
   const updateLayout = useCallback((nextLayout) => {
+    if (isOfficeReadOnly) {
+      if (nextLayout !== 'preview-only') {
+        showToast('Office 只读预览：仅支持“仅预览”布局', 'warning', 2000)
+      }
+      setLayout('preview-only')
+      persistSetting('layout', 'preview-only').catch((e) => {
+        console.error('[App] 保存布局设置失败:', e)
+      })
+      return
+    }
     setLayout(nextLayout)
     persistSetting('layout', nextLayout).catch((e) => {
       console.error('[App] 保存布局设置失败:', e)
     })
-  }, [])
+  }, [isOfficeReadOnly, showToast])
 
   const updateShowExportConfigPanel = useCallback((nextValue) => {
     setShowExportConfigPanel(prev => {
@@ -3037,6 +3063,10 @@ function App() {
   }, [updateShowExportConfigPanel])
 
   const handleToggleExportConfigPanel = useCallback(() => {
+    if (isOfficeReadOnly) {
+      showToast('Office 只读预览：导出配置已禁用', 'warning', 3000)
+      return
+    }
     if (isAdaptiveSinglePaneViewport) {
       setMobileActivePane('preview')
     }
@@ -3049,6 +3079,10 @@ function App() {
 
   // 合并后的布局/专注模式单按钮（桌面端）
   const handleCycleViewMode = useCallback(() => {
+    if (isOfficeReadOnly) {
+      showToast('Office 只读预览：不支持切换布局', 'warning', 2000)
+      return
+    }
     if (isAdaptiveSinglePaneViewport) {
       setMobileActivePane((prev) => (prev === 'editor' ? 'preview' : 'editor'))
       return
@@ -3381,6 +3415,11 @@ function App() {
     const openSync = params.get('open') === 'sync'
 
     const runPublishFlow = () => {
+      const fmt = getFormatFromPath(path)
+      if (fmt === FORMAT_DOCX || fmt === FORMAT_XLSX || fmt === FORMAT_PPTX_EXPERIMENTAL) {
+        showToast('Office 只读预览：同步已禁用', 'warning', 3000)
+        return
+      }
       setShowSyncDialog(true)
       const url = new URL(window.location.href)
       url.searchParams.delete('open')
@@ -3413,14 +3452,126 @@ function App() {
   }, [initialStateLoaded])
 
   // 全格式支持：实际加载文件内容
+  const loadOfficePreview = useCallback(async (path, format, { sheetIndex = 0, rowOffset = 0, rowLimit = 200, append = false } = {}) => {
+    if (append) {
+      setOfficePreviewLoadingMore(true)
+    } else {
+      setOfficePreviewLoading(true)
+    }
+    setOfficePreviewError(null)
+    if (!append) setOfficePreviewMetadata(null)
+    try {
+      const sheetIndexParam = format === FORMAT_XLSX ? `&sheetIndex=${encodeURIComponent(String(sheetIndex || 0))}` : ''
+      const rowParams = format === FORMAT_XLSX
+        ? `&rowOffset=${encodeURIComponent(String(rowOffset || 0))}&rowLimit=${encodeURIComponent(String(rowLimit || 200))}`
+        : ''
+      const res = await fetch(`/api/file/office/extract?path=${encodeURIComponent(path)}&format=${encodeURIComponent(format)}${sheetIndexParam}${rowParams}`)
+      const data = await res.json()
+      if (data?.ok) {
+        if (append && format === FORMAT_XLSX) {
+          setOfficePreviewData((prev) => {
+            if (!prev || prev.kind !== 'table') return data.content
+            if (prev.sheetIndex !== data.content?.sheetIndex) return data.content
+            const nextRows = Array.isArray(prev.rows) ? prev.rows.concat(data.content?.rows || []) : (data.content?.rows || [])
+            return { ...data.content, rows: nextRows }
+          })
+        } else {
+          setOfficePreviewData(data.content)
+        }
+        setOfficePreviewMetadata(data.metadata || null)
+        setOfficePreviewLoading(false)
+        setOfficePreviewLoadingMore(false)
+        return true
+      }
+      const friendlyMsg = getUserFriendlyMessage(
+        new Error(data?.message || data?.code || 'OFFICE_LOAD_ERROR'),
+        { operation: '加载 Office 文件', filePath: path }
+      )
+      setOfficePreviewError(friendlyMsg.message || 'Office 预览加载失败')
+      setOfficePreviewLoading(false)
+      setOfficePreviewLoadingMore(false)
+      return false
+    } catch (e) {
+      const friendlyMsg = handleError(e, { operation: '加载 Office 文件', filePath: path })
+      setOfficePreviewError(friendlyMsg.message || 'Office 预览加载失败')
+      setOfficePreviewLoading(false)
+      setOfficePreviewLoadingMore(false)
+      return false
+    }
+  }, [])
+
   const doLoadFile = useCallback(async (path, format, mode) => {
     try {
       await clearPersistedContent()
       clearEditorDraft()
       imageDataRef.current = null
+      try {
+        officeLoadControllerRef.current?.abort?.()
+      } catch (_) {}
+      officeLoadControllerRef.current = null
+      setOfficePreviewData(null)
+      setOfficePreviewMetadata(null)
+      setOfficePreviewError(null)
+      setOfficePreviewLoading(false)
+      setOfficePreviewLoadingMore(false)
+      setOfficeXlsxSheetIndex(0)
       setCurrentFileFormat(format)
 
       setStatus('正在加载...')
+
+      // Office：只读预览走专用接口
+      if (format === FORMAT_DOCX || format === FORMAT_XLSX) {
+        const ok = await loadOfficePreview(path, format, { sheetIndex: 0, rowOffset: 0, rowLimit: 200, append: false })
+        if (!ok) {
+          setStatus(`加载失败: ${officePreviewError || 'Office 预览加载失败'}`)
+          return false
+        }
+
+        setContent('')
+        lastSavedContentRef.current = ''
+        lastSavedPathRef.current = path
+        imageDataRef.current = null
+
+        // Office 默认只读预览：强制仅预览模式
+        if (layout !== 'preview-only') {
+          setLayout('preview-only')
+        }
+        if (isAdaptiveSinglePaneViewport && mobileActivePane !== 'preview') {
+          setMobileActivePane('preview')
+        }
+
+        setCurrentPath(path)
+        const loadedName = path.split('/').pop() || ''
+        setDocumentTitle(loadedName.replace(/\.[^.]+$/, ''))
+        setStatus(`已加载: ${path}`)
+        return true
+      }
+
+      // PPTX 实验：只显示二进制信息，不提供解析预览
+      if (format === FORMAT_PPTX_EXPERIMENTAL) {
+        setOfficePreviewData({ kind: 'pptx-info' })
+        setOfficePreviewMetadata(null)
+        setOfficePreviewError(null)
+        setOfficePreviewLoading(false)
+        setContent('')
+        lastSavedContentRef.current = ''
+        lastSavedPathRef.current = path
+        imageDataRef.current = null
+
+        if (layout !== 'preview-only') {
+          setLayout('preview-only')
+        }
+        if (isAdaptiveSinglePaneViewport && mobileActivePane !== 'preview') {
+          setMobileActivePane('preview')
+        }
+
+        setCurrentPath(path)
+        const loadedName = path.split('/').pop() || ''
+        setDocumentTitle(loadedName.replace(/\.[^.]+$/, ''))
+        setStatus(`已加载: ${path}`)
+        return true
+      }
+
       // 对于PDF文件，始终使用binary模式获取原始内容
       const modeParam = format === FORMAT_PDF ? 'binary' : 
                        mode === 'binary' ? 'binary' : 
@@ -3912,6 +4063,10 @@ function App() {
   }, [])
 
   const handleSaveClick = useCallback(async () => {
+    if (isOfficeReadOnly) {
+      showToast('Office 只读预览：保存已禁用', 'warning', 3000)
+      return
+    }
     if (currentPath) {
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current)
@@ -5477,6 +5632,10 @@ function App() {
   }, [])
 
   const handleExport = useCallback(async (format) => {
+    if (isOfficeReadOnly) {
+      showToast('Office 只读预览：导出已禁用', 'warning', 3000)
+      return
+    }
     if (!format) {
       // 如果没有指定格式，打开导出对话框让用户选择
       setShowExportDialog(true)
@@ -6102,7 +6261,7 @@ function App() {
 
   useEffect(() => {
     // 图片格式不渲染 Markdown
-    if (currentFileFormat === FORMAT_IMAGE) return
+    if (currentFileFormat === FORMAT_IMAGE || isOfficeReadOnly) return
     // 如果正在渲染中，跳过
     if (isRenderingRef.current) return
     // 只在内容真正变化时才渲染
@@ -6135,6 +6294,7 @@ function App() {
     if (effectiveLayout === 'preview-only' || effectiveLayout === 'vertical') {
       const timer = setTimeout(() => {
         if (!previewRef.current) return
+        if (isOfficeReadOnly) return
         // 图片格式：直接使用 imageDataRef.current 中的 base64 数据渲染
         // 如果 imageDataRef.current 为 null，说明图片还在加载中，显示加载状态
         if (currentFileFormat === FORMAT_IMAGE) {
@@ -6899,6 +7059,10 @@ function App() {
 
   // 菜单栏「公众号格式」- 与工具栏复制微信格式按钮行为一致
   const handleMenuCopyToWeChat = useCallback(async () => {
+    if (isOfficeReadOnly) {
+      showToast('Office 只读预览：复制微信格式已禁用', 'warning', 3000)
+      return
+    }
     const previewEl = document.querySelector('.markdown-body')
     if (!previewEl) {
       showToast('未找到预览内容，请确保文档已渲染', 'error')
@@ -6994,6 +7158,10 @@ function App() {
 
   // 发布：飞牛桌面下先提醒保存、开新窗口并打开文件，再检测扩展；非飞牛桌面直接检测扩展
   const handlePublish = useCallback(async () => {
+    if (isOfficeReadOnly) {
+      showToast('Office 只读预览：发布已禁用', 'warning', 3000)
+      return
+    }
     const isFnOSDesktop = typeof window !== 'undefined' && window.self !== window.top
 
     if (isFnOSDesktop) {
@@ -7583,7 +7751,7 @@ function App() {
     recentFiles,
     onOpenRecentFile: handleOpenRecentFile,
     onClearRecentFiles: handleClearRecentFiles,
-    disabled: !currentPath,
+    disabled: !currentPath || isOfficeReadOnly,
     theme: editorTheme,
   }
 
@@ -7597,15 +7765,40 @@ function App() {
       }}
     >
       {/* PDF 文件使用专门的 PDF Viewer */}
-      {currentFileFormat === FORMAT_PDF && pdfDataRef.current ? (
-        <PdfViewer 
-          pdfBase64={pdfDataRef.current}
-          fileName={currentPath ? currentPath.split('/').pop() : 'document.pdf'}
-          theme={editorTheme}
-          onReady={() => console.log('[PdfViewer] PDF loaded successfully')}
-          onError={(err) => console.error('[PdfViewer] PDF load error:', err)}
-        />
-      ) : (
+        {isOfficeReadOnly ? (
+          <OfficeViewer
+            format={currentFileFormat}
+            content={officePreviewData}
+            metadata={officePreviewMetadata}
+            loading={officePreviewLoading}
+            loadingMore={officePreviewLoadingMore}
+            error={officePreviewError}
+            onSelectSheet={(idx) => {
+              if (!currentPath || currentFileFormat !== FORMAT_XLSX) return
+              const next = Number.isFinite(idx) ? idx : 0
+              setOfficeXlsxSheetIndex(next)
+              setOfficePreviewError(null)
+              void loadOfficePreview(currentPath, FORMAT_XLSX, { sheetIndex: next, rowOffset: 0, rowLimit: 200, append: false })
+            }}
+            onLoadMore={() => {
+              if (!currentPath || currentFileFormat !== FORMAT_XLSX) return
+              if (officePreviewLoadingMore || officePreviewLoading) return
+              if (!officePreviewData?.hasMore) return
+              const loaded = Array.isArray(officePreviewData?.rows) ? officePreviewData.rows.length : 0
+              const offset = Number.isFinite(officePreviewData?.rowOffset) ? officePreviewData.rowOffset : 0
+              const nextOffset = offset + loaded
+              void loadOfficePreview(currentPath, FORMAT_XLSX, { sheetIndex: officeXlsxSheetIndex || 0, rowOffset: nextOffset, rowLimit: 200, append: true })
+            }}
+          />
+        ) : currentFileFormat === FORMAT_PDF && pdfDataRef.current ? (
+          <PdfViewer 
+            pdfBase64={pdfDataRef.current}
+            fileName={currentPath ? currentPath.split('/').pop() : 'document.pdf'}
+            theme={editorTheme}
+            onReady={() => console.log('[PdfViewer] PDF loaded successfully')}
+            onError={(err) => console.error('[PdfViewer] PDF load error:', err)}
+          />
+        ) : (
         <div 
           ref={previewRef}
           className="markdown-body"

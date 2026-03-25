@@ -8,6 +8,9 @@ export const FORMAT_MD = 'md'
 export const FORMAT_TEXT = 'text'
 export const FORMAT_IMAGE = 'image'
 export const FORMAT_PDF = 'pdf'
+export const FORMAT_DOCX = 'docx'
+export const FORMAT_XLSX = 'xlsx'
+export const FORMAT_PPTX_EXPERIMENTAL = 'pptx'
 export const FORMAT_UNSUPPORTED = 'unsupported'
 
 // 扩展名 → 格式分类
@@ -43,6 +46,9 @@ export const EXT_TO_FORMAT = {
   '.yml': FORMAT_TEXT,
   '.vue': FORMAT_TEXT,
   '.pdf': FORMAT_PDF,
+  '.docx': FORMAT_DOCX,
+  '.xlsx': FORMAT_XLSX,
+  '.pptx': FORMAT_PPTX_EXPERIMENTAL,
   '.png': FORMAT_IMAGE,
   '.jpg': FORMAT_IMAGE,
   '.jpeg': FORMAT_IMAGE,
@@ -83,7 +89,10 @@ export const EXT_TO_LANGUAGE = {
   '.env': 'plaintext',
   '.ini': 'plaintext',
   '.strm': 'plaintext',
-  '.pdf': 'plaintext'
+  '.pdf': 'plaintext',
+  '.docx': 'plaintext',
+  '.xlsx': 'plaintext',
+  '.pptx': 'plaintext'
 }
 
 // 首批支持格式（MD + 文本类 + 图片类），用于筛选
@@ -130,6 +139,13 @@ export function getFormatColorClass(filePath) {
   case FORMAT_TEXT: return 'format-text'
   case FORMAT_IMAGE: return 'format-image'
   case FORMAT_PDF: return 'format-pdf'
+  case FORMAT_DOCX: return 'format-docx'
+  case FORMAT_XLSX: return 'format-xlsx'
+  case FORMAT_PPTX_EXPERIMENTAL: return 'format-pptx-experimental'
   default: return 'format-unsupported'
   }
+}
+
+export function isOfficeFormat(format) {
+  return [FORMAT_DOCX, FORMAT_XLSX, FORMAT_PPTX_EXPERIMENTAL].includes(format)
 }

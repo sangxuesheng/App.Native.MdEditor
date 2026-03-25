@@ -21,6 +21,7 @@ const imageConverter = require('./imageConverter');
 const { getDb } = require('./db');
 const { ImageBedManager } = require('./imagebed');
 const { handleImagebedApi } = require('./imagebedApi');
+const { extractOfficePreview } = require('./officeHandler');
 
 const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
 
@@ -1621,6 +1622,47 @@ const server = http.createServer(async (req, res) => {
       }
     }
     return;
+  }
+
+  // Office 文件提取预览：GET /api/file/office/extract?path=/abs/path/to/file&format=docx|xlsx
+  if (parsed.pathname === '/api/file/office/extract' && req.method === 'GET') {
+    const requestedPath = parsed.query.path
+    const format = (parsed.query.format || '').toLowerCase()
+    const sheetIndexParam = parsed.query.sheetIndex
+    const rowOffsetParam = parsed.query.rowOffset
+    const rowLimitParam = parsed.query.rowLimit
+
+    try {
+      if (!requestedPath) {
+        sendJson(res, 400, { ok: false, code: 'MISSING_PATH', message: '缺少 path 参数' })
+        return
+      }
+      if (!['docx', 'xlsx'].includes(format)) {
+        sendJson(res, 400, { ok: false, code: 'OFFICE_FORMAT_UNSUPPORTED', message: '不支持的 Office 格式', httpStatus: 400 })
+        return
+      }
+
+      const safePath = resolveSafePath(requestedPath)
+      const sheetIndex = sheetIndexParam !== undefined ? parseInt(String(sheetIndexParam), 10) : 0
+      const rowOffset = rowOffsetParam !== undefined ? parseInt(String(rowOffsetParam), 10) : 0
+      const rowLimit = rowLimitParam !== undefined ? parseInt(String(rowLimitParam), 10) : undefined
+      const result = await extractOfficePreview(safePath, format, {
+        sheetIndex: Number.isFinite(sheetIndex) ? sheetIndex : 0,
+        rowOffset: Number.isFinite(rowOffset) ? rowOffset : 0,
+        rowLimit: (rowLimit !== undefined && Number.isFinite(rowLimit)) ? rowLimit : undefined,
+      })
+      const statusCode = result && result.ok ? 200 : (result.httpStatus || 400)
+      sendJson(res, statusCode, result)
+      return
+    } catch (e) {
+      const message = e && e.message ? e.message : 'OFFICE_LOAD_ERROR'
+      if (message === 'PATH_NOT_ALLOWED') {
+        sendJson(res, 403, { ok: false, code: message, message: '目标路径不在授权目录内' })
+      } else {
+        sendJson(res, 400, { ok: false, code: 'OFFICE_LOAD_ERROR', message: 'Office 预览加载失败' })
+      }
+      return
+    }
   }
 
   // 媒体文件服务：GET /api/media?path=/abs/path/to/image.jpg
