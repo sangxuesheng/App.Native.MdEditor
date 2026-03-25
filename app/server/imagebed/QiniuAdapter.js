@@ -14,10 +14,46 @@ class QiniuAdapter extends ImageBedAdapter {
     this.accessKey = config.accessKey;
     this.secretKey = config.secretKey;
     this.bucket = config.bucket;
-    this.domain = config.domain;
-    this.zone = config.zone || 'Zone_CN_East';
+    this.domain = this.normalizeDomain(config.domain);
+    this.zone = config.zone || 'z0';
+    this.path = config.path || config.uploadPath || '';
     this.qiniu = null;
     this.initQiniu();
+  }
+
+  normalizeDomain(domain) {
+    if (!domain || typeof domain !== 'string') return '';
+    let trimmed = domain.trim();
+    if (!trimmed) return '';
+    // 七牛控制台有时会给出 "http(s)://..." 形式，实际应使用明确协议
+    trimmed = trimmed
+      .replace(/^http\(s\):\/\//i, 'https://')
+      .replace(/^https\(s\):\/\//i, 'https://');
+    return /^https?:\/\//i.test(trimmed) ? trimmed.replace(/\/+$/, '') : `https://${trimmed.replace(/\/+$/, '')}`;
+  }
+
+  normalizeZone(zone) {
+    const value = `${zone || ''}`.trim();
+    const aliasMap = {
+      Zone_CN_East: 'z0',
+      Zone_CN_East_2: 'cn-east-2',
+      Zone_CN_North: 'z1',
+      Zone_CN_South: 'z2',
+      Zone_US_North: 'na0',
+      Zone_Singapore: 'as0',
+      z0: 'z0',
+      'cn-east-2': 'cn-east-2',
+      z1: 'z1',
+      z2: 'z2',
+      na0: 'na0',
+      as0: 'as0',
+    };
+    return aliasMap[value] || 'z0';
+  }
+
+  normalizePathPrefix(path) {
+    const raw = `${path || ''}`.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+    return raw ? `${raw}/` : '';
   }
 
   /**
@@ -29,7 +65,20 @@ class QiniuAdapter extends ImageBedAdapter {
       const mac = new qiniu.auth.digest.Mac(this.accessKey, this.secretKey);
       
       const config = new qiniu.conf.Config();
-      config.zone = qiniu.zone[this.zone];
+      const regionId = this.normalizeZone(this.zone);
+      if (qiniu.httpc?.Region?.fromRegionId) {
+        config.regionsProvider = qiniu.httpc.Region.fromRegionId(regionId);
+      } else {
+        const legacyZoneMap = {
+          z0: 'Zone_z0',
+          'cn-east-2': 'Zone_cn_east_2',
+          z1: 'Zone_z1',
+          z2: 'Zone_z2',
+          na0: 'Zone_na0',
+          as0: 'Zone_as0',
+        };
+        config.zone = qiniu.zone?.[legacyZoneMap[regionId] || 'Zone_z0'];
+      }
       
       this.bucketManager = new qiniu.rs.BucketManager(mac, config);
       this.uploader = new qiniu.form_up.FormUploader(config);
@@ -79,7 +128,8 @@ class QiniuAdapter extends ImageBedAdapter {
   generateFilename(originalName) {
     const ext = originalName.split('.').pop();
     const uuid = crypto.randomBytes(8).toString('hex');
-    return `${uuid}.${ext}`;
+    const prefix = this.normalizePathPrefix(this.path);
+    return `${prefix}${uuid}.${ext}`;
   }
 
   /**
@@ -112,10 +162,11 @@ class QiniuAdapter extends ImageBedAdapter {
           if (err) {
             reject(new Error(`Failed to upload to Qiniu: ${err.message}`));
           } else if (respInfo.statusCode === 200) {
-            const url = `${this.domain}/${respBody.key}`;
+            const uploadedKey = respBody?.key || filename;
+            const url = `${this.domain}/${uploadedKey}`;
             resolve({
               url,
-              filename: respBody.key,
+              filename: uploadedKey,
               size: fileBuffer.length,
               originalName: options.filename,
               mimeType: options.mimeType || 'image/jpeg',
@@ -207,6 +258,7 @@ class QiniuAdapter extends ImageBedAdapter {
       bucket: this.bucket,
       domain: this.domain,
       zone: this.zone,
+      path: this.path,
     };
   }
 }

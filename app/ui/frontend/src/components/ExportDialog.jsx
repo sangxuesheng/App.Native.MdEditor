@@ -455,6 +455,12 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
 </body>
 </html>`;
 
+      if (!printWindow || !printWindow.document || typeof printWindow.document.write !== 'function') {
+        setError('无法打开打印窗口（移动端可能拦截了 window.open）');
+        setLoading(false);
+        return;
+      }
+
       printWindow.document.write(htmlContent);
       printWindow.document.close();
       

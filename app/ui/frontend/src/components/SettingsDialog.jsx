@@ -12,6 +12,9 @@ const SettingsDialog = ({
   wordWrap = true,
   syncPreviewWithEditor = true,
   enableSlashMenuReorder = false,
+  showNewWindowButton = true,
+  showExportConfigButton = true,
+  showPublishButton = true,
   onThemeChange,
   onSave
 }) => {
@@ -26,6 +29,9 @@ const SettingsDialog = ({
     // 编辑与预览联动（编辑滚动时预览是否跟随）
     syncPreviewWithEditor,
     enableSlashMenuReorder,
+    showNewWindowButton,
+    showExportConfigButton,
+    showPublishButton,
   });
 
   const [hasChanges, setHasChanges] = useState(false);
@@ -42,9 +48,24 @@ const SettingsDialog = ({
       wordWrap,
       syncPreviewWithEditor,
       enableSlashMenuReorder,
+      showNewWindowButton,
+      showExportConfigButton,
+      showPublishButton,
     }))
     setHasChanges(false)
-  }, [theme, fontSize, lineHeight, fontFamily, lineNumbers, wordWrap, syncPreviewWithEditor, enableSlashMenuReorder]);
+  }, [
+    theme,
+    fontSize,
+    lineHeight,
+    fontFamily,
+    lineNumbers,
+    wordWrap,
+    syncPreviewWithEditor,
+    enableSlashMenuReorder,
+    showNewWindowButton,
+    showExportConfigButton,
+    showPublishButton
+  ]);
 
   const handleChange = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -77,6 +98,9 @@ const SettingsDialog = ({
       fontFamily: 'JetBrains Mono',
       syncPreviewWithEditor: true,
       enableSlashMenuReorder: false,
+      showNewWindowButton: true,
+      showExportConfigButton: true,
+      showPublishButton: true,
     };
     setSettings(defaultSettings);
     setHasChanges(true);
@@ -264,6 +288,56 @@ const SettingsDialog = ({
                 </label>
               </div>
 
+            </div>
+
+            {/* 工具栏按钮 */}
+            <div className="settings-section">
+              <h3 className="section-title">工具栏按钮</h3>
+
+              <div className="setting-item">
+                <div className="setting-label">
+                  <label>显示“新窗口”</label>
+                  <p className="setting-description">控制顶部菜单栏“新窗口”入口是否显示</p>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.showNewWindowButton}
+                    onChange={(e) => handleChange('showNewWindowButton', e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-label">
+                  <label>显示“导出配置”</label>
+                  <p className="setting-description">控制顶部工具栏“导出配置”按钮是否显示</p>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.showExportConfigButton}
+                    onChange={(e) => handleChange('showExportConfigButton', e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-label">
+                  <label>显示“发布”</label>
+                  <p className="setting-description">控制顶部工具栏“发布到多平台”按钮是否显示</p>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.showPublishButton}
+                    onChange={(e) => handleChange('showPublishButton', e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
             </div>
           </div>
         </div>

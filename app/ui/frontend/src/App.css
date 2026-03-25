@@ -305,6 +305,10 @@ html, body {
   border-radius: 6px;
 }
 
+.ui-hidden {
+  display: none !important;
+}
+
 .toolbar-publish-btn {
   gap: 6px;
 }

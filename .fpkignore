@@ -1,14 +1,11 @@
+
 # ============================================
 # 前端开发依赖（构建后不需要）
 # ============================================
-app/ui/frontend/node_modules/
-app/ui/frontend/src/
-app/ui/frontend/package.json
-app/ui/frontend/package-lock.json
-app/ui/frontend/vite.config.js
-app/ui/frontend/scripts/
-app/ui/frontend/*.md
-app/ui/frontend/test*.html
+# 前端目录仅保留 dist，其他一律排除（显著减少安装扫描文件数）
+app/ui/frontend/**
+!app/ui/frontend/dist/
+!app/ui/frontend/dist/**
 
 # ============================================
 # 后端开发文件
@@ -28,11 +25,17 @@ app/server/node_modules/**/example/
 app/server/node_modules/**/examples/
 app/server/node_modules/**/docs/
 app/server/node_modules/**/.github/
+# 避免安装阶段 chown 命中循环/异常符号链接
+app/server/node_modules/.bin/
+app/server/node_modules/.bin/**
+# 运行时无需 TypeScript 编译器，剔除可减少包体与安装时长
+app/server/node_modules/typescript/
 
 # ============================================
 # 构建脚本和开发工具
 # ============================================
 build*.sh
+scripts/
 快速打包
 快速修复并部署.sh
 deploy.sh
@@ -61,6 +64,7 @@ app/shares/history/
 .vscode/
 .idea/
 .cursor/
+.lingma/
 .trae/
 *.swp
 *.swo
@@ -126,6 +130,8 @@ package-lock.json
 # ============================================
 # 其他冗余文件
 # ============================================
+fnpack-*-linux-amd64
+fnpack-*-darwin-arm64
 *.svg
 !app/ui/frontend/dist/**/*.svg
 cose.svg
@@ -137,3 +143,6 @@ fix_*.py
 update_*.py
 git_commit_commands.sh
 install-ffmpeg.sh
+archive/
+根目录/
+home/

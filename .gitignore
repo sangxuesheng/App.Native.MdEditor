@@ -25,14 +25,6 @@ Thumbs.db
 *.temp
 .cache/
 
-# Backup artifacts
-*.bak
-*.backup
-*.backup_*
-*slash_backup*
-*src-backup-*
-backups/
-
 # Package lock (optional, 可以根据需要调整)
 # package-lock.json
 

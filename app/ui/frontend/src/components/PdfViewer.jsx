@@ -37,11 +37,20 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
   const renderIdRef = useRef(0);
   const pdfDocumentRef = useRef(null);
   const renderTaskRef = useRef(null);
+  const currentRenderKeyRef = useRef(null); // 用于去重：避免同一 page/scale/rotation 的重复渲染导致 cancel 抖动
+  const lastCompletedRenderKeyRef = useRef(null); // 用于去重：已渲染过且无进行中的渲染则跳过
+  const cancelReasonRef = useRef(''); // 便于定位“PDF 渲染被取消”究竟是哪个分支触发的
+  const autoRenderFrozenRef = useRef(false); // 首次渲染完成后冻结自动重渲染，避免后续触发导致空白/二次抖动
+
+  const lastPdfNameLoadedRef = useRef(null); // 仅用于“首次打开后不再重复加载”的保护
+  const isPdfLoadingForNameRef = useRef(false); // 防止同一文件名下并发/重复触发 loadPdf
+  const hasLoadedForNameRef = useRef(false); // 同一 fileName 已成功加载过 => 后续不再重复 loadPdf
 
   // 新增：容器尺寸检查和防抖处理
   const containerRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const isContainerReadyRef = useRef(false);
+  const hasRenderedOnceRef = useRef(false);
 
   // 检查容器是否准备好 - 添加更严格的检查
   const checkContainerReady = useCallback(() => {
@@ -79,6 +88,10 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
           }
           renderDebounceRef.current = setTimeout(() => {
             isContainerReadyRef.current = true;
+            // 避免首次加载阶段重复触发导致的 cancel 抖动：只在至少渲染过一次之后再响应尺寸变化。
+            if (!hasRenderedOnceRef.current) return;
+            // 首次渲染完成后冻结自动触发，避免二次抖动/空白
+            if (autoRenderFrozenRef.current) return;
             // 触发重新渲染
             if (pdfDocument && currentPage >= 1 && currentPage <= totalPages && canvasRef.current) {
               renderPage(currentPage);
@@ -123,6 +136,13 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
     try {
       const lib = await loadPdfJsLib();
       
+      // 每次加载新 PDF 都重新开启“首次渲染后冻结自动重渲染”的流程
+      autoRenderFrozenRef.current = false;
+      hasRenderedOnceRef.current = false;
+      lastCompletedRenderKeyRef.current = null;
+      currentRenderKeyRef.current = null;
+      cancelReasonRef.current = '';
+      
       // 移除 data URL 前缀，只保留 base64 数据
       const base64Data = pdfDataUrl.split(',')[1];
       const binaryString = atob(base64Data);
@@ -148,11 +168,13 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
       setError(null);
       
       if (onReady) onReady();
+      return true;
     } catch (err) {
       console.error('PDF 加载失败:', err);
       setError(`PDF 加载失败: ${err.message}`);
       setIsLoading(false);
       if (onError) onError(err);
+      return false;
     }
   }, [loadPdfJsLib, onReady, onError]);
 
@@ -160,11 +182,25 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
   const renderPage = useCallback(async (pageNum) => {
     if (!pdfDocument || !canvasRef.current) return;
 
+    const renderKey = `${pageNum}|${scale}|${rotation}`;
+    // 去重策略：
+    // 1) 若正在渲染且下一次请求 key 完全相同，则直接返回，避免重复 cancel（导致抖动）
+    if (renderTaskRef.current && currentRenderKeyRef.current === renderKey) {
+      return;
+    }
+    // 2) 若已完成同一 key 的渲染，且当前没有渲染任务，则跳过（避免重复清空 canvas）
+    if (!renderTaskRef.current && lastCompletedRenderKeyRef.current === renderKey) {
+      return;
+    }
+
     // 取消任何正在进行的渲染任务
     if (renderTaskRef.current) {
+      cancelReasonRef.current = 'new-render';
       renderTaskRef.current.cancel();
       renderTaskRef.current = null;
     }
+
+    currentRenderKeyRef.current = renderKey;
 
     // 防止旧渲染覆盖新渲染
     const currentRenderId = ++renderIdRef.current;
@@ -215,11 +251,22 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
       renderTaskRef.current = null;
       if (currentRenderId === renderIdRef.current) {
         setRenderingPage(null);
+        lastCompletedRenderKeyRef.current = renderKey;
+        hasRenderedOnceRef.current = true;
+        
+        // 首次渲染完成后冻结自动触发：
+        // - ResizeObserver 可能在 canvas 尺寸设置后又触发 renderPage，导致 cancel 抖动/空白
+        // - window resize 可能触发 fit width 改变 scale，进而二次 render
+        autoRenderFrozenRef.current = true;
+        if (resizeObserverRef.current) {
+          resizeObserverRef.current.disconnect();
+          resizeObserverRef.current = null;
+        }
       }
     } catch (err) {
       // 处理用户取消的情况
       if (err.name === 'RenderingCancelledException') {
-        console.log('PDF 渲染被取消');
+        console.log('PDF 渲染被取消:', cancelReasonRef.current || 'unknown');
         // 不设置错误状态，因为这是正常操作
       } else {
         console.error('PDF 页面渲染失败:', err);
@@ -228,6 +275,7 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
       
       // 清除渲染任务引用和状态
       renderTaskRef.current = null;
+      currentRenderKeyRef.current = null;
       if (currentRenderId === renderIdRef.current) {
         setRenderingPage(null);
       }
@@ -267,6 +315,7 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
   useEffect(() => {
     return () => {
       if (renderTaskRef.current) {
+        cancelReasonRef.current = 'unmount';
         renderTaskRef.current.cancel();
         renderTaskRef.current = null;
       }
@@ -281,11 +330,44 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
 
   // 当 PDF Base64 数据变化时重新加载
   useEffect(() => {
-    if (pdfBase64) {
-      setIsLoading(true);
-      loadPdf(pdfBase64);
+    if (!pdfBase64) return;
+
+    // 需求：只保证“首次打开 PDF 时”的稳定显示；
+    // 同一份 PDF（用 fileName 作为标记）不要重复触发 loadPdf，从而避免第二次抖动。
+    if (fileName !== lastPdfNameLoadedRef.current) {
+      // 换了文件名 => 允许重新加载
+      lastPdfNameLoadedRef.current = fileName;
+      isPdfLoadingForNameRef.current = false;
+      hasLoadedForNameRef.current = false;
     }
-  }, [pdfBase64, loadPdf]);
+
+    // 已经加载成功且当前文档仍在 => 不再触发 loadPdf
+    // 防止出现：load 被跳过但 isLoading 仍卡在 true 的情况（桌面端表现为“永远加载中”）
+    const alreadyHaveDoc = !!pdfDocumentRef.current;
+    const shouldSkipLoad =
+      hasLoadedForNameRef.current &&
+      fileName === lastPdfNameLoadedRef.current &&
+      alreadyHaveDoc;
+    if (shouldSkipLoad) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (isPdfLoadingForNameRef.current) return;
+
+    isPdfLoadingForNameRef.current = true;
+    setIsLoading(true);
+
+    void loadPdf(pdfBase64).then((ok) => {
+      if (ok) {
+        // 标记：同一文件名下只加载一次
+        lastPdfNameLoadedRef.current = fileName;
+        hasLoadedForNameRef.current = true;
+      }
+    }).finally(() => {
+      isPdfLoadingForNameRef.current = false;
+    });
+  }, [pdfBase64, fileName, loadPdf]);
 
   // 翻页控制
   const handlePrevious = useCallback(() => {
@@ -403,6 +485,8 @@ const PdfViewer = ({ pdfBase64, fileName = 'document.pdf', theme = 'light', onRe
   // 自动适应容器宽度（防抖）
   useEffect(() => {
     const handleResize = () => {
+      // 首次渲染完成后冻结自动触发，避免改变 scale 导致二次 render/cancel
+      if (autoRenderFrozenRef.current) return;
       if (pdfDocument && checkContainerReady()) {
         if (renderDebounceRef.current) {
           clearTimeout(renderDebounceRef.current);

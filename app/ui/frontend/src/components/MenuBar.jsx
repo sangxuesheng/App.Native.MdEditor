@@ -166,6 +166,7 @@ function MenuBar({
   onShowAbout,
   onShowHistory,
   onOpenInNewWindow,
+  showNewWindowButton = true,
   imageCaptionFormat,
   onImageCaptionFormatChange,
   disabled,
@@ -246,7 +247,7 @@ function MenuBar({
   }
 
   // Docker 构建时隐藏「新窗口」按钮
-  const hideNewWindowButton = import.meta.env.VITE_RUN_IN_DOCKER === 'true'
+  const hideNewWindowButton = import.meta.env.VITE_RUN_IN_DOCKER === 'true' || showNewWindowButton === false
 
   const menuConfig = [
     {
@@ -359,19 +360,22 @@ function MenuBar({
         { label: '关于', icon: 'about', action: onShowAbout }
       ]
     },
-    ...(hideNewWindowButton ? [] : [{
+    {
       name: '新窗口打开',
       items: [
         { label: '新窗口打开', icon: 'external', action: onOpenInNewWindow }
       ]
-    }])
+    }
   ]
 
   const renderCompactMenuContent = (wrapperProps = {}) => {
     return (
       <div className="menu-dropdown compact-menu-dropdown" {...wrapperProps}>
         {menuConfig.map((menu, menuIndex) => (
-          <div key={menu.name} className="compact-menu-section">
+          <div
+            key={menu.name}
+            className={`compact-menu-section ${menu.name === '新窗口打开' && hideNewWindowButton ? 'ui-hidden' : ''}`}
+          >
             {menuIndex > 0 && <div className="menu-divider compact-menu-divider" />}
             <div className="compact-menu-section-title">{menu.name}</div>
             <div className="compact-menu-section-body">
@@ -491,7 +495,10 @@ function MenuBar({
       )}
 
       {!compact && menuConfig.map((menu) => (
-        <div key={menu.name} className="menu-item">
+        <div
+          key={menu.name}
+          className={`menu-item ${menu.name === '新窗口打开' && hideNewWindowButton ? 'ui-hidden' : ''}`}
+        >
           <button
             className={`menu-button ${activeMenu === menu.name ? 'active' : ''}`}
             onClick={

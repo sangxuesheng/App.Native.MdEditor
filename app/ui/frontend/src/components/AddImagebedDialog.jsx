@@ -14,6 +14,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
   const [helpExpanded, setHelpExpanded] = useState(false)
   const [aliyunHelpExpanded, setAliyunHelpExpanded] = useState(false)
   const [tencentHelpExpanded, setTencentHelpExpanded] = useState(false)
+  const [qiniuHelpExpanded, setQiniuHelpExpanded] = useState(false)
   // GitHub 多仓库列表
   const [repoList, setRepoList] = useState(() => {
     if (editingConfig?.type === 'github') {
@@ -49,6 +50,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
       setHelpExpanded(false)
       setAliyunHelpExpanded(false)
       setTencentHelpExpanded(false)
+      setQiniuHelpExpanded(false)
     }
   }, [editingConfig])
 
@@ -79,7 +81,15 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
       { key: 'secretKey', label: 'Secret Key', type: 'password', required: true },
       { key: 'bucket', label: 'Bucket', type: 'text', required: true },
       { key: 'domain', label: '域名', type: 'text', required: true, placeholder: 'https://cdn.example.com' },
-      { key: 'zone', label: '区域', type: 'text', required: false, defaultValue: 'Zone_CN_East' },
+      { key: 'zone', label: '区域', type: 'select', required: true, defaultValue: 'z0', options: [
+        { value: 'z0', label: '华东-浙江（z0）' },
+        { value: 'cn-east-2', label: '华东-浙江 2（cn-east-2）' },
+        { value: 'z1', label: '华北-河北（z1）' },
+        { value: 'z2', label: '华南-广东（z2）' },
+        { value: 'na0', label: '北美-洛杉矶（na0）' },
+        { value: 'as0', label: '亚太-新加坡（as0）' },
+      ]},
+      { key: 'path', label: '上传目录', type: 'text', required: false, defaultValue: 'images/' },
     ],
     aliyun: [
       { key: 'region', label: '区域', type: 'text', required: true, placeholder: 'oss-cn-hangzhou' },
@@ -397,6 +407,36 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
                   </ol>
                   <p className="help-note">💡 免费仓库单文件不超过 100MB，单仓库建议不超过 1GB，使用多仓库轮询可分散存储压力。</p>
                   <p className="help-warning">⚠️ <strong>隐私警告：</strong>GitHub 公开仓库中的所有文件均可被任何人访问和下载，请勿上传包含个人隐私、敏感信息或版权内容的图片！</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 七牛云配置帮助 */}
+          {type === 'qiniu' && (
+            <div className="github-help-section">
+              <button
+                className={`github-help-toggle ${qiniuHelpExpanded ? 'open' : ''}`}
+                onClick={() => setQiniuHelpExpanded(prev => !prev)}
+                type="button"
+              >
+                <span>如何配置七牛云图床？</span>
+                <span className={`help-arrow ${qiniuHelpExpanded ? 'expanded' : ''}`}>▶</span>
+              </button>
+              {qiniuHelpExpanded && (
+                <div className="github-help-content">
+                  <ol>
+                    <li>登录 <a href="https://portal.qiniu.com/kodo/bucket" target="_blank" rel="noreferrer">七牛云 Kodo 控制台</a>，创建 Bucket（建议公开空间，便于直接访问图片）。</li>
+                    <li>前往 <a href="https://portal.qiniu.com/user/key" target="_blank" rel="noreferrer">个人中心 → 密钥管理</a> 获取 <code>AccessKey</code> 与 <code>SecretKey</code>。</li>
+                    <li><strong>Bucket</strong>：填写你创建的空间名。</li>
+                    <li><strong>域名</strong>：填写空间绑定的访问域名（建议完整填写 <code>https://...</code>）。</li>
+                    <li><strong>区域</strong>：选择 Bucket 所在区域（例如华东-浙江为 <code>z0</code>）。</li>
+                    <li><strong>上传目录</strong>：可选，填写如 <code>images/</code> 或 <code>md-editor/</code>，用于归档文件；留空则传到根目录。</li>
+                    <li>点击「测试连接」验证配置，成功后再保存。</li>
+                  </ol>
+                  <p className="help-note">💡 上传凭证由服务端动态生成（SDK 标准做法），凭证有效期默认 1 小时，可按需求调整。</p>
+                  <p className="help-note">📘 官方文档：<a href="https://developer.qiniu.com/kodo/1289/nodejs" target="_blank" rel="noreferrer">七牛云 Node.js SDK</a></p>
+                  <p className="help-warning">⚠️ <strong>安全提醒：</strong>请勿在前端暴露 AK/SK。建议使用子账号并最小权限授权；公共空间文件可被任何人访问，请勿上传隐私内容。</p>
                 </div>
               )}
             </div>

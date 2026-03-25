@@ -5679,7 +5679,11 @@ function App() {
           const pdfHtml = previewRef.current?.innerHTML || ''
           if (!pdfHtml.trim()) { setStatus('导出失败：预览内容为空'); break }
           const pdfWin = window.open('', '_blank')
-          if (!pdfWin) { setStatus('无法打开打印窗口'); break }
+          if (!pdfWin || !pdfWin.document || typeof pdfWin.document.write !== 'function') {
+            setStatus('无法打开打印窗口（移动端可能拦截了 window.open）')
+            try { pdfWin?.close?.() } catch (e) {}
+            break
+          }
           pdfWin.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + fileName + '</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">' + (pdfCodeHref ? '<link rel="stylesheet" href="' + pdfCodeHref + '">' : '') + '<style>@media print{*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}body{margin:0;padding:20px;background:#fff;}.markdown-body{box-sizing:border-box;max-width:980px;margin:0 auto;padding:45px;}' + pdfStyles + '</style></head><body><div class="markdown-body">' + pdfHtml + '</div><script>window.onload=function(){var l=Array.from(document.querySelectorAll("link[rel=stylesheet]"));var n=0;function d(){n++;if(n>=l.length)setTimeout(function(){window.print();setTimeout(function(){window.close();},100);},300);}if(!l.length){window.print();setTimeout(function(){window.close();},100);}else l.forEach(function(x){if(x.sheet)d();else{x.addEventListener("load",d);x.addEventListener("error",d);}});};<\/script></body></html>')
           pdfWin.document.close()
           setStatus('PDF 导出窗口已打开，请选择另存为 PDF')

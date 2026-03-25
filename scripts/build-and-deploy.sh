@@ -4,7 +4,7 @@
 #  整合：前端构建 -> fnpack 打包 -> appcenter-cli 安装 -> 启动验证
 #
 #  用法：
-#    bash build-and-deploy.sh            # 默认：优化构建 fpk（build-optimized.sh，构建+打包+安装+启动）
+#    bash build-and-deploy.sh            # 默认：快速打包 fpk（build-fpk-fast.sh，构建+打包+安装+启动）
 #    bash build-and-deploy.sh --build    # 仅构建前端
 #    bash build-and-deploy.sh --pack     # 仅 fnpack 打包（跳过前端构建）
 #    bash build-and-deploy.sh --install  # 仅安装已有的 fpk
@@ -143,20 +143,15 @@ do_build() {
 }
 
 # ----------------------------------------------------------------------------
-# 步骤 2：fnpack 打包
+# 步骤 2：fnpack 打包（默认使用快速打包脚本）
 # ----------------------------------------------------------------------------
 do_pack() {
-    log_step "步骤 2 / fnpack 打包"
-    check_fnpack
+    log_step "步骤 2 / 快速打包 fpk"
     cd "$SCRIPT_DIR"
-    # 校验必要文件（与 fnpack build 校验规则一致）
-    for f in manifest config/privilege config/resource ICON.PNG ICON_256.PNG; do
-        [ -e "$f" ] || { log_err "缺少必要文件: $f"; exit 1; }
-    done
-    for d in app cmd wizard; do
-        [ -d "$d" ] || { log_err "缺少必要目录: $d/"; exit 1; }
-    done
-    fnpack build
+
+    # 统一走快速打包脚本，减少包体积并提升安装阶段速度
+    bash "$SCRIPT_DIR/scripts/build-fpk-fast.sh"
+
     FPK_FILE=$(ls -t *.fpk 2>/dev/null | head -1)
     if [ -n "$FPK_FILE" ]; then
         log_ok "打包成功 → $FPK_FILE  ($(du -sh "$FPK_FILE" | cut -f1))"
@@ -341,19 +336,22 @@ case "${1:-}" in
         do_docker_compose
         ;;
     "")
-        # 默认：使用优化构建脚本（build-optimized.sh）完成构建 fpk + 安装 + 启动
+        # 默认：使用快速打包脚本（build-fpk-fast.sh）完成构建 fpk + 安装 + 启动
         echo ""
         echo "╔══════════════════════════════════════════╗"
-        echo "║  Markdown 编辑器  默认优化构建 fpk       ║"
-        echo "║  $APP_NAME  (bash build-optimized.sh)   ║"
+        echo "║  Markdown 编辑器  默认快速打包 fpk       ║"
+        echo "║  $APP_NAME  (bash scripts/build-fpk-fast.sh) ║"
         echo "╚══════════════════════════════════════════╝"
-        bash "$SCRIPT_DIR/build-optimized.sh"
+        do_build
+        do_pack
+        do_install_fpk
+        do_restart
         ;;
     *)
         echo "用法: bash build-and-deploy.sh [选项]"
         echo ""
         echo "选项:"
-        echo "  (无参数)   默认构建 fpk：bash build-optimized.sh（优化打包 + 安装 + 重启）"
+        echo "  (无参数)   默认构建 fpk：bash scripts/build-fpk-fast.sh（快速打包 + 安装 + 重启）"
         echo "  --build    仅构建前端"
         echo "  --pack     仅 fnpack 打包（跳过前端构建）"
         echo "  --install  仅安装已有的 fpk + 重启"
@@ -363,7 +361,7 @@ case "${1:-}" in
         echo "  --docker-compose  Docker Compose 构建并启动"
         echo ""
         echo "示例:"
-        echo "  bash build-and-deploy.sh             # 默认优化构建 fpk（正式发布）"
+        echo "  bash build-and-deploy.sh             # 默认快速打包 fpk（正式发布）"
         echo "  bash build-and-deploy.sh --local     # 开发调试（最快）"
         echo "  bash build-and-deploy.sh --restart   # 仅重启服务"
         echo "  bash build-and-deploy.sh --docker    # Docker 构建并运行"

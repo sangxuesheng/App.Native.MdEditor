@@ -197,7 +197,13 @@ function readJsonBody(req, res, maxBytes = 1024 * 64) {
 }
 
 // 初始化图床管理器
-const imagebedManager = new ImageBedManager(getDb());
+// 说明：编辑图床时前端会请求 /api/imagebed/:id?secrets=true 以回填密钥字段，
+// 这里显式允许读取敏感配置，并复用现有 AES-GCM 密钥能力保证落库加密。
+const imagebedManager = new ImageBedManager(
+  getDb(),
+  getAiConfigEncryptionKey(),
+  () => true
+);
 
 const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
@@ -2200,6 +2206,117 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 批量删除图片：POST /api/image/delete-batch
+  // body: { items: [{ url: string, imagebedId?: number|string }] }
+  if (parsed.pathname === '/api/image/delete-batch' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req, res, 1024 * 1024);
+      const items = body && body.items;
+
+      if (!Array.isArray(items) || items.length === 0) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_ITEMS', message: 'items 必须是非空数组' });
+        return;
+      }
+
+      const results = [];
+
+      async function deleteLocalByUrl(imageUrl) {
+        let pathname = '';
+        try {
+          if (/^https?:\/\//i.test(imageUrl)) {
+            const parsedUrl = new URL(imageUrl);
+            pathname = parsedUrl.pathname;
+          } else {
+            pathname = String(imageUrl);
+          }
+        } catch (_) {
+          pathname = String(imageUrl || '');
+        }
+
+        pathname = pathname.split('?')[0].split('#')[0];
+        try { pathname = decodeURIComponent(pathname); } catch (_) {}
+
+        const isImagesPath = pathname.startsWith('/images/');
+        const isLocalApiPath = pathname.startsWith('/api/image/local/');
+        if (!pathname || (!isImagesPath && !isLocalApiPath)) {
+          return { ok: false, code: 'SKIP_LOCAL', message: '非本地图片路径，跳过本地删除' };
+        }
+
+        const relativePath = isImagesPath
+          ? pathname.replace(/^\/images\/?/, '')
+          : pathname.replace(/^\/api\/image\/local\/?/, '');
+
+        const baseImagesPath = getSharePath('images');
+        const imagePath = isImagesPath
+          ? path.join(baseImagesPath, relativePath)
+          : path.join(baseImagesPath, 'originals', relativePath);
+
+        // 兼容旧版本硬编码路径
+        const legacyBasePath = '/var/apps/App.Native.MdEditor2/shares/images';
+        const legacyImagePath = isImagesPath
+          ? path.join(legacyBasePath, relativePath)
+          : path.join(legacyBasePath, 'originals', relativePath);
+
+        const resolvedPath = fs.existsSync(imagePath) ? imagePath : legacyImagePath;
+        if (!fs.existsSync(resolvedPath)) {
+          return { ok: false, code: 'NOT_FOUND', message: '图片不存在' };
+        }
+
+        await fs.promises.unlink(resolvedPath);
+        return { ok: true };
+      }
+
+      for (const item of items) {
+        const imageUrl = item && item.url;
+        const imagebedIdRaw = item && item.imagebedId;
+        const imagebedId = imagebedIdRaw === undefined || imagebedIdRaw === null || imagebedIdRaw === ''
+          ? undefined
+          : Number(imagebedIdRaw);
+
+        if (!imageUrl || typeof imageUrl !== 'string') {
+          results.push({ ok: false, url: imageUrl, code: 'INVALID_URL', message: '无效的图片URL' });
+          continue;
+        }
+
+        const entry = { ok: true, url: imageUrl, local: undefined, remote: undefined };
+
+        // 远端（图床）删除：有 imagebedId 才尝试
+        if (imagebedId !== undefined && Number.isFinite(imagebedId)) {
+          try {
+            const r = await imagebedManager.deleteImageFromBed(imagebedId, imageUrl);
+            entry.remote = { ok: !!r.success, message: r.error || undefined };
+            if (!r.success) entry.ok = false;
+          } catch (e) {
+            entry.remote = { ok: false, message: e && e.message ? e.message : '远端删除失败' };
+            entry.ok = false;
+          }
+        }
+
+        // 本地删除：仅对 /images 或 /api/image/local 生效
+        try {
+          const r = await deleteLocalByUrl(imageUrl);
+          entry.local = r;
+          if (r && r.ok === false && r.code !== 'SKIP_LOCAL') entry.ok = false;
+        } catch (e) {
+          entry.local = { ok: false, code: 'DELETE_ERROR', message: e && e.message ? e.message : '本地删除失败' };
+          entry.ok = false;
+        }
+
+        results.push(entry);
+      }
+
+      const success = results.filter(r => r.ok).length;
+      const failed = results.length - success;
+
+      sendJson(res, 200, { ok: failed === 0, success, failed, results });
+    } catch (err) {
+      console.error('Image delete-batch error:', err);
+      try {
+        sendJson(res, 500, { ok: false, code: 'DELETE_BATCH_ERROR', message: '批量删除失败' });
+      } catch (_) {}
+    }
+    return;
+  }
 
   // 图片删除：DELETE /api/image/delete
   if (parsed.pathname === '/api/image/delete' && req.method === 'DELETE') {
@@ -3248,6 +3365,7 @@ const server = http.createServer(async (req, res) => {
     const mimeTypes = {
       '.html': 'text/html; charset=utf-8',
       '.js': 'application/javascript; charset=utf-8',
+      '.mjs': 'application/javascript; charset=utf-8',
       '.css': 'text/css; charset=utf-8',
       '.json': 'application/json',
       '.png': 'image/png',
