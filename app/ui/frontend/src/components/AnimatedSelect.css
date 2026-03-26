@@ -121,6 +121,8 @@
   animation: asel-item-in 0.2s ease both;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 @keyframes asel-item-in {
@@ -138,6 +140,31 @@
   font-weight: var(--asel-selected-font-weight, 600);
   background: var(--select-item-active-bg, var(--primary-color-alpha, rgba(0, 120, 212, 0.2)));
   box-shadow: none;
+}
+
+.asel-item.disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.asel-item.disabled:hover,
+.asel-item.disabled.focused {
+  background: transparent;
+}
+
+.font-download-btn,
+.dialog-container .font-download-btn {
+  height: 24px !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  line-height: 1 !important;
+  flex: 0 0 24px !important;
 }
 
 @media (pointer: coarse) {

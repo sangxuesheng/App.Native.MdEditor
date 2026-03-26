@@ -19,6 +19,7 @@ import {
 import ElasticSlider from './ElasticSlider'
 import CustomDialog from './CustomDialog'
 import AnimatedSelect from './AnimatedSelect'
+import { getExportFontOptions } from '../constants/fontOptions'
 import './ExportConfigPanel.css'
 
 /**
@@ -781,7 +782,16 @@ const Toggle = ({ label, checked, onChange }) => {
 /**
  * 导出配置面板
  */
-const ExportConfigPanel = ({ config, onChange, onClose, compact = false, style }) => {
+const ExportConfigPanel = ({
+  config,
+  onChange,
+  onClose,
+  compact = false,
+  style,
+  fontDownloadState = {},
+  remoteFontFamilies = [],
+  onRequestFontDownload,
+}) => {
   // 获取保存的自定义主题（从后端数据库加载）
   const [customThemes, setCustomThemes] = useState({})
 
@@ -849,12 +859,122 @@ const ExportConfigPanel = ({ config, onChange, onClose, compact = false, style }
     { value: 'custom', label: '+ 新建自定义' }
   ]
 
-  // 字体选项
-  const fontOptions = [
-    { value: 'sans-serif', label: '无衬线' },
-    { value: 'serif', label: '衬线' },
-    { value: 'monospace', label: '等宽' }
-  ]
+  // 字体选项（与设置页同源）
+  const fontOptions = getExportFontOptions()
+
+  const withCloudTag = (fontName) => {
+    return fontName
+  }
+
+  const getFontPreviewFamily = (fontValue) => {
+    switch (fontValue) {
+      case 'sans-serif':
+        return `'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+      case 'serif':
+        return `'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif`
+      case '楷体':
+      case 'KaiTi':
+      case '霞鹜文楷':
+        return `'LXGW WenKai', 'KaiTi', 'STKaiti', 'Kaiti SC', serif`
+      case '思源黑体':
+        return `'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+      case '思源宋体':
+      case 'Noto Serif SC':
+        return `'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif`
+      case '阿里巴巴普惠体':
+        return `'Alibaba PuHuiTi 3.0 55 Regular', 'Alibaba PuHuiTi', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+      case 'HarmonyOS Sans SC':
+        return `'HarmonyOS Sans SC', 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+      case 'Ma Shan Zheng':
+        return `'Ma Shan Zheng', 'KaiTi', 'STKaiti', cursive`
+      case 'JetBrains Mono':
+      case 'Fira Code':
+      case 'Source Code Pro':
+      case 'IBM Plex Mono':
+      case 'Cascadia Code':
+      case 'Monaco':
+      case 'Consolas':
+      case 'monospace':
+        return `'${fontValue}', 'Fira Code', 'JetBrains Mono', 'Monaco', 'Consolas', monospace`
+      default:
+        return `'${fontValue}', sans-serif`
+    }
+  }
+
+  const renderFontOption = (option) => {
+    const isRemote = remoteFontFamilies.includes(option.value)
+    const state = fontDownloadState?.[option.value] || null
+    const progress = state?.progress || 0
+    const canDownload = isRemote && state?.status !== 'loaded'
+
+    return (
+      <>
+        <span style={{ fontFamily: getFontPreviewFamily(option.value) }}>{option.label}</span>
+        {canDownload && (
+          <button
+            type="button"
+            className="btn-secondary font-download-btn"
+            aria-label={state?.status === 'loading' ? `正在下载 ${option.value}` : `下载 ${option.value}`}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onRequestFontDownload?.(option.value)
+            }}
+            style={{
+              height: 24,
+              width: 24,
+              minWidth: 24,
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 999,
+            }}
+          >
+            {state?.status === 'loading' ? (
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  background: `conic-gradient(var(--primary-color, #3b82f6) ${progress * 3.6}deg, rgba(148,163,184,0.25) 0deg)`,
+                  display: 'inline-block',
+                  position: 'relative',
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    inset: 3,
+                    borderRadius: '50%',
+                    background: 'var(--panel-bg, #fff)',
+                    display: 'block',
+                  }}
+                />
+              </span>
+            ) : (
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            )}
+          </button>
+        )}
+      </>
+    )
+  }
 
   // 字号选项
   const fontSizeOptions = [
@@ -1759,8 +1879,14 @@ code_pre {
           <AnimatedSelect
             label="字体"
             value={config.fontFamily || 'sans-serif'}
-            options={fontOptions}
+            options={fontOptions.map((opt) => ({ ...opt, label: withCloudTag(opt.value) }))}
             onChange={(value) => updateConfig('fontFamily', value)}
+            renderOption={renderFontOption}
+            renderValue={(option) => (
+              <span style={{ fontFamily: getFontPreviewFamily(option?.value || config.fontFamily || 'sans-serif') }}>
+                {option?.label || option?.value || config.fontFamily || 'sans-serif'}
+              </span>
+            )}
           />
           <AnimatedSelect
             label="字号"

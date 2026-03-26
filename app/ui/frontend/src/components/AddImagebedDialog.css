@@ -185,6 +185,21 @@
   color: var(--text-tertiary, #999);
 }
 
+.form-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+}
+
+.form-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--primary-color, #0066cc);
+}
+
 .imagebed-dialog-overlay.theme-dark .form-group input::placeholder {
   color: var(--text-tertiary, #666);
 }

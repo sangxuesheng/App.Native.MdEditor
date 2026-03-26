@@ -29,6 +29,7 @@ class GitHubAdapter extends ImageBedAdapter {
     if (!path || path === '/') path = 'images/';
     if (!path.endsWith('/')) path += '/';
     this.path = path;
+    this.useDatePath = config.useDatePath !== false;
   }
 
   /**
@@ -106,6 +107,96 @@ class GitHubAdapter extends ImageBedAdapter {
     return `${uuid}.${ext}`;
   }
 
+  getDatePath() {
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
+  }
+
+  buildUploadPrefix() {
+    const basePath = String(this.path || '').replace(/^\/+/, '').replace(/\/+$/, '');
+    if (!this.useDatePath) return basePath;
+    return basePath ? `${basePath}/${this.getDatePath()}` : this.getDatePath();
+  }
+
+  parseUrlInfo(url) {
+    let m = url.match(/cdn\.jsdelivr\.net\/gh\/([^/]+)\/([^@]+)@([^/]+)\/(.+)$/);
+    if (m) return { owner: m[1], repo: m[2], branch: m[3], filePath: m[4] };
+
+    m = url.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
+    if (m) return { owner: m[1], repo: m[2], branch: m[3], filePath: m[4] };
+
+    m = url.match(/ghproxy\.com\/https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
+    if (m) return { owner: m[1], repo: m[2], branch: m[3], filePath: m[4] };
+
+    m = url.match(/raw\.fastgit\.org\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
+    if (m) return { owner: m[1], repo: m[2], branch: m[3], filePath: m[4] };
+
+    return null;
+  }
+
+  async deleteFileByPath(owner, repo, branch, filePath) {
+    const getResponse = await this.makeRequest(
+      'GET',
+      `/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`
+    );
+
+    if (!getResponse.ok || !getResponse?.data?.sha) {
+      return { success: false, error: 'File not found' };
+    }
+
+    const deleteResponse = await this.makeRequest(
+      'DELETE',
+      `/repos/${owner}/${repo}/contents/${filePath}`,
+      {
+        message: `Delete image: ${filePath}`,
+        sha: getResponse.data.sha,
+        branch,
+      }
+    );
+
+    return deleteResponse.ok
+      ? { success: true }
+      : { success: false, error: deleteResponse?.data?.message || 'Delete failed' };
+  }
+
+  async listDir(owner, repo, branch, dirPath) {
+    const response = await this.makeRequest('GET', `/repos/${owner}/${repo}/contents/${dirPath}?ref=${branch}`);
+    if (!response.ok || !Array.isArray(response.data)) return null;
+    return response.data;
+  }
+
+  async cleanupEmptyDirs(owner, repo, branch, filePath) {
+    const segments = String(filePath || '').split('/').filter(Boolean);
+    if (segments.length <= 1) return;
+
+    const baseRoot = String(this.path || '').replace(/^\/+/, '').replace(/\/+$/, '');
+    for (let i = segments.length - 1; i > 0; i -= 1) {
+      const dirPath = segments.slice(0, i).join('/');
+      if (baseRoot && !dirPath.startsWith(baseRoot)) break;
+
+      const entries = await this.listDir(owner, repo, branch, dirPath);
+      if (!entries) break;
+
+      const markers = new Set(['.gitkeep', '.keep', '.placeholder']);
+      const nonMarkerEntries = entries.filter((entry) => !markers.has(entry.name));
+      if (nonMarkerEntries.length > 0) break;
+
+      let removedAnyMarker = false;
+      for (const entry of entries) {
+        if (!markers.has(entry.name) || entry.type !== 'file') continue;
+        const markerPath = `${dirPath}/${entry.name}`;
+        const r = await this.deleteFileByPath(owner, repo, branch, markerPath);
+        if (r.success) removedAnyMarker = true;
+      }
+
+      // 真空目录（无任何项）可以继续向上；仅标记文件目录删除标记后再继续
+      if (entries.length > 0 && !removedAnyMarker) break;
+    }
+  }
+
   /**
    * 上传图片
    */
@@ -116,15 +207,8 @@ class GitHubAdapter extends ImageBedAdapter {
       // 轮询获取当前仓库
       const repo = this._getNextRepo();
       
-      // 生成年月日路径
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const datePath = `${year}/${month}/${day}`;
-      
-      // 构建完整路径：images/2026/03/17/filename.png
-      const filePath = `${this.path}${datePath}/${filename}`;
+      const uploadPrefix = this.buildUploadPrefix();
+      const filePath = uploadPrefix ? `${uploadPrefix}/${filename}` : filename;
       console.log('[GitHubAdapter] 上传配置 - owner:', this.owner, 'repo:', repo, 'path:', this.path);
       console.log('[GitHubAdapter] 轮询仓库列表:', this.repos, '当前索引:', this._repoIndex);
       console.log('[GitHubAdapter] 生成的文件名:', filename);
@@ -180,63 +264,19 @@ class GitHubAdapter extends ImageBedAdapter {
    */
   async delete(url) {
     try {
-      // 从各种 CDN URL 中提取 owner/repo/branch/path
-      let owner, repo, branch, filePath;
-
-      // jsDelivr: https://cdn.jsdelivr.net/gh/owner/repo@branch/path
-      let m = url.match(/cdn\.jsdelivr\.net\/gh\/([^/]+)\/([^@]+)@([^/]+)\/(.+)$/);
-      if (m) { owner = m[1]; repo = m[2]; branch = m[3]; filePath = m[4]; }
-
-      // raw.githubusercontent.com: https://raw.githubusercontent.com/owner/repo/branch/path
-      if (!m) {
-        m = url.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
-        if (m) { owner = m[1]; repo = m[2]; branch = m[3]; filePath = m[4]; }
-      }
-
-      // ghproxy: https://ghproxy.com/https://raw.githubusercontent.com/owner/repo/branch/path
-      if (!m) {
-        m = url.match(/ghproxy\.com\/https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
-        if (m) { owner = m[1]; repo = m[2]; branch = m[3]; filePath = m[4]; }
-      }
-
-      // fastgit: https://raw.fastgit.org/owner/repo/branch/path
-      if (!m) {
-        m = url.match(/raw\.fastgit\.org\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
-        if (m) { owner = m[1]; repo = m[2]; branch = m[3]; filePath = m[4]; }
-      }
-
-      if (!filePath) {
+      const info = this.parseUrlInfo(url);
+      if (!info?.filePath) {
         return { success: false, error: 'Cannot parse GitHub URL: ' + url };
       }
 
-      // 获取文件 SHA
-      const getResponse = await this.makeRequest(
-        'GET',
-        `/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`
-      );
-
-      if (!getResponse.ok) {
-        return { success: false, error: 'File not found' };
+      const { owner, repo, branch, filePath } = info;
+      const deleteResult = await this.deleteFileByPath(owner, repo, branch, filePath);
+      if (!deleteResult.success) {
+        return deleteResult;
       }
 
-      const sha = getResponse.data.sha;
-
-      // 删除文件
-      const deleteResponse = await this.makeRequest(
-        'DELETE',
-        `/repos/${owner}/${repo}/contents/${filePath}`,
-        {
-          message: `Delete image: ${filePath}`,
-          sha,
-          branch,
-        }
-      );
-
-      if (deleteResponse.ok) {
-        return { success: true };
-      } else {
-        return { success: false, error: deleteResponse.data.message };
-      }
+      await this.cleanupEmptyDirs(owner, repo, branch, filePath);
+      return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -340,6 +380,7 @@ class GitHubAdapter extends ImageBedAdapter {
       repo: this.repo,
       branch: this.branch,
       path: this.path,
+      useDatePath: this.useDatePath,
     };
   }
 }

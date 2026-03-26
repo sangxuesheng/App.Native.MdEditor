@@ -64,13 +64,16 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
   ]
 
   const configFields = {
-    local: [],
+    local: [
+      { key: 'useDatePath', label: '按年月日自动分目录', type: 'checkbox', required: false, defaultValue: true, description: '上传路径：YYYY/MM/DD/文件名（关闭后直接存到根目录）' },
+    ],
     github: [
       { key: 'owner', label: 'GitHub 用户名', type: 'text', required: true },
       { key: 'repos', label: '仓库列表', type: 'repo-list', required: true },
       { key: 'branch', label: '分支', type: 'text', required: true, defaultValue: 'main' },
       { key: 'token', label: 'GitHub Token', type: 'password', required: true },
       { key: 'path', label: '存储路径', type: 'text', required: false, defaultValue: 'images/' },
+      { key: 'useDatePath', label: '按年月日自动分目录', type: 'checkbox', required: false, defaultValue: true, description: '上传路径：存储路径/YYYY/MM/DD/文件名' },
       { key: 'cdnDomain', label: 'CDN 加速域名', type: 'select', required: false, defaultValue: 'jsdelivr', options: [
         { value: 'jsdelivr', label: 'jsDelivr（推荐，国内快速）' },
         { value: 'raw', label: '原始 GitHub（可能较慢）' },
@@ -90,6 +93,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
         { value: 'as0', label: '亚太-新加坡（as0）' },
       ]},
       { key: 'path', label: '上传目录', type: 'text', required: false, defaultValue: 'images/' },
+      { key: 'useDatePath', label: '按年月日自动分目录', type: 'checkbox', required: false, defaultValue: true, description: '上传路径：上传目录/YYYY/MM/DD/文件名' },
     ],
     aliyun: [
       { key: 'region', label: '区域', type: 'text', required: true, placeholder: 'oss-cn-hangzhou' },
@@ -97,6 +101,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
       { key: 'accessKeySecret', label: 'Access Key Secret', type: 'password', required: true },
       { key: 'bucket', label: 'Bucket', type: 'text', required: true },
       { key: 'path', label: '上传目录', type: 'text', required: false, defaultValue: 'images/' },
+      { key: 'useDatePath', label: '按年月日自动分目录', type: 'checkbox', required: false, defaultValue: true, description: '上传路径：上传目录/YYYY/MM/DD/文件名' },
       { key: 'domain', label: '域名（可选）', type: 'text', required: false },
     ],
     tencent: [
@@ -105,6 +110,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
       { key: 'bucket', label: 'Bucket', type: 'text', required: true, placeholder: 'my-bucket-1234567890' },
       { key: 'region', label: '区域', type: 'text', required: true, placeholder: 'ap-beijing' },
       { key: 'path', label: '上传目录', type: 'text', required: false, defaultValue: 'images/' },
+      { key: 'useDatePath', label: '按年月日自动分目录', type: 'checkbox', required: false, defaultValue: true, description: '上传路径：上传目录/YYYY/MM/DD/文件名' },
       { key: 'domain', label: '域名（可选）', type: 'text', required: false },
     ],
     custom: [
@@ -116,8 +122,16 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
     ],
   }
 
+  const normalizePathFieldValue = (key, value) => {
+    if (key !== 'path') return value
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === '/') return ''
+    return trimmed.replace(/^\/+/, '').replace(/\/+$/, '') + '/'
+  }
+
   const handleConfigChange = (key, value) => {
-    setConfig(prev => ({ ...prev, [key]: value }))
+    setConfig(prev => ({ ...prev, [key]: normalizePathFieldValue(key, value) }))
   }
 
   const toggleSecretVisibility = (key) => {
@@ -352,6 +366,15 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
                       options={field.options?.map(opt => ({ value: opt.value, label: opt.label })) || []}
                       wrapperClassName="form-select-control"
                     />
+                  ) : field.type === 'checkbox' ? (
+                    <div className="form-checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={config[field.key] ?? field.defaultValue ?? false}
+                        onChange={(e) => handleConfigChange(field.key, e.target.checked)}
+                      />
+                      <span>{field.description || field.label}</span>
+                    </div>
                   ) : field.type === 'password' ? (
                     <div className="form-input-with-icon">
                       <input

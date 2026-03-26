@@ -52,7 +52,7 @@ export function mergeExportConfigWithDefaults(persisted, defaults) {
 }
 
 export const DEFAULT_IMAGE_MANAGER_SETTINGS = {
-  imageCompression: true,
+  imageCompression: false,
   imageCompressionMode: 'quality',
   imageQuality: 80,
   imageTargetSizePercent: 30,

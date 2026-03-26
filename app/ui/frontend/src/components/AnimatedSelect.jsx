@@ -9,6 +9,8 @@ function AnimatedSelect({
   wrapperClassName = 'config-item',
   labelClassName = 'config-label',
   disabled = false,
+  renderOption,
+  renderValue,
 }) {
   const [open, setOpen] = useState(false)
   const [focusedIdx, setFocusedIdx] = useState(-1)
@@ -16,6 +18,15 @@ function AnimatedSelect({
   const listRef = useRef(null)
 
   const selectedOpt = options.find((option) => option.value === value)
+
+  const getEnabledOptionIndex = (start, step) => {
+    let idx = start
+    while (idx >= 0 && idx < options.length) {
+      if (!options[idx]?.disabled) return idx
+      idx += step
+    }
+    return -1
+  }
 
   useEffect(() => {
     if (!open) return
@@ -34,7 +45,11 @@ function AnimatedSelect({
     if (!open) return
 
     const idx = options.findIndex((option) => option.value === value)
-    setFocusedIdx(idx)
+    if (idx >= 0 && !options[idx]?.disabled) {
+      setFocusedIdx(idx)
+    } else {
+      setFocusedIdx(getEnabledOptionIndex(0, 1))
+    }
 
     const timer = setTimeout(() => {
       if (!listRef.current) return
@@ -73,18 +88,26 @@ function AnimatedSelect({
     }
 
     if (event.key === 'ArrowDown') {
-      setFocusedIdx((current) => Math.min(current + 1, options.length - 1))
+      setFocusedIdx((current) => {
+        const start = current < 0 ? 0 : current + 1
+        const next = getEnabledOptionIndex(start, 1)
+        return next >= 0 ? next : current
+      })
       event.preventDefault()
       return
     }
 
     if (event.key === 'ArrowUp') {
-      setFocusedIdx((current) => Math.max(current - 1, 0))
+      setFocusedIdx((current) => {
+        const start = current < 0 ? options.length - 1 : current - 1
+        const prev = getEnabledOptionIndex(start, -1)
+        return prev >= 0 ? prev : current
+      })
       event.preventDefault()
       return
     }
 
-    if (event.key === 'Enter' && focusedIdx >= 0) {
+    if (event.key === 'Enter' && focusedIdx >= 0 && !options[focusedIdx]?.disabled) {
       onChange(options[focusedIdx].value)
       setOpen(false)
       event.preventDefault()
@@ -109,7 +132,11 @@ function AnimatedSelect({
         aria-expanded={open}
         aria-disabled={disabled}
       >
-        <span className="asel-value">{selectedOpt ? selectedOpt.label : value}</span>
+        <span className="asel-value">
+          {renderValue
+            ? renderValue(selectedOpt || { value, label: selectedOpt ? selectedOpt.label : value })
+            : (selectedOpt ? selectedOpt.label : value)}
+        </span>
         <span className={`asel-arrow${open ? ' open' : ''}`}></span>
       </div>
 
@@ -119,18 +146,22 @@ function AnimatedSelect({
             {options.map((option, idx) => (
               <div
                 key={option.value}
-                className={`asel-item${option.value === value ? ' selected' : ''}${idx === focusedIdx ? ' focused' : ''}`}
+                className={`asel-item${option.value === value ? ' selected' : ''}${idx === focusedIdx ? ' focused' : ''}${option.disabled ? ' disabled' : ''}`}
                 style={{ animationDelay: `${idx * 30}ms` }}
                 onMouseDown={(event) => {
                   event.preventDefault()
+                  if (option.disabled) return
                   onChange(option.value)
                   setOpen(false)
                 }}
-                onMouseEnter={() => setFocusedIdx(idx)}
+                onMouseEnter={() => {
+                  if (!option.disabled) setFocusedIdx(idx)
+                }}
                 role="option"
                 aria-selected={option.value === value}
+                aria-disabled={option.disabled || undefined}
               >
-                {option.label}
+                {renderOption ? renderOption(option) : option.label}
               </div>
             ))}
           </div>

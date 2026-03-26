@@ -179,6 +179,17 @@ function MenuBar({
   const compactDropdownRef = useRef(null)
   const [compactDropdownStyle, setCompactDropdownStyle] = useState(null)
   const compactMenuKey = '__compact__'
+  const [compactSectionCollapsed, setCompactSectionCollapsed] = useState({
+    文件: true,
+    编辑: true,
+    格式: true,
+    插入: true,
+    视图: true,
+    帮助: true,
+    新窗口打开: true,
+  })
+  const [compactRecentFilesCollapsed, setCompactRecentFilesCollapsed] = useState(true)
+  const [compactExportCollapsed, setCompactExportCollapsed] = useState(true)
 
   // 移动端下拉栏自适应位置
   useLayoutEffect(() => {
@@ -227,9 +238,11 @@ function MenuBar({
     setActiveMenu(activeMenu === menuName ? null : menuName)
   }
 
-  const handleMenuItemClick = (action) => {
-    action()
-    setActiveMenu(null)
+  const handleMenuItemClick = (action, options = {}) => {
+    action?.()
+    if (!options.keepMenuOpen) {
+      setActiveMenu(null)
+    }
   }
 
   const formatTime = (timestamp) => {
@@ -335,17 +348,17 @@ function MenuBar({
           icon: 'layout',
           label: '页面布局',
           submenu: [
-            { label: '左右分栏', icon: 'layout-vertical', action: () => { onFocusModeChange?.('off'); onLayoutChange?.('vertical') }, checked: focusMode === 'off' && (layout || 'vertical') === 'vertical' },
-            { label: '仅编辑', icon: 'layout-editor', action: () => { onFocusModeChange?.('off'); onLayoutChange?.('editor-only') }, checked: focusMode === 'off' && layout === 'editor-only' },
-            { label: '仅预览', icon: 'layout-preview', action: () => { onFocusModeChange?.('off'); onLayoutChange?.('preview-only') }, checked: focusMode === 'off' && layout === 'preview-only' },
+            { label: '左右分栏', icon: 'layout-vertical', action: () => { onFocusModeChange?.('off'); onLayoutChange?.('vertical') }, checked: focusMode === 'off' && (layout || 'vertical') === 'vertical', keepMenuOpen: true },
+            { label: '仅编辑', icon: 'layout-editor', action: () => { onFocusModeChange?.('off'); onLayoutChange?.('editor-only') }, checked: focusMode === 'off' && layout === 'editor-only', keepMenuOpen: true },
+            { label: '仅预览', icon: 'layout-preview', action: () => { onFocusModeChange?.('off'); onLayoutChange?.('preview-only') }, checked: focusMode === 'off' && layout === 'preview-only', keepMenuOpen: true },
             { divider: true },
-            { label: '专注左右', icon: 'focus-split', action: () => onFocusModeChange?.('split'), checked: focusMode === 'split' },
-            { label: '专注仅编辑', icon: 'focus-editor-only', action: () => onFocusModeChange?.('editor-only'), checked: focusMode === 'editor-only' }
+            { label: '专注左右', icon: 'focus-split', action: () => onFocusModeChange?.('split'), checked: focusMode === 'split', keepMenuOpen: true },
+            { label: '专注仅编辑', icon: 'focus-editor-only', action: () => onFocusModeChange?.('editor-only'), checked: focusMode === 'editor-only', keepMenuOpen: true }
           ]
         },
         { divider: true },
-        { label: '放大', icon: 'zoom-in', shortcut: 'Ctrl++', action: onZoomIn },
-        { label: '缩小', icon: 'zoom-out', shortcut: 'Ctrl+-', action: onZoomOut },
+        { label: '放大', icon: 'zoom-in', shortcut: 'Ctrl++', action: onZoomIn, keepMenuOpen: true },
+        { label: '缩小', icon: 'zoom-out', shortcut: 'Ctrl+-', action: onZoomOut, keepMenuOpen: true },
         { label: '重置缩放', icon: 'zoom-reset', shortcut: 'Ctrl+0', action: onZoomReset },
         { divider: true },
         { label: '设置', icon: 'settings', action: onSettings }
@@ -377,8 +390,19 @@ function MenuBar({
             className={`compact-menu-section ${menu.name === '新窗口打开' && hideNewWindowButton ? 'ui-hidden' : ''}`}
           >
             {menuIndex > 0 && <div className="menu-divider compact-menu-divider" />}
-            <div className="compact-menu-section-title">{menu.name}</div>
-            <div className="compact-menu-section-body">
+            <button
+              type="button"
+              className="compact-menu-section-title compact-menu-section-toggle"
+              onClick={() => setCompactSectionCollapsed((prev) => ({
+                ...prev,
+                [menu.name]: !prev[menu.name],
+              }))}
+              aria-expanded={!compactSectionCollapsed[menu.name]}
+            >
+              <span>{menu.name}</span>
+              <span className={`compact-section-arrow ${compactSectionCollapsed[menu.name] ? '' : 'open'}`}>▾</span>
+            </button>
+            {!compactSectionCollapsed[menu.name] && <div className="compact-menu-section-body">
               {menu.items.map((item, index) => {
                 if (item.divider) {
                   return <div key={`divider-${menu.name}-${index}`} className="menu-divider compact-menu-divider" />
@@ -387,48 +411,76 @@ function MenuBar({
                 if (item.type === 'recent-files') {
                   return (
                     <div key={`${menu.name}-recent`} className="compact-menu-block">
-                      <div className="compact-submenu-label">
-                        {item.icon && <MenuItemIcon type={item.icon} />}
-                        <span className="menu-label">{item.label}</span>
-                      </div>
-                      {recentFiles && recentFiles.length > 0 ? (
-                        <>
-                          {recentFiles.map((file) => (
+                      <button
+                        type="button"
+                        className="compact-submenu-label compact-submenu-toggle"
+                        onClick={() => setCompactRecentFilesCollapsed((prev) => !prev)}
+                        aria-expanded={!compactRecentFilesCollapsed}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          {item.icon && <MenuItemIcon type={item.icon} />}
+                          <span className="menu-label">{item.label}</span>
+                        </span>
+                        <span className={`compact-section-arrow ${compactRecentFilesCollapsed ? '' : 'open'}`}>▾</span>
+                      </button>
+                      {!compactRecentFilesCollapsed && (
+                        recentFiles && recentFiles.length > 0 ? (
+                          <>
+                            {recentFiles.map((file) => (
+                              <button
+                                key={file.path}
+                                className="menu-dropdown-item compact-submenu-item recent-file-item"
+                                onClick={() => handleMenuItemClick(() => onOpenRecentFile(file.path))}
+                                title={file.path}
+                              >
+                                {getFileIcon(file.path)}
+                                <span className="menu-label">{file.name}</span>
+                                <span className="menu-shortcut recent-time">{formatTime(file.timestamp)}</span>
+                              </button>
+                            ))}
                             <button
-                              key={file.path}
-                              className="menu-dropdown-item compact-submenu-item recent-file-item"
-                              onClick={() => handleMenuItemClick(() => onOpenRecentFile(file.path))}
-                              title={file.path}
+                              className="menu-dropdown-item compact-submenu-item"
+                              onClick={() => handleMenuItemClick(onClearRecentFiles)}
                             >
-                              {getFileIcon(file.path)}
-                              <span className="menu-label">{file.name}</span>
-                              <span className="menu-shortcut recent-time">{formatTime(file.timestamp)}</span>
+                              <span className="menu-label">清空列表</span>
                             </button>
-                          ))}
-                          <button
-                            className="menu-dropdown-item compact-submenu-item"
-                            onClick={() => handleMenuItemClick(onClearRecentFiles)}
-                          >
-                            <span className="menu-label">清空列表</span>
-                          </button>
-                        </>
-                      ) : (
-                        <div className="menu-dropdown-item disabled compact-submenu-item">
-                          <span className="menu-label">无最近文件</span>
-                        </div>
+                          </>
+                        ) : (
+                          <div className="menu-dropdown-item disabled compact-submenu-item">
+                            <span className="menu-label">无最近文件</span>
+                          </div>
+                        )
                       )}
                     </div>
                   )
                 }
 
                 if (item.submenu) {
+                  const isExportSubmenu = menu.name === '文件' && item.label === '导出'
+                  const isCollapsed = isExportSubmenu ? compactExportCollapsed : false
+
                   return (
                     <div key={`${menu.name}-${item.label}`} className="compact-menu-block">
-                      <div className="compact-submenu-label">
-                        {item.icon && <MenuItemIcon type={item.icon} />}
-                        <span className="menu-label">{item.label}</span>
-                      </div>
-                      {item.submenu.map((subItem, subIdx) => {
+                      {isExportSubmenu ? (
+                        <button
+                          type="button"
+                          className="compact-submenu-label compact-submenu-toggle"
+                          onClick={() => setCompactExportCollapsed((prev) => !prev)}
+                          aria-expanded={!compactExportCollapsed}
+                        >
+                          <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                            {item.icon && <MenuItemIcon type={item.icon} />}
+                            <span className="menu-label">{item.label}</span>
+                          </span>
+                          <span className={`compact-section-arrow ${compactExportCollapsed ? '' : 'open'}`}>▾</span>
+                        </button>
+                      ) : (
+                        <div className="compact-submenu-label">
+                          {item.icon && <MenuItemIcon type={item.icon} />}
+                          <span className="menu-label">{item.label}</span>
+                        </div>
+                      )}
+                      {!isCollapsed && item.submenu.map((subItem, subIdx) => {
                         if (subItem.divider) {
                           return <div key={`divider-${menu.name}-${item.label}-${subIdx}`} className="menu-divider compact-menu-divider" />
                         }
@@ -437,7 +489,7 @@ function MenuBar({
                           <button
                             key={`${menu.name}-${item.label}-${subItem.label || subIdx}`}
                             className={`menu-dropdown-item compact-submenu-item ${subItem.checked ? 'checked' : ''}`}
-                            onClick={() => handleMenuItemClick(subItem.action)}
+                            onClick={() => handleMenuItemClick(subItem.action, { keepMenuOpen: !!subItem.keepMenuOpen })}
                             disabled={subItem.disabled}
                             title={subItem.description}
                           >
@@ -458,7 +510,7 @@ function MenuBar({
                   <button
                     key={`${menu.name}-${item.label}`}
                     className="menu-dropdown-item compact-menu-item"
-                    onClick={() => handleMenuItemClick(item.action)}
+                    onClick={() => handleMenuItemClick(item.action, { keepMenuOpen: !!item.keepMenuOpen })}
                     disabled={item.disabled}
                   >
                     {item.icon && <MenuItemIcon type={item.icon} />}
@@ -469,7 +521,7 @@ function MenuBar({
                   </button>
                 )
               })}
-            </div>
+            </div>}
           </div>
         ))}
       </div>
@@ -528,7 +580,10 @@ function MenuBar({
                 if (item.type === 'recent-files') {
                   return (
                     <div key="recent-files" className="menu-dropdown-item has-submenu">
-                      <>{item.icon && <MenuItemIcon type={item.icon} />}<span className="menu-label">{item.label}</span></>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        {item.icon && <MenuItemIcon type={item.icon} />}
+                        <span className="menu-label">{item.label}</span>
+                      </span>
                       <span className="menu-arrow">▶</span>
                       <div className="menu-submenu recent-files-submenu">
                         {recentFiles && recentFiles.length > 0 ? (
@@ -566,7 +621,10 @@ function MenuBar({
                 if (item.submenu) {
                   return (
                     <div key={item.label} className="menu-dropdown-item has-submenu">
-                      <>{item.icon && <MenuItemIcon type={item.icon} />}<span className="menu-label">{item.label}</span></>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        {item.icon && <MenuItemIcon type={item.icon} />}
+                        <span className="menu-label">{item.label}</span>
+                      </span>
                       <span className="menu-arrow">▶</span>
                       <div className="menu-submenu">
                         {item.submenu.map((subItem, subIdx) => {
@@ -577,12 +635,15 @@ function MenuBar({
                             <button
                               key={subItem.label || `item-${subIdx}`}
                               className={`menu-dropdown-item ${subItem.checked ? 'checked' : ''}`}
-                              onClick={() => handleMenuItemClick(subItem.action)}
+                              onClick={() => handleMenuItemClick(subItem.action, { keepMenuOpen: !!subItem.keepMenuOpen })}
                               disabled={subItem.disabled}
                               title={subItem.description}
                             >
                               {subItem.checked && <span className="menu-check">✓</span>}
-                              <>{subItem.icon && <MenuItemIcon type={subItem.icon} />}<span className="menu-label">{subItem.label}</span></>
+                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                {subItem.icon && <MenuItemIcon type={subItem.icon} />}
+                                <span className="menu-label">{subItem.label}</span>
+                              </span>
                               {subItem.shortcut && (
                                 <span className="menu-shortcut">{subItem.shortcut}</span>
                               )}
@@ -598,10 +659,13 @@ function MenuBar({
                   <button
                     key={item.label}
                     className="menu-dropdown-item"
-                    onClick={() => handleMenuItemClick(item.action)}
+                    onClick={() => handleMenuItemClick(item.action, { keepMenuOpen: !!item.keepMenuOpen })}
                     disabled={item.disabled}
                   >
-                    <>{item.icon && <MenuItemIcon type={item.icon} />}<span className="menu-label">{item.label}</span></>
+                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      {item.icon && <MenuItemIcon type={item.icon} />}
+                      <span className="menu-label">{item.label}</span>
+                    </span>
                     {item.shortcut && (
                       <span className="menu-shortcut">{item.shortcut}</span>
                     )}

@@ -1,7 +1,7 @@
 appname=App.Native.MdEditor2
-version=1.29.26
+version=1.29.40
 display_name=Markdown 编辑器
-desc=飞牛 NAS 专用 Markdown 编辑器，支持实时预览、文件树管理、主题切换与导出配置。
+desc=飞牛 NAS 原生 Markdown 编辑器，支持实时预览、文件树管理、多格式支持、AI助手、图床管理、主题切换与导出配置。
 changelog=统一文件打开布局规则；修复并统一重命名/文件属性/设置/导出对话框样式；另存为支持自定义后缀且默认补 .md（含文件名校验）
 platform=x86
 source=thirdparty

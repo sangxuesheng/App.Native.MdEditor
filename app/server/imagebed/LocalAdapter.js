@@ -16,6 +16,7 @@ class LocalAdapter extends ImageBedAdapter {
     
     // 本地存储路径
     this.basePath = config.basePath || this.getDefaultBasePath();
+    this.useDatePath = config.useDatePath !== false;
     this.originalsDir = path.join(this.basePath, 'originals');
     this.thumbnailsDir = path.join(this.basePath, 'thumbnails');
     
@@ -92,14 +93,28 @@ class LocalAdapter extends ImageBedAdapter {
     return `${uuid}${ext}`;
   }
 
+  getDatePath() {
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return path.join(year, month, day);
+  }
+
+  buildStoredRelativePath(filename) {
+    return this.useDatePath ? path.join(this.getDatePath(), filename) : filename;
+  }
+
   /**
    * 上传图片
    */
   async upload(fileBuffer, options = {}) {
     try {
       const filename = this.generateFilename(options.filename || 'image.jpg');
-      const filePath = path.join(this.originalsDir, filename);
-      
+      const relativePath = this.buildStoredRelativePath(filename);
+      const filePath = path.join(this.originalsDir, relativePath);
+
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
       // 写入文件
       fs.writeFileSync(filePath, fileBuffer);
       
@@ -108,11 +123,12 @@ class LocalAdapter extends ImageBedAdapter {
       const size = stats.size;
       
       // 生成本地 URL（相对路径）
-      const url = `/api/image/local/${filename}`;
+      const normalizedRelativePath = relativePath.split(path.sep).join('/');
+      const url = `/api/image/local/${normalizedRelativePath}`;
       
       return {
         url,
-        filename,
+        filename: normalizedRelativePath,
         size,
         originalName: options.filename,
         mimeType: options.mimeType || 'image/jpeg',
@@ -133,9 +149,11 @@ class LocalAdapter extends ImageBedAdapter {
         return { success: false, error: 'Invalid URL format' };
       }
       
-      const filename = match[1];
+      const filename = decodeURIComponent(match[1]).replace(/^\/+/, '');
       const filePath = path.join(this.originalsDir, filename);
-      const thumbnailPath = path.join(this.thumbnailsDir, `${path.parse(filename).name}_thumb${path.extname(filename)}`);
+      const parsed = path.parse(filename);
+      const thumbnailRelative = path.join(parsed.dir, `${parsed.name}_thumb${parsed.ext}`);
+      const thumbnailPath = path.join(this.thumbnailsDir, thumbnailRelative);
       
       // 删除原始文件
       if (fs.existsSync(filePath)) {
@@ -148,8 +166,8 @@ class LocalAdapter extends ImageBedAdapter {
       }
 
       // 清理空目录（originalsDir/thumbnailsDir 下的年月日）
-      this.cleanupEmptyDirs(path.dirname(filePath), this.originalsDir, 3);
-      this.cleanupEmptyDirs(path.dirname(thumbnailPath), this.thumbnailsDir, 3);
+      this.cleanupEmptyDirs(path.dirname(filePath), this.originalsDir, this.useDatePath ? 3 : 0);
+      this.cleanupEmptyDirs(path.dirname(thumbnailPath), this.thumbnailsDir, this.useDatePath ? 3 : 0);
       
       return { success: true };
     } catch (err) {
@@ -181,28 +199,46 @@ class LocalAdapter extends ImageBedAdapter {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
-      
-      const files = fs.readdirSync(this.originalsDir);
+
+      const files = [];
+      const walk = (dir, base = '') => {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        entries.forEach((entry) => {
+          const rel = path.join(base, entry.name);
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            walk(full, rel);
+            return;
+          }
+          if (entry.isFile()) files.push(rel);
+        });
+      };
+      walk(this.originalsDir);
+
+      files.sort((a, b) => {
+        const sa = fs.statSync(path.join(this.originalsDir, a)).mtimeMs;
+        const sb = fs.statSync(path.join(this.originalsDir, b)).mtimeMs;
+        return sb - sa;
+      });
+
       const total = files.length;
-      
-      // 分页
       const start = (page - 1) * limit;
       const end = start + limit;
       const paginatedFiles = files.slice(start, end);
-      
-      const images = paginatedFiles.map(filename => {
-        const filePath = path.join(this.originalsDir, filename);
+
+      const images = paginatedFiles.map((relative) => {
+        const filePath = path.join(this.originalsDir, relative);
         const stats = fs.statSync(filePath);
-        
+        const normalizedRelative = relative.split(path.sep).join('/');
         return {
-          filename,
-          url: `/api/image/local/${filename}`,
+          filename: normalizedRelative,
+          url: `/api/image/local/${normalizedRelative}`,
           size: stats.size,
           mimeType: 'image/jpeg',
           createdAt: stats.mtime.getTime(),
         };
       });
-      
+
       return {
         images,
         total,
@@ -217,7 +253,8 @@ class LocalAdapter extends ImageBedAdapter {
    * 获取图片文件
    */
   getImageFile(filename) {
-    const filePath = path.join(this.originalsDir, filename);
+    const safeRelative = decodeURIComponent(String(filename || '')).replace(/^\/+/, '');
+    const filePath = path.join(this.originalsDir, safeRelative);
     
     // 安全检查：防止路径遍历
     const normalized = path.normalize(filePath);
@@ -240,6 +277,7 @@ class LocalAdapter extends ImageBedAdapter {
       type: this.type,
       name: this.name,
       basePath: this.basePath,
+      useDatePath: this.useDatePath,
     };
   }
 }

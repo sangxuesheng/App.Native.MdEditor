@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AnimatedSelect from './AnimatedSelect';
+import { getSettingsFontOptions } from '../constants/fontOptions';
 import './Dialog.css';
 import './SettingsDialog.css';
 
@@ -17,6 +18,10 @@ const SettingsDialog = ({
   showNewWindowButton = true,
   showExportConfigButton = true,
   showPublishButton = true,
+  fontDownloadState = {},
+  remoteFontFamilies = [],
+  onRequestFontDownload,
+  onRequestFontClearAndRetry,
   onThemeChange,
   onSave
 }) => {
@@ -129,6 +134,123 @@ const SettingsDialog = ({
     doRestoreDefaults();
   };
 
+
+  const getFontPreviewFamily = (fontValue) => {
+    switch (fontValue) {
+      case '楷体':
+      case 'KaiTi':
+        return `'LXGW WenKai', 'KaiTi', 'STKaiti', 'Kaiti SC', serif`
+      case '思源黑体':
+        return `'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+      case '思源宋体':
+      case 'Noto Serif SC':
+        return `'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif`
+      case '霞鹜文楷':
+        return `'LXGW WenKai', 'KaiTi', 'STKaiti', 'Kaiti SC', serif`
+      case '阿里巴巴普惠体':
+        return `'Alibaba PuHuiTi 3.0 55 Regular', 'Alibaba PuHuiTi', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+      case 'HarmonyOS Sans SC':
+        return `'HarmonyOS Sans SC', 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+      case 'Ma Shan Zheng':
+        return `'Ma Shan Zheng', 'KaiTi', 'STKaiti', cursive`
+      case 'JetBrains Mono':
+      case 'Fira Code':
+      case 'Source Code Pro':
+      case 'IBM Plex Mono':
+      case 'Cascadia Code':
+      case 'Monaco':
+      case 'Consolas':
+        return `'${fontValue}', 'Fira Code', 'JetBrains Mono', 'Monaco', 'Consolas', monospace`
+      case 'monospace':
+        return 'monospace'
+      default:
+        return `'${fontValue}', sans-serif`
+    }
+  }
+
+  const currentSelectedFont = settings.fontFamily || ''
+  const isCurrentRemoteFont = remoteFontFamilies.includes(currentSelectedFont)
+  const currentDownloadState = fontDownloadState?.[currentSelectedFont] || null
+
+  const withCloudTag = (fontName) => {
+    return fontName
+  }
+
+  const renderFontOption = (option) => {
+    const isRemote = remoteFontFamilies.includes(option.value)
+    const state = fontDownloadState?.[option.value] || null
+    const progress = state?.progress || 0
+    const canDownload = isRemote && state?.status !== 'loaded'
+
+    return (
+      <>
+        <span style={{ fontFamily: getFontPreviewFamily(option.value) }}>{option.label}</span>
+        {canDownload && (
+          <button
+            type="button"
+            className="btn-secondary font-download-btn"
+            aria-label={state?.status === 'loading' ? `正在下载 ${option.value}` : `下载 ${option.value}`}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onRequestFontDownload?.(option.value)
+            }}
+            style={{
+              height: 24,
+              width: 24,
+              minWidth: 24,
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 999,
+            }}
+          >
+            {state?.status === 'loading' ? (
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  background: `conic-gradient(var(--primary-color, #3b82f6) ${progress * 3.6}deg, rgba(148,163,184,0.25) 0deg)`,
+                  display: 'inline-block',
+                  position: 'relative',
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    inset: 3,
+                    borderRadius: '50%',
+                    background: 'var(--panel-bg, #fff)',
+                    display: 'block',
+                  }}
+                />
+              </span>
+            ) : (
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            )}
+          </button>
+        )}
+      </>
+    )
+  }
+
   return (
     <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
       <div className={`dialog-container compact-panel-dialog settings-dialog`} onClick={(e) => e.stopPropagation()}>
@@ -216,20 +338,51 @@ const SettingsDialog = ({
               <div className="setting-item">
                 <div className="setting-label">
                   <label>字体</label>
-                  <p className="setting-description">编辑器字体</p>
+                  <p className="setting-description">编辑器字体（云字体首次使用需要下载）</p>
                 </div>
-                <AnimatedSelect
-                  value={settings.fontFamily}
-                  onChange={(value) => handleChange('fontFamily', value)}
-                  options={[
-                    { value: 'JetBrains Mono', label: 'JetBrains Mono' },
-                    { value: 'Fira Code', label: 'Fira Code' },
-                    { value: 'Monaco', label: 'Monaco' },
-                    { value: 'Consolas', label: 'Consolas' },
-                    { value: 'monospace', label: '系统等宽字体' },
-                  ]}
-                  wrapperClassName="setting-select-control"
-                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <AnimatedSelect
+                    value={settings.fontFamily}
+                    onChange={(value) => handleChange('fontFamily', value)}
+                    options={getSettingsFontOptions(withCloudTag)}
+                    wrapperClassName="setting-select-control"
+                    renderOption={renderFontOption}
+                    renderValue={(option) => (
+                      <span style={{ fontFamily: getFontPreviewFamily(option?.value || settings.fontFamily) }}>
+                        {option?.label || option?.value || settings.fontFamily}
+                      </span>
+                    )}
+                  />
+                  {isCurrentRemoteFont && currentDownloadState?.status !== 'loaded' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <p
+                        className="setting-description"
+                        style={{
+                          margin: 0,
+                          color: currentDownloadState?.status === 'error'
+                            ? 'var(--danger-color, #ef4444)'
+                            : 'var(--text-secondary, #6b7280)',
+                        }}
+                      >
+                        {currentDownloadState?.status === 'loading'
+                          ? `正在下载 ${currentSelectedFont}...`
+                          : currentDownloadState?.status === 'error'
+                            ? `${currentSelectedFont} 下载失败，已回退系统字体`
+                            : `${currentSelectedFont} 为云字体，可在下拉列表中点击“下载”`}
+                      </p>
+                      {currentDownloadState?.status === 'error' && (
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => onRequestFontClearAndRetry?.(currentSelectedFont)}
+                          style={{ height: 28, padding: '0 10px', fontSize: 12 }}
+                        >
+                          清理缓存后重试
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="setting-item">

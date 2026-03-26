@@ -17,6 +17,7 @@ class QiniuAdapter extends ImageBedAdapter {
     this.domain = this.normalizeDomain(config.domain);
     this.zone = config.zone || 'z0';
     this.path = config.path || config.uploadPath || '';
+    this.useDatePath = config.useDatePath !== false;
     this.qiniu = null;
     this.initQiniu();
   }
@@ -52,8 +53,98 @@ class QiniuAdapter extends ImageBedAdapter {
   }
 
   normalizePathPrefix(path) {
-    const raw = `${path || ''}`.trim().replace(/^\/+/, '').replace(/\/+$/, '');
-    return raw ? `${raw}/` : '';
+    const raw = `${path || ''}`.trim();
+    if (!raw || raw === '/') return '';
+    const normalized = raw.replace(/^\/+/, '').replace(/\/+$/, '');
+    return normalized ? `${normalized}/` : '';
+  }
+
+  getDatePath() {
+    const now = new Date();
+    const y = String(now.getFullYear());
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}/${m}/${d}`;
+  }
+
+  buildUploadPrefix() {
+    const basePrefix = this.normalizePathPrefix(this.path);
+    if (!this.useDatePath) return basePrefix;
+    return `${basePrefix}${this.getDatePath()}/`;
+  }
+
+  extractKeyFromUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    let normalizedUrl = url;
+    try {
+      normalizedUrl = decodeURIComponent(url);
+    } catch (_) {}
+
+    const domain = this.normalizeDomain(this.domain);
+    if (domain && normalizedUrl.startsWith(`${domain}/`)) {
+      return normalizedUrl.slice(domain.length + 1).split('?')[0].split('#')[0];
+    }
+
+    try {
+      const parsed = new URL(normalizedUrl);
+      return parsed.pathname.replace(/^\/+/, '').split('?')[0].split('#')[0];
+    } catch (_) {
+      return normalizedUrl.replace(/^\/+/, '').split('?')[0].split('#')[0];
+    }
+  }
+
+  async deleteObjectByKey(key) {
+    return new Promise((resolve) => {
+      this.bucketManager.delete(this.bucket, key, (err, respBody, respInfo) => {
+        if (err) {
+          resolve({ success: false, error: err.message || String(err) });
+          return;
+        }
+        if (respInfo?.statusCode === 200 || respInfo?.statusCode === 612) {
+          resolve({ success: true });
+          return;
+        }
+        resolve({ success: false, error: `Qiniu API error: ${respInfo?.statusCode || 'unknown'}` });
+      });
+    });
+  }
+
+  async isPrefixEmpty(prefix, removedKeys = []) {
+    return new Promise((resolve) => {
+      this.bucketManager.listPrefix(this.bucket, { prefix, limit: 100 }, (err, respBody, respInfo) => {
+        if (err || respInfo?.statusCode !== 200) {
+          resolve(false);
+          return;
+        }
+        const items = Array.isArray(respBody?.items) ? respBody.items : [];
+        const remained = items.filter((item) => !removedKeys.includes(item.key));
+        resolve(remained.length === 0);
+      });
+    });
+  }
+
+  async cleanupEmptyPrefixes(objectKey) {
+    const cleanedKeys = [];
+    const segments = String(objectKey || '').split('/').filter(Boolean);
+    if (segments.length <= 1) return;
+
+    // 从最深层目录开始逐级向上清理，最多清到配置的上传根目录
+    const baseRoot = this.normalizePathPrefix(this.path).replace(/\/+$/, '');
+    for (let i = segments.length - 1; i > 0; i -= 1) {
+      const prefix = `${segments.slice(0, i).join('/')}/`;
+      if (baseRoot && !prefix.startsWith(`${baseRoot}/`) && prefix !== `${baseRoot}/`) {
+        break;
+      }
+
+      // 目录在对象存储中是前缀，若前缀下已无对象则删除目录占位对象（若存在）
+      const empty = await this.isPrefixEmpty(prefix, cleanedKeys);
+      if (!empty) break;
+
+      const markerResult = await this.deleteObjectByKey(prefix);
+      if (markerResult.success) {
+        cleanedKeys.push(prefix);
+      }
+    }
   }
 
   /**
@@ -128,7 +219,7 @@ class QiniuAdapter extends ImageBedAdapter {
   generateFilename(originalName) {
     const ext = originalName.split('.').pop();
     const uuid = crypto.randomBytes(8).toString('hex');
-    const prefix = this.normalizePathPrefix(this.path);
+    const prefix = this.buildUploadPrefix();
     return `${prefix}${uuid}.${ext}`;
   }
 
@@ -190,18 +281,18 @@ class QiniuAdapter extends ImageBedAdapter {
         return { success: false, error: 'Qiniu SDK not initialized' };
       }
 
-      // 从 URL 中提取文件名
-      const filename = url.replace(this.domain + '/', '');
+      const objectKey = this.extractKeyFromUrl(url);
+      if (!objectKey) {
+        return { success: false, error: 'Invalid object key' };
+      }
 
-      return new Promise((resolve) => {
-        this.bucketManager.delete(this.bucket, filename, (err, respBody, respInfo) => {
-          if (respInfo.statusCode === 200) {
-            resolve({ success: true });
-          } else {
-            resolve({ success: false, error: `Qiniu API error: ${respInfo.statusCode}` });
-          }
-        });
-      });
+      const deleteResult = await this.deleteObjectByKey(objectKey);
+      if (!deleteResult.success) {
+        return deleteResult;
+      }
+
+      await this.cleanupEmptyPrefixes(objectKey);
+      return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -259,6 +350,7 @@ class QiniuAdapter extends ImageBedAdapter {
       domain: this.domain,
       zone: this.zone,
       path: this.path,
+      useDatePath: this.useDatePath,
     };
   }
 }

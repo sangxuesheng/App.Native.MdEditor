@@ -17,6 +17,7 @@ class AliyunOSSAdapter extends ImageBedAdapter {
     this.bucket = config.bucket;
     this.domain = config.domain;
     this.path = this.normalizePath(config.path || config.uploadPath || '');
+    this.useDatePath = config.useDatePath !== false;
     this.client = null;
     this.initClient();
   }
@@ -29,10 +30,9 @@ class AliyunOSSAdapter extends ImageBedAdapter {
 
   normalizePath(rawPath) {
     if (!rawPath || typeof rawPath !== 'string') return '';
-    let p = rawPath.trim().replace(/^\/+/, '');
+    let p = rawPath.trim().replace(/^\/+/, '').replace(/\/+$/, '');
     if (!p) return '';
-    if (!p.endsWith('/')) p += '/';
-    return p;
+    return `${p}/`;
   }
 
   /**
@@ -134,6 +134,79 @@ class AliyunOSSAdapter extends ImageBedAdapter {
     return `${year}/${month}/${day}/`;
   }
 
+  buildUploadPrefix() {
+    if (!this.useDatePath) return this.path;
+    return `${this.path}${this.getDatePath()}`;
+  }
+
+  extractObjectKeyFromUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        const u = new URL(raw);
+        return decodeURIComponent((u.pathname || '').replace(/^\//, ''));
+      }
+    } catch (_) {}
+
+    if (this.domain) {
+      const domainNorm = String(this.domain).replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      const rawNorm = raw.replace(/^https?:\/\//i, '');
+      if (rawNorm.startsWith(`${domainNorm}/`)) {
+        return rawNorm.slice(domainNorm.length + 1).split('?')[0].split('#')[0];
+      }
+    }
+
+    return raw.replace(/^\/+/, '').split('?')[0].split('#')[0];
+  }
+
+  async deleteObjectByKey(objectKey) {
+    try {
+      await this.client.delete(objectKey);
+      return { success: true };
+    } catch (err) {
+      // 阿里云删除不存在对象通常也返回成功；若抛错则保守返回失败
+      return { success: false, error: err.message };
+    }
+  }
+
+  async isPrefixEmpty(prefix, removedKeys = []) {
+    try {
+      const result = await this.client.list({
+        'max-keys': 100,
+        prefix,
+      });
+      const objects = Array.isArray(result?.objects) ? result.objects : [];
+      const remained = objects.filter((obj) => !removedKeys.includes(obj.name));
+      return remained.length === 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async cleanupEmptyPrefixes(objectKey) {
+    const cleanedKeys = [];
+    const segments = String(objectKey || '').split('/').filter(Boolean);
+    if (segments.length <= 1) return;
+
+    const baseRoot = String(this.path || '').replace(/\/+$/, '');
+    for (let i = segments.length - 1; i > 0; i -= 1) {
+      const prefix = `${segments.slice(0, i).join('/')}/`;
+      if (baseRoot && !prefix.startsWith(`${baseRoot}/`) && prefix !== `${baseRoot}/`) {
+        break;
+      }
+
+      const empty = await this.isPrefixEmpty(prefix, cleanedKeys);
+      if (!empty) break;
+
+      const markerDelete = await this.deleteObjectByKey(prefix);
+      if (markerDelete.success) {
+        cleanedKeys.push(prefix);
+      }
+    }
+  }
+
   /**
    * 上传图片
    */
@@ -144,8 +217,7 @@ class AliyunOSSAdapter extends ImageBedAdapter {
       }
 
       const filename = this.generateFilename(options.filename || 'image.jpg');
-      const datePath = this.getDatePath();
-      const objectKey = `${this.path}${datePath}${filename}`;
+      const objectKey = `${this.buildUploadPrefix()}${filename}`;
       
       const result = await this.client.put(objectKey, fileBuffer, {
         headers: {
@@ -177,48 +249,21 @@ class AliyunOSSAdapter extends ImageBedAdapter {
         return { success: false, error: 'OSS client not initialized' };
       }
 
-      // 从 URL 中提取对象 key（兼容自定义域名/子目录/带查询参数）
-      let filename = '';
-      const raw = String(url || '').trim();
-      if (!raw) return { success: false, error: 'Missing url' };
+      let objectKey = this.extractObjectKeyFromUrl(url);
+      if (!objectKey) return { success: false, error: 'Cannot resolve object key from url' };
 
-      try {
-        if (/^https?:\/\//i.test(raw)) {
-          const u = new URL(raw);
-          filename = decodeURIComponent(u.pathname || '').replace(/^\//, '');
-        }
-      } catch (_) {}
-
-      if (!filename) {
-        // 处理自定义域名（可能无协议）
-        if (this.domain) {
-          const domainNorm = String(this.domain).replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-          const rawNorm = raw.replace(/^https?:\/\//i, '');
-          if (rawNorm.startsWith(domainNorm + '/')) {
-            filename = rawNorm.slice(domainNorm.length + 1);
-          }
-        }
+      if (objectKey.startsWith(`${this.bucket}/`)) {
+        objectKey = objectKey.slice(this.bucket.length + 1);
       }
 
-      if (!filename) {
-        const clean = raw.split('?')[0].split('#')[0];
-        const match = clean.match(/\/([^/]+)$/);
-        filename = match ? match[1] : clean;
+      if (this.path && !objectKey.startsWith(this.path)) {
+        objectKey = `${this.path}${objectKey.replace(/^\/+/, '')}`;
       }
 
-      if (!filename) return { success: false, error: 'Cannot resolve object key from url' };
+      const deleteResult = await this.deleteObjectByKey(objectKey);
+      if (!deleteResult.success) return deleteResult;
 
-      if (filename.startsWith(this.bucket + '/')) {
-        filename = filename.slice(this.bucket.length + 1);
-      }
-
-      if (this.path && filename.startsWith(this.path)) {
-        filename = filename;
-      } else if (this.path && !filename.startsWith(this.path)) {
-        filename = `${this.path}${filename}`;
-      }
-
-      await this.client.delete(filename);
+      await this.cleanupEmptyPrefixes(objectKey);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -283,6 +328,7 @@ class AliyunOSSAdapter extends ImageBedAdapter {
       bucket: this.bucket,
       domain: this.domain,
       path: this.path,
+      useDatePath: this.useDatePath,
     };
   }
 }

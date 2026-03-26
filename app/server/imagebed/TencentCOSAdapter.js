@@ -16,7 +16,8 @@ class TencentCOSAdapter extends ImageBedAdapter {
     this.bucket = config.bucket;
     this.region = config.region;
     this.domain = config.domain;
-    this.path = config.path || '';
+    this.path = this.normalizePath(config.path || config.uploadPath || '');
+    this.useDatePath = config.useDatePath !== false;
     this.client = null;
     this.initClient();
   }
@@ -33,6 +34,103 @@ class TencentCOSAdapter extends ImageBedAdapter {
       });
     } catch (err) {
       console.error('[TencentCOSAdapter] Failed to initialize COS client:', err);
+    }
+  }
+
+  normalizePath(rawPath) {
+    if (!rawPath || typeof rawPath !== 'string') return '';
+    const p = rawPath.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+    return p ? `${p}/` : '';
+  }
+
+  getDatePath() {
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}/`;
+  }
+
+  buildUploadPrefix() {
+    if (!this.useDatePath) return this.path;
+    return `${this.path}${this.getDatePath()}`;
+  }
+
+  extractObjectKeyFromUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        const u = new URL(raw);
+        return decodeURIComponent((u.pathname || '').replace(/^\//, '')).split('?')[0].split('#')[0];
+      }
+    } catch (_) {}
+
+    if (this.domain) {
+      const domain = String(this.domain).replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      const normalized = raw.replace(/^https?:\/\//i, '');
+      if (normalized.startsWith(`${domain}/`)) {
+        return normalized.slice(domain.length + 1).split('?')[0].split('#')[0];
+      }
+    }
+
+    return raw.replace(/^\/+/, '').split('?')[0].split('#')[0];
+  }
+
+  deleteObjectByKey(key) {
+    return new Promise((resolve) => {
+      this.client.deleteObject({
+        Bucket: this.bucket,
+        Region: this.region,
+        Key: key,
+      }, (err) => {
+        if (err) {
+          resolve({ success: false, error: err.message });
+        } else {
+          resolve({ success: true });
+        }
+      });
+    });
+  }
+
+  isPrefixEmpty(prefix, removedKeys = []) {
+    return new Promise((resolve) => {
+      this.client.getBucket({
+        Bucket: this.bucket,
+        Region: this.region,
+        Prefix: prefix,
+        MaxKeys: 100,
+      }, (err, data) => {
+        if (err) {
+          resolve(false);
+          return;
+        }
+        const objects = Array.isArray(data?.Contents) ? data.Contents : [];
+        const remained = objects.filter((obj) => !removedKeys.includes(obj.Key));
+        resolve(remained.length === 0);
+      });
+    });
+  }
+
+  async cleanupEmptyPrefixes(objectKey) {
+    const cleanedKeys = [];
+    const segments = String(objectKey || '').split('/').filter(Boolean);
+    if (segments.length <= 1) return;
+
+    const baseRoot = String(this.path || '').replace(/\/+$/, '');
+    for (let i = segments.length - 1; i > 0; i -= 1) {
+      const prefix = `${segments.slice(0, i).join('/')}/`;
+      if (baseRoot && !prefix.startsWith(`${baseRoot}/`) && prefix !== `${baseRoot}/`) {
+        break;
+      }
+
+      const empty = await this.isPrefixEmpty(prefix, cleanedKeys);
+      if (!empty) break;
+
+      const markerDelete = await this.deleteObjectByKey(prefix);
+      if (markerDelete.success) {
+        cleanedKeys.push(prefix);
+      }
     }
   }
 
@@ -79,15 +177,7 @@ class TencentCOSAdapter extends ImageBedAdapter {
   generateFilename(originalName) {
     const ext = originalName.split('.').pop();
     const uuid = crypto.randomBytes(8).toString('hex');
-    const baseName = `${uuid}.${ext}`;
-
-    const normalizedPath = (this.path || '').trim();
-    if (!normalizedPath || normalizedPath === '/' || normalizedPath === '.') {
-      return baseName;
-    }
-
-    const cleanPath = normalizedPath.replace(/^\/+/, '').replace(/\/+$/, '');
-    return `${cleanPath}/${baseName}`;
+    return `${this.buildUploadPrefix()}${uuid}.${ext}`;
   }
 
   /**
@@ -142,29 +232,20 @@ class TencentCOSAdapter extends ImageBedAdapter {
         return { success: false, error: 'COS client not initialized' };
       }
 
-      // 从 URL 中提取文件名
-      let filename;
-      if (this.domain) {
-        const domain = this.domain.replace(/\/+$/, '');
-        filename = url.replace(domain + '/', '');
-      } else {
-        const match = url.match(/\/([^/]+)$/);
-        filename = match ? match[1] : url;
+      let objectKey = this.extractObjectKeyFromUrl(url);
+      if (!objectKey) {
+        return { success: false, error: 'Invalid URL format' };
       }
 
-      return new Promise((resolve) => {
-        this.client.deleteObject({
-          Bucket: this.bucket,
-          Region: this.region,
-          Key: filename,
-        }, (err, data) => {
-          if (err) {
-            resolve({ success: false, error: err.message });
-          } else {
-            resolve({ success: true });
-          }
-        });
-      });
+      if (this.path && !objectKey.startsWith(this.path)) {
+        objectKey = `${this.path}${objectKey.replace(/^\/+/, '')}`;
+      }
+
+      const deleteResult = await this.deleteObjectByKey(objectKey);
+      if (!deleteResult.success) return deleteResult;
+
+      await this.cleanupEmptyPrefixes(objectKey);
+      return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -234,6 +315,7 @@ class TencentCOSAdapter extends ImageBedAdapter {
       region: this.region,
       domain: this.domain,
       path: this.path,
+      useDatePath: this.useDatePath,
     };
   }
 }
