@@ -185,8 +185,8 @@
 
 
 /* 按钮样式 */
-.btn-secondary,
-.btn-primary {
+.dialog-container .btn-secondary,
+.dialog-container .btn-primary {
   min-height: 38px;
   min-width: 90px;
   padding: 0 20px;
@@ -203,59 +203,59 @@
   white-space: nowrap;
 }
 
-.btn-secondary {
+.dialog-container .btn-secondary {
   background: #21262d;
   border: 1px solid #30363d;
   color: #c9d1d9;
 }
 
-.theme-light .btn-secondary {
+.theme-light .dialog-container .btn-secondary {
   background: #ffffff;
   border-color: #d0d7de;
   color: #24292f;
 }
 
-.theme-dark .btn-secondary {
+.theme-dark .dialog-container .btn-secondary {
   background: #21262d;
   border-color: #30363d;
   color: #c9d1d9;
 }
 
-.btn-secondary:hover {
+.dialog-container .btn-secondary:hover {
   background: #30363d;
 }
 
-.theme-light .btn-secondary:hover {
+.theme-light .dialog-container .btn-secondary:hover {
   background: #f6f8fa;
 }
 
-.theme-dark .btn-secondary:hover {
+.theme-dark .dialog-container .btn-secondary:hover {
   background: #30363d;
 }
 
 
-.btn-primary {
+.dialog-container .btn-primary {
   background: #086ADA;
   color: #ffffff;
 }
 
-.theme-dark .btn-primary {
+.theme-dark .dialog-container .btn-primary {
   background: #59A6FF;
   color: #0d1117;
 }
 
-.btn-primary:hover:not(:disabled) {
+.dialog-container .btn-primary:hover:not(:disabled) {
   background: #0757b8;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(8, 106, 218, 0.3);
 }
 
-.theme-dark .btn-primary:hover:not(:disabled) {
+.theme-dark .dialog-container .btn-primary:hover:not(:disabled) {
   background: #79B8FF;
   box-shadow: 0 4px 12px rgba(89, 166, 255, 0.35);
 }
 
-.btn-primary:disabled {
+.dialog-container .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
@@ -268,8 +268,8 @@
     border-radius: 10px;
   }
 
-  .btn-secondary,
-  .btn-primary {
+  .dialog-container .btn-secondary,
+  .dialog-container .btn-primary {
     min-height: 40px;
     padding: 10px 18px;
   }

@@ -12,17 +12,51 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
   const [targetPath, setTargetPath] = useState('');
 
   useEffect(() => {
-    // 设置文件名
+    // 设置文件名：保留用户输入/当前文件的后缀
     if (initialFileName) {
-      // 从NewFileDialog传递过来的文件名
-      setFileName(initialFileName.replace(/\.md$/, ''));
+      // 从 NewFileDialog 传递过来的文件名（可带后缀）
+      setFileName(initialFileName);
     } else if (currentPath) {
-      // 从当前路径提取文件名
+      // 从当前路径提取文件名（保留原后缀）
       const pathParts = currentPath.split('/');
       const currentFileName = pathParts[pathParts.length - 1];
-      setFileName(currentFileName.replace(/\.md$/, ''));
+      setFileName(currentFileName);
     }
   }, [rootDirs, currentPath, initialFileName]);
+
+  const ensureDefaultExtension = (rawFileName) => {
+    const trimmed = rawFileName.trim();
+    if (!trimmed) return '';
+
+    // 仅当用户未填写后缀时，默认补 .md
+    const hasExtension = /\.[^./\\]+$/.test(trimmed);
+    return hasExtension ? trimmed : `${trimmed}.md`;
+  };
+
+  const validateFileName = (rawFileName) => {
+    const trimmed = rawFileName.trim();
+    if (!trimmed) return '请输入文件名';
+
+    // 禁止目录分隔符与常见非法字符
+    if (/[\\/]/.test(trimmed)) {
+      return '文件名不能包含 / 或 \\';
+    }
+    if (/[<>:"|?*]/.test(trimmed)) {
+      return '文件名包含非法字符：< > : " | ? *';
+    }
+
+    // 禁止以点结尾（例如 "test."）
+    if (trimmed.endsWith('.')) {
+      return '文件名不能以点号结尾';
+    }
+
+    const finalName = ensureDefaultExtension(trimmed);
+    if (!/\.[^./\\]+$/.test(finalName)) {
+      return '后缀格式无效，请检查文件名';
+    }
+
+    return '';
+  };
 
   const checkFileExists = async (path) => {
     try {
@@ -39,8 +73,9 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
   };
 
   const saveToSelectedPath = async () => {
-    if (!fileName.trim()) {
-      setError('请输入文件名');
+    const fileNameError = validateFileName(fileName);
+    if (fileNameError) {
+      setError(fileNameError);
       return;
     }
 
@@ -49,11 +84,8 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
       return;
     }
 
-    // 确保文件名以 .md 结尾
-    let finalFileName = fileName.trim();
-    if (!finalFileName.endsWith('.md')) {
-      finalFileName += '.md';
-    }
+    // 用户可自定义后缀；未填写后缀时默认补 .md
+    const finalFileName = ensureDefaultExtension(fileName);
 
     // 构建完整路径
     const fullPath = `${selectedPath}/${finalFileName}`;
@@ -135,10 +167,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
     if (!selectedPath || !fileName.trim()) {
       return '';
     }
-    let finalFileName = fileName.trim();
-    if (!finalFileName.endsWith('.md')) {
-      finalFileName += '.md';
-    }
+    const finalFileName = ensureDefaultExtension(fileName);
     return `${selectedPath}/${finalFileName}`;
   };
 
@@ -186,13 +215,16 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
                   <input
                     type="text"
                     value={fileName}
-                    onChange={(e) => setFileName(e.target.value)}
+                    onChange={(e) => {
+                      setFileName(e.target.value)
+                      if (error) setError('')
+                    }}
                     onKeyPress={(e) => e.key === 'Enter' && handleConfirmClick()}
                     placeholder="输入文件名"
                     className="form-input"
                     autoFocus
                   />
-                  <span className="file-extension">.md</span>
+                  <span className="file-extension">默认 .md（可改后缀）</span>
                 </div>
               </div>
               <div className="footer-right">

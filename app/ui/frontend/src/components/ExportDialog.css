@@ -7,7 +7,7 @@
   flex-direction: column;
 }
 
-.dialog-body {
+.export-dialog .dialog-body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;

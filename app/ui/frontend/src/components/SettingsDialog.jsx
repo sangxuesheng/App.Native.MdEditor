@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AnimatedSelect from './AnimatedSelect';
+import './Dialog.css';
 import './SettingsDialog.css';
 
 const SettingsDialog = ({ 

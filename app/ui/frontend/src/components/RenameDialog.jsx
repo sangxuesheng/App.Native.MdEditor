@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import './Dialog.css'
 import './RenameDialog.css'
 
 /**
@@ -78,8 +79,8 @@ function RenameDialog({
   if (!node) return null
 
   return (
-    <div className={`dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
-      <div className="dialog-content rename-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
+      <div className="dialog-container compact-panel-dialog rename-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>重命名</h2>
           <button className="dialog-close" onClick={handleCloseClick}>×</button>

@@ -1,4 +1,5 @@
 import React from 'react'
+import './Dialog.css'
 import './RenameDialog.css'
 import { useAppUi } from '../context/AppUiContext'
 

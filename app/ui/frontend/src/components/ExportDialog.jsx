@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Globe, FileText, File, FileCode, Image, FileType } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import './Dialog.css';
 import './ExportDialog.css';
 import { useAppUi } from '../context/AppUiContext';
 
@@ -826,8 +827,8 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
   };
 
   return (
-    <div className="dialog-overlay theme-light" onClick={handleOverlayClick}>
-      <div className="dialog-content export-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
+      <div className="dialog-container compact-panel-dialog export-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>导出文档</h2>
           <button className="dialog-close" onClick={handleCloseClick}>×</button>
