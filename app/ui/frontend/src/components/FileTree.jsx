@@ -15,7 +15,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { toggleFavorite, getFavorites, updateFavoritePath } from '../utils/favoritesManager';
 import { loadSetting, parseStoredArray, persistSetting } from '../utils/settingsApi';
 import { useAppUi } from '../context/AppUiContext';
-import { getFormatFromPath, getFormatColorClass, FORMAT_IMAGE, isSupportedFormat } from '../constants/fileFormats';
+import { getFormatFromPath, getFormatColorClass, FORMAT_IMAGE } from '../constants/fileFormats';
 import './FileTree.css';
 
 const FileTree = forwardRef(({ 
@@ -71,8 +71,6 @@ const FileTree = forwardRef(({
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
 
-  // 格式筛选：'all' | 'supported'
-  const [fileFormatFilter, setFileFormatFilter] = useState('all');
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
 
   useEffect(() => {
@@ -1099,20 +1097,7 @@ const FileTree = forwardRef(({
     );
   };
 
-  // 按格式筛选：supported 时仅显示首批支持格式文件
-  const filterByFormat = (nodes, filter) => {
-    if (filter === 'all') return nodes;
-    return nodes.filter(node => {
-      if (node.type === 'directory') return true;
-      return isSupportedFormat(node.path);
-    }).map(node => {
-      if (node.type === 'directory' && node.children) {
-        return { ...node, children: filterByFormat(node.children, filter) };
-      }
-      return node;
-    });
-  };
-  const filteredTree = filterTree(filterByFormat([...tree], fileFormatFilter), debouncedQuery);
+  const filteredTree = filterTree([...tree], debouncedQuery);
 
   return (
     <div className={`file-tree ${compactInteractionMode ? 'compact-interaction-mode' : ''}`} style={style}>
@@ -1157,15 +1142,7 @@ const FileTree = forwardRef(({
                 <MoreHorizontal size={16} />
               </button>
             </div>
-            <select
-              className="file-tree-format-filter"
-              value={fileFormatFilter}
-              onChange={(e) => setFileFormatFilter(e.target.value)}
-              title="格式筛选"
-            >
-              <option value="all">所有文件</option>
-              <option value="supported">首批支持格式</option>
-            </select>
+
           </div>
           
           <FavoritesPanel
@@ -1211,7 +1188,7 @@ const FileTree = forwardRef(({
       {activeTab === 'history' && (
         <HistoryPanel 
           currentPath={currentPath}
-          theme={document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light'}
+          theme={theme}
           onVersionRestore={onVersionRestore}
         />
       )}

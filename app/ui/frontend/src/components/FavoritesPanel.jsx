@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Star, Folder, FileText, File, FileJson, ChevronDown, ChevronRight, GripVertical, Trash2, FolderOpen, ChevronUp, ChevronDown as ChevronDownSmall } from 'lucide-react'
+import { loadSetting, persistSetting } from '../utils/settingsApi'
 import './FavoritesPanel.css'
 
 /**
@@ -17,6 +18,41 @@ function FavoritesPanel({
   const [isExpanded, setIsExpanded] = useState(true)
   const [draggedIndex, setDraggedIndex] = useState(null)
   const [contextMenu, setContextMenu] = useState(null)
+  const expandedHydratedRef = useRef(false)
+  const reorderPersistTimerRef = useRef(null)
+
+  useEffect(() => {
+    const hydrateExpandedState = async () => {
+      try {
+        const saved = await loadSetting('favoritesPanelExpanded', true)
+        setIsExpanded(saved !== false)
+      } catch (error) {
+        console.error('[FavoritesPanel] Failed to load expanded state:', error)
+      } finally {
+        expandedHydratedRef.current = true
+      }
+    }
+
+    hydrateExpandedState()
+  }, [])
+
+  useEffect(() => {
+    if (!expandedHydratedRef.current) {
+      return
+    }
+
+    persistSetting('favoritesPanelExpanded', isExpanded).catch((error) => {
+      console.error('[FavoritesPanel] Failed to save expanded state:', error)
+    })
+  }, [isExpanded])
+
+  useEffect(() => {
+    return () => {
+      if (reorderPersistTimerRef.current) {
+        clearTimeout(reorderPersistTimerRef.current)
+      }
+    }
+  }, [])
 
   const doToggleExpanded = () => {
     setIsExpanded(!isExpanded)
@@ -47,6 +83,23 @@ function FavoritesPanel({
     onClearFavorites()
   }
 
+  const schedulePersistReorder = (nextFavorites) => {
+    if (!onReorderFavorites) return
+
+    // 本地即时更新（无感）
+    onReorderFavorites(nextFavorites, { skipPersist: true })
+
+    // 防抖持久化（减少频繁写入）
+    if (reorderPersistTimerRef.current) {
+      clearTimeout(reorderPersistTimerRef.current)
+    }
+
+    reorderPersistTimerRef.current = setTimeout(() => {
+      onReorderFavorites(nextFavorites)
+      reorderPersistTimerRef.current = null
+    }, 350)
+  }
+
   const doMoveFavorite = (fromIndex, toIndex) => {
     if (!onReorderFavorites) return
     if (toIndex < 0 || toIndex >= safeFavorites.length || fromIndex === toIndex) return
@@ -54,7 +107,7 @@ function FavoritesPanel({
     const nextFavorites = [...safeFavorites]
     const [movedItem] = nextFavorites.splice(fromIndex, 1)
     nextFavorites.splice(toIndex, 0, movedItem)
-    onReorderFavorites(nextFavorites)
+    schedulePersistReorder(nextFavorites)
   }
 
   const handleClearFavoritesClick = () => {
@@ -165,10 +218,8 @@ function FavoritesPanel({
     const [draggedItem] = newFavorites.splice(draggedIndex, 1)
     newFavorites.splice(dropIndex, 0, draggedItem)
 
-    // 更新顺序
-    if (onReorderFavorites) {
-      onReorderFavorites(newFavorites)
-    }
+    // 本地即时更新 + 防抖持久化
+    schedulePersistReorder(newFavorites)
 
     setDraggedIndex(null)
   }

@@ -5,6 +5,7 @@ import './SettingsDialog.css';
 const SettingsDialog = ({ 
   onClose, 
   theme,
+  themeMode,
   fontSize = 14,
   lineHeight = 24,
   fontFamily = 'JetBrains Mono',
@@ -19,7 +20,8 @@ const SettingsDialog = ({
   onSave
 }) => {
   const [settings, setSettings] = useState({
-    theme: theme,
+    // 这里的 theme 指的是“用户选择的主题模式”：system/light/dark
+    theme: themeMode,
     fontSize,
     lineHeight,
     tabSize: 2,
@@ -40,7 +42,7 @@ const SettingsDialog = ({
     // 弹窗中的设置项始终以父组件当前状态为准，避免显示默认值
     setSettings(prev => ({
       ...prev,
-      theme,
+      theme: themeMode,
       fontSize,
       lineHeight,
       fontFamily,
@@ -54,7 +56,7 @@ const SettingsDialog = ({
     }))
     setHasChanges(false)
   }, [
-    theme,
+    themeMode,
     fontSize,
     lineHeight,
     fontFamily,
@@ -79,7 +81,7 @@ const SettingsDialog = ({
     }
 
     // 如果主题变更，通知父组件触发主题切换逻辑
-    if (settings.theme !== theme && onThemeChange) {
+    if (settings.theme !== themeMode && onThemeChange) {
       onThemeChange(settings.theme);
     }
 
@@ -89,7 +91,7 @@ const SettingsDialog = ({
 
   const doRestoreDefaults = () => {
     const defaultSettings = {
-      theme: 'light',
+      theme: 'system',
       fontSize: 14,
       lineHeight: 24,
       tabSize: 2,
@@ -149,6 +151,7 @@ const SettingsDialog = ({
                   value={settings.theme}
                   onChange={(value) => handleChange('theme', value)}
                   options={[
+                    { value: 'system', label: '随系统' },
                     { value: 'light', label: '浅色' },
                     { value: 'dark', label: '深色' },
                   ]}

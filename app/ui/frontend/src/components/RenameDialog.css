@@ -140,6 +140,31 @@
   color: #c9d1d9;
 }
 
+.property-value-copyable {
+  cursor: pointer;
+  user-select: text;
+  transition: color 0.15s ease;
+}
+
+.property-value-copyable:hover {
+  color: #0969da;
+  text-decoration: underline;
+}
+
+.theme-dark .property-value-copyable:hover {
+  color: #58a6ff;
+}
+
+.property-value-copyable:focus-visible {
+  outline: 2px solid #0969da;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.theme-dark .property-value-copyable:focus-visible {
+  outline-color: #58a6ff;
+}
+
 @media (max-width: 767px) {
   .properties-dialog {
     width: 100%;

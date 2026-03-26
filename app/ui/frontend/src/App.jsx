@@ -47,7 +47,7 @@ import { getRecentFiles, addRecentFile, clearRecentFiles } from './utils/recentF
 import { compressImage } from './utils/imageCompressor'
 
 import { getFavorites, toggleFavorite, clearFavorites, updateFavoritesOrder } from './utils/favoritesManager'
-import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2, ListCollapse, Scan, FilePenLine } from 'lucide-react'
+import { FolderArchive, Sun, Moon, Columns, FileText, Eye, PanelLeft, Menu, Share2, ListCollapse, Scan, FilePenLine, MonitorCheck } from 'lucide-react'
 import { useLocalPersistence, useBeforeUnload, useVisibilityChange } from './hooks/useLocalPersistence'
 import { clearContent as clearPersistedContent, loadPersistedState } from './utils/localPersistence'
 import PdfViewer from './components/PdfViewer'
@@ -71,22 +71,44 @@ import { preloadCommonComponents } from './utils/lazyComponents'
 import AISidebar from './components/ai/AISidebar'
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
-/** 明暗模式仅存 localStorage，不写数据库，由用户自行设定；手机端跟随系统 */
+// “随系统”主题图标（MonitorCheck）
+const SystemThemeIcon = ({ size = 16 }) => (
+  <MonitorCheck size={size} aria-hidden="true" focusable="false" />
+)
+
+/** 明暗模式：支持“随系统”实时跟随；手动选择 light/dark 作为覆盖 */
 const THEME_STORAGE_KEY = 'md-editor-theme'
 // Breakpoints:
 // - mobile single-column: < 768px (<= 767px)
 // - compact (tablet + mobile): <= 1024px
 const MOBILE_SINGLE_COLUMN_MEDIA_QUERY = '(max-width: 767px)'
+
+const getSystemTheme = () => {
+  if (typeof window === 'undefined') return 'light'
+  return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'
+}
+
+// themeMode:
+// - 'system'：实时跟随系统
+// - 'light'/'dark'：覆盖系统（用户手动选择）
+const getInitialThemeMode = () => {
+  if (typeof window === 'undefined') return 'system'
+  const isMobile = window.matchMedia?.(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)?.matches
+  if (isMobile) return 'system'
+
+  const stored = localStorage.getItem(THEME_STORAGE_KEY)
+  if (stored === 'light' || stored === 'dark') return stored
+  return 'system'
+}
+
 const getInitialTheme = () => {
   if (typeof window === 'undefined') return 'light'
   const isMobile = window.matchMedia?.(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)?.matches
-  if (isMobile) {
-    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'
-  }
+  if (isMobile) return getSystemTheme()
+
   const stored = localStorage.getItem(THEME_STORAGE_KEY)
   if (stored === 'light' || stored === 'dark') return stored
-  if (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) return 'dark'
-  return 'light'
+  return getSystemTheme()
 }
 
 // 初始化 unified 处理器
@@ -230,6 +252,12 @@ function App() {
   const { isLoading, loadingMessage } = useMobileFirstScreenLoader()
   
   const [content, setContent] = useState(() => getInitialEditorState().content)
+  // 给“系统主题变化事件”提供最新的文档内容，避免闭包拿到旧值
+  const latestContentRef = useRef(content)
+  useEffect(() => {
+    latestContentRef.current = content
+  }, [content])
+
   const [documentTitle, setDocumentTitle] = useState('')
   const [showImageManager, setShowImageManager] = useState(false)
   const [imageManagerInitialTab, setImageManagerInitialTab] = useState(null) // 'library' | null，打开时指定标签页
@@ -238,6 +266,8 @@ function App() {
   const [statusType, setStatusType] = useState('normal') // normal, success, error
   const [showTableDialog, setShowTableDialog] = useState(false)
   const [editorTheme, setEditorTheme] = useState(getInitialTheme)
+  // themeMode：是否随系统实时跟随
+  const [themeMode, setThemeMode] = useState(getInitialThemeMode)
   const [layout, setLayout] = useState('vertical')
   const [focusMode, setFocusMode] = useState('off') // off | split | editor-only
   const [showFileTree, setShowFileTree] = useState(false)
@@ -299,10 +329,6 @@ function App() {
   const [showSaveConfirmDialog, setShowSaveConfirmDialog] = useState(null) // { format, title, message } | null
   const pendingSaveAfterConfirmRef = useRef(null) // { path, content, encoding, isSwitch }
   const [showImageZoomDialog, setShowImageZoomDialog] = useState(false) // 图片预览点击放大
-  const originalLayoutRef = useRef(null) // 图片自动切换（桌面端）前用户原来的布局
-  const originalMobilePaneRef = useRef(null) // 图片自动切换（移动端）前用户原来的视图
-  const isImageAutoSwitchRef = useRef(false) // 桌面端：标记是否是通过图片自动切换的布局
-  const isMobileImageAutoSwitchRef = useRef(false) // 移动端：标记是否是通过图片自动切换的视图
 
   const isOfficeReadOnly = currentFileFormat === FORMAT_DOCX || currentFileFormat === FORMAT_XLSX || currentFileFormat === FORMAT_PPTX_EXPERIMENTAL
 
@@ -2576,18 +2602,47 @@ function App() {
     }
   }, [editorTheme])
 
-  // 手机端：监听系统明暗模式变化，自动同步
+  // “随系统”模式：实时监听系统明暗变化（iOS/安卓/鸿蒙/Mac/Windows WebView）
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
     const colorSchemeMq = window.matchMedia('(prefers-color-scheme: dark)')
-    const mobileMq = window.matchMedia(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)
     const handleChange = () => {
-      if (mobileMq.matches) {
-        setEditorTheme(colorSchemeMq.matches ? 'dark' : 'light')
+      if (themeMode !== 'system') return
+
+      const nextTheme = colorSchemeMq.matches ? 'dark' : 'light'
+      setEditorTheme(nextTheme)
+
+      // Mermaid 需要重渲染以跟随主题 svg 颜色
+      if (mermaidLoaded && mermaidModule) {
+        mermaidModule.initialize({
+          startOnLoad: false,
+          theme: nextTheme === 'dark' ? 'dark' : 'default',
+          securityLevel: 'loose'
+        })
+        setTimeout(() => {
+          if (!isRenderingRef.current) {
+            isRenderingRef.current = true
+            renderMarkdown(latestContentRef.current).finally(() => {
+              isRenderingRef.current = false
+            })
+          }
+        }, 100)
       }
     }
-    colorSchemeMq.addEventListener('change', handleChange)
-    return () => colorSchemeMq.removeEventListener('change', handleChange)
-  }, [])
+
+    // Safari/iOS WebKit 下某些版本可能不支持 addEventListener('change')
+    if (colorSchemeMq.addEventListener) {
+      colorSchemeMq.addEventListener('change', handleChange)
+      return () => colorSchemeMq.removeEventListener('change', handleChange)
+    }
+    if (colorSchemeMq.addListener) {
+      colorSchemeMq.addListener(handleChange)
+      return () => colorSchemeMq.removeListener(handleChange)
+    }
+
+    return undefined
+  }, [themeMode, mermaidLoaded])
 
   // 动态加载 github-markdown CSS
   useEffect(() => {
@@ -3129,40 +3184,94 @@ function App() {
   }, [])
 
   const toggleEditorTheme = async (forcedTheme) => {
-    // 事件处理函数可能会把 click event 作为第一个参数传进来，这里只接受合法主题值
-    const normalizedTheme =
-      forcedTheme === 'light' || forcedTheme === 'dark' ? forcedTheme : null
+    // 事件处理函数可能会把 click event 作为第一个参数传进来，只接受合法值
+    const normalizedSelection =
+      forcedTheme === 'light' || forcedTheme === 'dark' || forcedTheme === 'system'
+        ? forcedTheme
+        : null
 
-    // 在 light 和 dark 之间切换，或使用指定主题
-    const newTheme = normalizedTheme || (editorTheme === 'light' ? 'dark' : 'light')
-
-    // 明暗模式：手机端跟随系统不持久化，桌面端存 localStorage
-    setEditorTheme(newTheme)
     const isMobile = typeof window !== 'undefined' && window.matchMedia(MOBILE_SINGLE_COLUMN_MEDIA_QUERY).matches
+
+    // 用户没指定时：在 light/dark 之间切换，并覆盖系统
+    const nextMode = normalizedSelection || (editorTheme === 'light' ? 'dark' : 'light')
+
+    if (nextMode === 'system') {
+      setThemeMode('system')
+
+      // 恢复随系统：清理桌面端的覆盖值
+      if (!isMobile) {
+        try {
+          localStorage.removeItem(THEME_STORAGE_KEY)
+        } catch (e) {
+          console.error('[App] 清理主题 localStorage 失败:', e)
+        }
+      }
+
+      const nextTheme = getSystemTheme()
+      setEditorTheme(nextTheme)
+
+      // Mermaid 需要重渲染以跟随主题 svg 颜色
+      if (mermaidLoaded && mermaidModule) {
+        mermaidModule.initialize({
+          startOnLoad: false,
+          theme: nextTheme === 'dark' ? 'dark' : 'default',
+          securityLevel: 'loose'
+        })
+        setTimeout(() => {
+          if (!isRenderingRef.current) {
+            isRenderingRef.current = true
+            renderMarkdown(latestContentRef.current).finally(() => {
+              isRenderingRef.current = false
+            })
+          }
+        }, 100)
+      }
+
+      return
+    }
+
+    // 覆盖系统：light/dark 固定
+    setThemeMode(nextMode)
+    setEditorTheme(nextMode)
+
+    // 明暗模式：手机端不持久化，桌面端存 localStorage
     if (!isMobile) {
       try {
-        localStorage.setItem(THEME_STORAGE_KEY, newTheme)
+        localStorage.setItem(THEME_STORAGE_KEY, nextMode)
       } catch (e) {
         console.error('[App] 保存主题到 localStorage 失败:', e)
       }
     }
-    
-    // 如果 Mermaid 已加载，根据主题设置
+
+    // Mermaid 已加载：切换时重渲染以跟随主题 svg 颜色
     if (mermaidLoaded && mermaidModule) {
-      mermaidModule.initialize({ 
+      mermaidModule.initialize({
         startOnLoad: false,
-        theme: newTheme === 'dark' ? 'dark' : 'default',
+        theme: nextMode === 'dark' ? 'dark' : 'default',
         securityLevel: 'loose'
       })
       setTimeout(() => {
         if (!isRenderingRef.current) {
           isRenderingRef.current = true
-          renderMarkdown(content).finally(() => {
+          renderMarkdown(latestContentRef.current).finally(() => {
             isRenderingRef.current = false
           })
         }
       }, 100)
     }
+  }
+
+  // 主题三态轮换：随系统 -> 浅色 -> 深色
+  const cycleThemeMode = () => {
+    if (themeMode === 'system') {
+      void toggleEditorTheme('light')
+      return
+    }
+    if (themeMode === 'light') {
+      void toggleEditorTheme('dark')
+      return
+    }
+    void toggleEditorTheme('system')
   }
 
   const saveFile = async (path = currentPath, saveContent = content, isAutoSave = false, encodingOverride = null) => {
@@ -3370,7 +3479,7 @@ function App() {
       // Ctrl+T - 切换主题
       if (e.ctrlKey && e.key === 't' && !isInputFocused) {
         e.preventDefault()
-        toggleEditorTheme()
+        cycleThemeMode()
         return
       }
       
@@ -3608,18 +3717,12 @@ function App() {
           setContent(initialMarkdown)
           lastSavedContentRef.current = initialMarkdown
           lastSavedPathRef.current = path
-          // 图片文件布局规则：单窗口模式（仅编辑/仅预览）时，切换到仅预览模式
-          if (layout === 'editor-only' || layout === 'preview-only') {
-            // 记录原布局（用于后续恢复）
-            originalLayoutRef.current = layout
-            isImageAutoSwitchRef.current = true
+
+          // 图片文件：强制仅预览
+          if (layout !== 'preview-only') {
             setLayout('preview-only')
           }
-          // 移动端：切换到预览视图
-          if (isAdaptiveSinglePaneViewport && mobileActivePane === 'editor') {
-            originalMobilePaneRef.current = mobileActivePane
-            isMobileImageAutoSwitchRef.current = true
-            isMobileImageAutoSwitchRef.current = true
+          if (isAdaptiveSinglePaneViewport && mobileActivePane !== 'preview') {
             setMobileActivePane('preview')
           }
         } else if (format === FORMAT_PDF) {
@@ -3632,15 +3735,10 @@ function App() {
           imageDataRef.current = null
           // PDF文件布局规则：打开时自动切换到仅预览模式
           if (layout !== 'preview-only') {
-            // 记录原布局（用于后续恢复）
-            originalLayoutRef.current = layout
-            isImageAutoSwitchRef.current = true
             setLayout('preview-only')
           }
           // 移动端：切换到预览视图
           if (isAdaptiveSinglePaneViewport && mobileActivePane !== 'preview') {
-            originalMobilePaneRef.current = mobileActivePane
-            isMobileImageAutoSwitchRef.current = true
             setMobileActivePane('preview')
           }
         } else {
@@ -3648,17 +3746,14 @@ function App() {
           setContent(fileContent)
           lastSavedContentRef.current = fileContent
           lastSavedPathRef.current = path
-          // 桌面端：非图片文件，如果之前是图片自动切换的，恢复原布局
-          if (isImageAutoSwitchRef.current && originalLayoutRef.current) {
-            setLayout(originalLayoutRef.current)
-            isImageAutoSwitchRef.current = false
-            originalLayoutRef.current = null
-          }
-          // 移动端：非图片文件，如果之前是图片自动切换的，恢复原视图
-          if (isMobileImageAutoSwitchRef.current && originalMobilePaneRef.current) {
-            setMobileActivePane(originalMobilePaneRef.current)
-            isMobileImageAutoSwitchRef.current = false
-            originalMobilePaneRef.current = null
+
+          // Markdown：默认左右布局；非 Markdown 文本：强制仅编辑
+          if (format === FORMAT_MD) {
+            if (layout !== 'vertical') {
+              setLayout('vertical')
+            }
+          } else if (layout !== 'editor-only') {
+            setLayout('editor-only')
           }
         }
 
@@ -7731,7 +7826,7 @@ function App() {
     onInsertTable: () => setShowTableDialog(true),
     onOpenTableInsert: () => setShowTableDialog(true),
     onToggleFileTree: handleToggleFileTree,
-    onToggleTheme: () => toggleEditorTheme(),
+    onToggleTheme: cycleThemeMode,
     onSettings: handleSettings,
     onToggleToolbar: handleToggleToolbar,
     onZoomIn: handleZoomIn,
@@ -7941,6 +8036,7 @@ function App() {
         <SettingsDialog
           onClose={() => updateShowSettingsDialog(false)}
           theme={editorTheme}
+          themeMode={themeMode}
           fontSize={editorFontSize}
           lineHeight={editorLineHeight}
           fontFamily={editorFontFamily}
@@ -8472,10 +8568,18 @@ function App() {
         <div className="statusbar-left">
           <button 
             className="statusbar-btn" 
-            onClick={() => toggleEditorTheme()}
-            title="主题 (Ctrl+T)"
+            onClick={() => cycleThemeMode()}
+            title={
+              themeMode === 'system'
+                ? '主题：随系统 (Ctrl+T)'
+                : themeMode === 'dark'
+                  ? '主题：深色 (Ctrl+T)'
+                  : '主题：浅色 (Ctrl+T)'
+            }
           >
-            {editorTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+            {themeMode === 'system'
+              ? <SystemThemeIcon size={16} />
+              : (editorTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />)}
           </button>
           <span className={`status-text status-${statusType}`}>{status}</span>
         </div>

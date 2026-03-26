@@ -1,5 +1,6 @@
 import React from 'react'
 import './RenameDialog.css'
+import { useAppUi } from '../context/AppUiContext'
 
 /**
  * 文件属性对话框组件
@@ -8,6 +9,31 @@ function FilePropertiesDialog({
   node,
   onClose
 }) {
+  const { showToast } = useAppUi()
+
+  const copyText = async (value, label) => {
+    const text = String(value ?? '')
+
+    // 1) 标准 Clipboard API
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+        showToast?.(`${label}已复制`, 'success')
+        return
+      }
+    } catch (_) {
+      // ignore and fallback
+    }
+
+    // 2) 最后兜底：弹窗给用户手动复制
+    try {
+      window.prompt(`请手动复制${label}`, text)
+    } catch (_) {
+      // ignore
+    }
+    showToast?.('当前环境限制自动复制，请手动复制', 'warning')
+  }
+
   const handleOverlayClick = () => {
     onClose()
   }
@@ -34,11 +60,39 @@ function FilePropertiesDialog({
           <div className="properties-list">
             <div className="property-item">
               <span className="property-label">名称:</span>
-              <span className="property-value">{node.name}</span>
+              <span
+                className="property-value property-value-copyable"
+                role="button"
+                tabIndex={0}
+                title="点击复制名称"
+                onClick={() => copyText(node.name, '名称')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    copyText(node.name, '名称')
+                  }
+                }}
+              >
+                {node.name}
+              </span>
             </div>
             <div className="property-item">
               <span className="property-label">路径:</span>
-              <span className="property-value">{node.path}</span>
+              <span
+                className="property-value property-value-copyable"
+                role="button"
+                tabIndex={0}
+                title="点击复制路径"
+                onClick={() => copyText(node.path, '路径')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    copyText(node.path, '路径')
+                  }
+                }}
+              >
+                {node.path}
+              </span>
             </div>
             <div className="property-item">
               <span className="property-label">类型:</span>

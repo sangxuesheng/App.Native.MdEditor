@@ -14,8 +14,10 @@ cd /vol4/1000/开发文件夹/mac
 
    fnpack build
 
+优化并打包
 
-
+cd "/vol4/1000/开发文件夹/mac"
+bash -x scripts/build-fpk-fast.sh
 
 优化说明：
 - 只打包必要文件（依赖 .fpkignore 排除备份与文档等）

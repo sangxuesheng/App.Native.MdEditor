@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, X, AlertTriangle, Info } from 'lucide-react'
 import './Toast.css'
 
@@ -41,8 +42,8 @@ function Toast({ message, type = 'info', duration = 3000, onClose }) {
  * Toast 容器组件
  */
 export function ToastContainer({ toasts, onRemove }) {
-  return (
-    <div className="toast-container">
+  return createPortal(
+    <div className="toast-container" role="status" aria-live="polite">
       {toasts.map((toast) => (
         <Toast
           key={toast.id}
@@ -52,7 +53,8 @@ export function ToastContainer({ toasts, onRemove }) {
           onClose={() => onRemove(toast.id)}
         />
       ))}
-    </div>
+    </div>,
+    document.body
   )
 }
 
