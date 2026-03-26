@@ -78,6 +78,178 @@ const SystemThemeIcon = ({ size = 16 }) => (
 
 /** 明暗模式：支持“随系统”实时跟随；手动选择 light/dark 作为覆盖 */
 const THEME_STORAGE_KEY = 'md-editor-theme'
+
+// 编辑器字体动态下载（优先加载常用代码字体，失败时回退系统等宽字体）
+const DYNAMIC_FONT_SOURCES = {
+  'JetBrains Mono': 'https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2',
+  'Fira Code': 'https://cdn.jsdelivr.net/npm/@fontsource/fira-code/files/fira-code-latin-400-normal.woff2',
+  'Source Code Pro': 'https://cdn.jsdelivr.net/npm/@fontsource/source-code-pro/files/source-code-pro-latin-400-normal.woff2',
+  'IBM Plex Mono': 'https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2',
+  'Cascadia Code': 'https://cdn.jsdelivr.net/npm/@fontsource/cascadia-code/files/cascadia-code-latin-400-normal.woff2',
+  // 中文云字体
+  楷体: {
+    type: 'css',
+    cssUrls: [
+      'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+      'https://unpkg.com/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+    ],
+    loadedFamily: 'LXGW WenKai',
+  },
+  // 兼容历史配置值
+  KaiTi: {
+    type: 'css',
+    cssUrls: [
+      'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+      'https://unpkg.com/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+    ],
+    loadedFamily: 'LXGW WenKai',
+  },
+  '霞鹜文楷': {
+    type: 'css',
+    cssUrls: [
+      'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+      'https://unpkg.com/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+    ],
+    loadedFamily: 'LXGW WenKai',
+  },
+  '思源黑体': {
+    type: 'css',
+    cssUrls: [
+      'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400&display=swap',
+      'https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400&display=swap',
+    ],
+    loadedFamily: 'Noto Sans SC',
+  },
+  '思源宋体': {
+    type: 'css',
+    cssUrls: [
+      'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400&display=swap',
+      'https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@400&display=swap',
+    ],
+    loadedFamily: 'Noto Serif SC',
+  },
+  'Noto Serif SC': {
+    type: 'css',
+    cssUrls: [
+      'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400&display=swap',
+      'https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@400&display=swap',
+    ],
+    loadedFamily: 'Noto Serif SC',
+  },
+  '阿里巴巴普惠体': {
+    type: 'css',
+    cssUrls: [
+      'https://cdn.jsdelivr.net/npm/@chinese-fonts/alibaba-puhuiti-3@1.0.0/dist/AlibabaPuHuiTi-3-45-Light/result.css',
+      'https://cdn.jsdelivr.net/npm/@chinese-fonts/alibaba-puhuiti-3@1.0.0/dist/AlibabaPuHuiTi-3-55-Regular/result.css',
+    ],
+    loadedFamily: 'Alibaba PuHuiTi 3.0 55 Regular',
+  },
+  'HarmonyOS Sans SC': {
+    type: 'css',
+    cssUrls: [
+      'https://cdn.jsdelivr.net/npm/@chinese-fonts/harmonyos-sans-sc@1.0.0/dist/HarmonyOS_Sans_SC_Regular/result.css',
+      'https://unpkg.com/@chinese-fonts/harmonyos-sans-sc@1.0.0/dist/HarmonyOS_Sans_SC_Regular/result.css',
+    ],
+    loadedFamily: 'HarmonyOS Sans SC',
+  },
+  'Ma Shan Zheng': {
+    type: 'css',
+    cssUrls: [
+      'https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap',
+      'https://fonts.loli.net/css2?family=Ma+Shan+Zheng&display=swap',
+    ],
+    loadedFamily: 'Ma Shan Zheng',
+  },
+}
+
+const getEditorFontStack = (fontFamily) => {
+  const safe = (fontFamily || '').trim()
+  if (!safe || safe === 'monospace') return 'monospace'
+  if (safe === 'sans-serif') return 'sans-serif'
+  if (safe === 'serif') return 'serif'
+  if (safe === '楷体' || safe === 'KaiTi') {
+    return `'LXGW WenKai', 'KaiTi', 'STKaiti', 'Kaiti SC', serif`
+  }
+  if (safe === '思源黑体') {
+    return `'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+  }
+  if (safe === '思源宋体' || safe === 'Noto Serif SC') {
+    return `'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif`
+  }
+  if (safe === '霞鹜文楷') {
+    return `'LXGW WenKai', 'KaiTi', 'STKaiti', 'Kaiti SC', serif`
+  }
+  if (safe === '阿里巴巴普惠体') {
+    return `'Alibaba PuHuiTi 3.0 55 Regular', 'Alibaba PuHuiTi', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+  }
+  if (safe === 'HarmonyOS Sans SC') {
+    return `'HarmonyOS Sans SC', 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+  }
+  if (safe === 'Ma Shan Zheng') {
+    return `'Ma Shan Zheng', 'KaiTi', 'STKaiti', cursive`
+  }
+  return `'${safe}', 'Fira Code', 'JetBrains Mono', 'Monaco', 'Consolas', monospace`
+}
+
+const getExportFontStack = (fontFamily) => {
+  const safe = (fontFamily || '').trim()
+  if (!safe || safe === 'sans-serif') {
+    return `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
+  }
+  if (safe === 'serif') return `Georgia, serif`
+  if (safe === 'monospace') return `Monaco, Consolas, monospace`
+  return getEditorFontStack(safe)
+}
+
+const isRemoteFontFamily = (fontFamily) => {
+  const family = (fontFamily || '').trim()
+  return Boolean(family && DYNAMIC_FONT_SOURCES[family])
+}
+
+const getRemoteFontLoadedFamily = (fontFamily) => {
+  const family = (fontFamily || '').trim()
+  const source = DYNAMIC_FONT_SOURCES[family]
+  if (!source) return family
+  if (typeof source === 'string') return family
+  return source.loadedFamily || family
+}
+
+const getRemoteFontDescriptor = (fontFamily) => {
+  const loadedFamily = getRemoteFontLoadedFamily(fontFamily)
+  return `14px "${loadedFamily}"`
+}
+
+const injectLocalFontCacheEntry = (family, entry) => {
+  if (!family || !entry) return
+  const id = `local-font-cache-${family.replace(/\s+/g, '-').toLowerCase()}`
+  if (document.getElementById(id)) return
+
+  if (entry.type === 'css' && entry.localCssUrl) {
+    const link = document.createElement('link')
+    link.id = id
+    link.rel = 'stylesheet'
+    link.href = entry.localCssUrl
+    document.head.appendChild(link)
+    return
+  }
+
+  if (entry.type === 'file' && entry.localUrl) {
+    const loadedFamily = entry.loadedFamily || family
+    const style = document.createElement('style')
+    style.id = id
+    style.textContent = `
+      @font-face {
+        font-family: '${loadedFamily}';
+        src: url('${entry.localUrl}') format('woff2');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+    `
+    document.head.appendChild(style)
+  }
+}
+
 // Breakpoints:
 // - mobile single-column: < 768px (<= 767px)
 // - compact (tablet + mobile): <= 1024px
@@ -131,6 +303,157 @@ const createMarkdownProcessor = () => {
 // Mermaid 懒加载 - 按需动态 import('mermaid')（window.mermaid 作为兼容兜底）
 let mermaidModule = null
 let mermaidLoadPromise = null
+let infographicModule = null
+let infographicLoadPromise = null
+let infographicResourceLoaderRegistered = false
+
+const loadInfographic = async () => {
+  if (infographicModule) return infographicModule
+  if (typeof window === 'undefined') throw new Error('Infographic not available')
+  if (infographicLoadPromise) return infographicLoadPromise
+
+  infographicLoadPromise = (async () => {
+    try {
+      const mod = await import('@antv/infographic')
+      const api = mod?.Infographic ? mod : (mod?.default || mod)
+      if (!api?.Infographic) throw new Error('Infographic module invalid')
+
+      if (!infographicResourceLoaderRegistered && typeof api.registerResourceLoader === 'function' && typeof api.loadSVGResource === 'function') {
+        api.registerResourceLoader(async (config) => {
+          const iconId = config?.data
+          if (!iconId || typeof iconId !== 'string') return null
+
+          try {
+            const res = await fetch(`https://api.iconify.design/${encodeURIComponent(iconId)}.svg`)
+            if (!res.ok) return null
+            const text = await res.text()
+            return api.loadSVGResource(text)
+          } catch {
+            return null
+          }
+        })
+        infographicResourceLoaderRegistered = true
+      }
+
+      infographicModule = api
+      return infographicModule
+    } finally {
+      infographicLoadPromise = null
+    }
+  })()
+
+  return infographicLoadPromise
+}
+
+const renderInfographicSvg = async (code) => {
+  const api = await loadInfographic()
+
+  // 预检查模板是否存在：当前依赖版本与官网 gallery 可能不完全一致。
+  try {
+    const firstLine = String(code || '').split(/\r?\n/).find((line) => line.trim()) || ''
+    const m = firstLine.trim().match(/^infographic\s+([^\s#]+)/i)
+    const templateId = m?.[1]
+    if (templateId && typeof api.getTemplates === 'function') {
+      const supported = api.getTemplates()
+      if (Array.isArray(supported) && !supported.includes(templateId)) {
+        const hint = supported.find((id) => String(id).startsWith('chart-column')) || supported.find((id) => String(id).startsWith('chart-')) || supported[0]
+        throw new Error(`当前版本不支持模板: ${templateId}。可尝试: ${hint}`)
+      }
+    }
+  } catch (e) {
+    if (e instanceof Error) throw e
+  }
+
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.left = '-99999px'
+  container.style.top = '-99999px'
+  container.style.width = '1200px'
+  container.style.height = '800px'
+  container.style.overflow = 'hidden'
+  document.body.appendChild(container)
+
+  let infographic = null
+  try {
+    infographic = new api.Infographic({
+      container,
+      width: 1200,
+      height: 800,
+    })
+
+    // render 在某些版本中不是 Promise，需要监听 rendered 事件确保完成。
+    await new Promise((resolve, reject) => {
+      let settled = false
+      const onRendered = () => {
+        if (settled) return
+        settled = true
+        try { infographic.off?.('rendered', onRendered) } catch (_) {}
+        try { infographic.off?.('error', onError) } catch (_) {}
+        resolve()
+      }
+      const normalizeInfographicError = (err) => {
+        if (err instanceof Error) return err
+        if (Array.isArray(err)) {
+          const msg = err.map((item) => {
+            if (!item) return ''
+            if (typeof item === 'string') return item
+            if (typeof item.message === 'string') return item.message
+            if (typeof item.reason === 'string') return item.reason
+            return JSON.stringify(item)
+          }).filter(Boolean).join(' | ')
+          return new Error(msg || 'Infographic render error')
+        }
+        if (err && typeof err === 'object') {
+          const msg = err.message || err.reason || JSON.stringify(err)
+          return new Error(String(msg || 'Infographic render error'))
+        }
+        return new Error(String(err || 'Infographic render error'))
+      }
+
+      const onError = (err) => {
+        if (settled) return
+        settled = true
+        try { infographic.off?.('rendered', onRendered) } catch (_) {}
+        try { infographic.off?.('error', onError) } catch (_) {}
+        reject(normalizeInfographicError(err))
+      }
+
+      try {
+        infographic.on?.('rendered', onRendered)
+        infographic.on?.('error', onError)
+        infographic.render(code)
+        setTimeout(() => {
+          if (settled) return
+          settled = true
+          try { infographic.off?.('rendered', onRendered) } catch (_) {}
+          try { infographic.off?.('error', onError) } catch (_) {}
+          reject(new Error('Infographic 渲染超时'))
+        }, 5000)
+      } catch (err) {
+        onError(err)
+      }
+    })
+
+    // 官方 API：浏览器端使用 toDataURL({ type: 'svg' }) 导出 SVG
+    const dataUrl = await infographic.toDataURL({ type: 'svg', embedResources: true })
+    if (!dataUrl || !dataUrl.startsWith('data:image/svg+xml')) {
+      throw new Error('Infographic 未生成 SVG')
+    }
+
+    const commaIdx = dataUrl.indexOf(',')
+    if (commaIdx < 0) throw new Error('Infographic SVG 数据无效')
+
+    const encoded = dataUrl.slice(commaIdx + 1)
+    const svg = decodeURIComponent(encoded)
+    if (!/<svg[\s>]/i.test(svg)) throw new Error('Infographic SVG 内容无效')
+
+    return svg
+  } finally {
+    try { infographic?.destroy?.() } catch (_) {}
+    container.remove()
+  }
+}
+
 const loadMermaid = async () => {
   if (mermaidModule) return mermaidModule
   if (typeof window === 'undefined') throw new Error('Mermaid not available')
@@ -247,6 +570,56 @@ const hasMermaid = (content) => {
   return false
 }
 
+const hasPlantUML = (content) => {
+  if (!content || typeof content !== 'string') return false
+  if (content.includes('language-plantuml') || content.includes('language-puml')) return true
+  if (content.includes('```')) {
+    return /(^|\n)\s*```+\s*(plantuml|puml)\b/i.test(content)
+  }
+  return false
+}
+
+const hasInfographic = (content) => {
+  if (!content || typeof content !== 'string') return false
+  if (content.includes('language-infographic')) return true
+  if (content.includes('```')) {
+    return /(^|\n)\s*```+\s*infographic\b/i.test(content)
+  }
+  return false
+}
+
+const renderPlantUMLSvg = async (code) => {
+  const response = await fetch('/api/plantuml/svg', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8'
+    },
+    body: JSON.stringify({ code })
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const detail = data?.message || data?.code || `HTTP ${response.status}`
+    const extra = [
+      data?.upstreamStatus ? `upstreamStatus=${data.upstreamStatus}` : '',
+      data?.upstreamType ? `upstreamType=${data.upstreamType}` : '',
+      data?.upstreamUrl ? `upstreamUrl=${data.upstreamUrl}` : '',
+      data?.fallbackStatus ? `fallbackStatus=${data.fallbackStatus}` : '',
+      data?.fallbackType ? `fallbackType=${data.fallbackType}` : '',
+      data?.details ? `details=${String(data.details).slice(0, 120)}` : '',
+      data?.fallbackDetails ? `fallbackDetails=${String(data.fallbackDetails).slice(0, 120)}` : '',
+    ].filter(Boolean).join(', ')
+    throw new Error(`PlantUML 渲染请求失败: ${response.status} - ${detail}${extra ? ` (${extra})` : ''}`)
+  }
+
+  if (!data?.ok || !data?.svg) {
+    throw new Error(data?.message || 'PlantUML 渲染失败')
+  }
+
+  return data.svg
+}
+
 function App() {
   // 首屏加载动画 - 立即显示，避免白屏
   const { isLoading, loadingMessage } = useMobileFirstScreenLoader()
@@ -289,6 +662,9 @@ function App() {
   const [editorFontSize, setEditorFontSize] = useState(14)
   const [editorLineHeight, setEditorLineHeight] = useState(24)
   const [editorFontFamily, setEditorFontFamily] = useState('JetBrains Mono')
+  const [fontDownloadState, setFontDownloadState] = useState({})
+  const [localFontCacheMap, setLocalFontCacheMap] = useState({})
+  const [fontDownloadRequests, setFontDownloadRequests] = useState({})
   const [editorLineNumbers, setEditorLineNumbers] = useState(true)
   const [editorWordWrap, setEditorWordWrap] = useState(true)
   const [syncPreviewWithEditor, setSyncPreviewWithEditor] = useState(true)
@@ -1655,6 +2031,19 @@ function App() {
       cancelled = true
     }
   }, [content])
+
+  useEffect(() => {
+    if (!hasInfographic(content)) return
+    let cancelled = false
+    loadInfographic()
+      .then(() => {
+        if (!cancelled) setInfographicLoaded(true)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [content])
   
   // 防止编辑区和预览区滚动穿透
   usePreventScrollThrough(previewRef)
@@ -1872,7 +2261,316 @@ function App() {
     return currentPath || '未保存'
   }, [currentPath])
 
+  const currentFontDownloadInfo = useMemo(() => {
+    const family = (editorFontFamily || '').trim()
+    if (!family) return null
+    const state = fontDownloadState[family]
+    return {
+      family,
+      needsDownload: isRemoteFontFamily(family),
+      status: state?.status || null,
+      message: state?.message || null,
+      progress: typeof state?.progress === 'number' ? state.progress : 0,
+      canManualDownload: isRemoteFontFamily(family) && state?.status !== 'loaded',
+    }
+  }, [editorFontFamily, fontDownloadState])
+
   editorThemeRef.current = editorTheme
+
+  // 读取本地字体缓存状态（后端持久化）
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      try {
+        const res = await fetch('/api/font-cache/status')
+        const data = await safeParseJsonResponse(res, { ok: false })
+        if (!res.ok || !data?.ok || cancelled) return
+
+        const cache = data.cache || {}
+        setLocalFontCacheMap(cache)
+        Object.entries(cache).forEach(([family, entry]) => {
+          if (!entry || entry.status !== 'cached') return
+          injectLocalFontCacheEntry(family, entry)
+          setFontDownloadState((prev) => ({
+            ...prev,
+            [family]: {
+              ...(prev[family] || {}),
+              status: 'loaded',
+              message: '字体已从本地缓存加载',
+              progress: 100,
+              updatedAt: Date.now(),
+            },
+          }))
+        })
+      } catch (error) {
+        console.error('[App] 读取本地字体缓存状态失败:', error)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // 动态下载编辑器字体，并向用户显示下载状态（支持手动触发）
+  useEffect(() => {
+    const family = (editorFontFamily || '').trim()
+    if (!family || !isRemoteFontFamily(family)) return
+
+    const cachedEntry = localFontCacheMap[family]
+    if (cachedEntry?.status === 'cached') {
+      injectLocalFontCacheEntry(family, cachedEntry)
+      setFontDownloadState((prev) => ({
+        ...prev,
+        [family]: {
+          ...(prev[family] || {}),
+          status: 'loaded',
+          message: '字体已从本地缓存加载',
+          progress: 100,
+          updatedAt: Date.now(),
+        },
+      }))
+      return
+    }
+
+    let cancelled = false
+    const src = DYNAMIC_FONT_SOURCES[family]
+    const loadedFamily = getRemoteFontLoadedFamily(family)
+
+    const mark = (status, message, progress = null) => {
+      setFontDownloadState((prev) => ({
+        ...prev,
+        [family]: {
+          ...(prev[family] || {}),
+          status,
+          message,
+          progress: typeof progress === 'number' ? progress : (prev[family]?.progress || 0),
+          updatedAt: Date.now(),
+        },
+      }))
+    }
+
+    const run = async () => {
+      try {
+        const alreadyLoaded = document.fonts?.check?.(getRemoteFontDescriptor(family))
+        if (alreadyLoaded) {
+          mark('loaded', '字体已就绪', 100)
+          return
+        }
+
+        mark('loading', '正在下载字体…', 8)
+
+        // CSS 源（如 LXGW WenKai / Noto CJK 等），支持多源回退
+        if (src && typeof src === 'object' && src.type === 'css') {
+          const cssCandidates = Array.isArray(src.cssUrls)
+            ? src.cssUrls.filter(Boolean)
+            : (src.cssUrl ? [src.cssUrl] : [])
+
+          if (cssCandidates.length === 0) {
+            mark('error', '字体源配置无效，已回退系统字体', 0)
+            return
+          }
+
+          let loaded = false
+          for (let i = 0; i < cssCandidates.length; i++) {
+            if (cancelled) return
+            const cssUrl = cssCandidates[i]
+            const styleId = `dynamic-font-css-${family.replace(/\s+/g, '-').toLowerCase()}-${i}`
+
+            let linkEl = document.getElementById(styleId)
+            if (!linkEl) {
+              const link = document.createElement('link')
+              link.id = styleId
+              link.rel = 'stylesheet'
+              link.href = cssUrl
+              document.head.appendChild(link)
+              linkEl = link
+            }
+
+            const progressBase = Math.round((i / cssCandidates.length) * 70)
+            mark('loading', `正在下载 ${family}...（源 ${i + 1}/${cssCandidates.length}）`, Math.min(96, progressBase + 6))
+
+            // 使用 link load/error + timeout 进行快速失败判定
+            // eslint-disable-next-line no-await-in-loop
+            const cssLoadResult = await new Promise((resolve) => {
+              let settled = false
+              const onLoad = () => done(true)
+              const onError = () => done(false)
+              const timer = setTimeout(() => done(false), 3000)
+
+              const cleanup = () => {
+                clearTimeout(timer)
+                if (linkEl) {
+                  linkEl.removeEventListener('load', onLoad)
+                  linkEl.removeEventListener('error', onError)
+                }
+              }
+
+              const done = (ok) => {
+                if (settled) return
+                settled = true
+                cleanup()
+                resolve(ok)
+              }
+
+              if (linkEl) {
+                linkEl.addEventListener('load', onLoad)
+                linkEl.addEventListener('error', onError)
+              } else {
+                done(false)
+                return
+              }
+
+              Promise.resolve().then(() => {
+                if (document.fonts?.check?.(`14px "${loadedFamily}"`)) done(true)
+              })
+            })
+
+            if (cancelled) return
+            if (!cssLoadResult) {
+              mark('loading', `字体源 ${i + 1} 加载失败，正在尝试下一个源...`, Math.min(96, progressBase + 10))
+              continue
+            }
+
+            const started = Date.now()
+            while (!document.fonts?.check?.(`14px "${loadedFamily}"`) && Date.now() - started < 2200) {
+              // eslint-disable-next-line no-await-in-loop
+              await new Promise((resolve) => setTimeout(resolve, 120))
+              if (cancelled) return
+              const elapsed = Date.now() - started
+              const progressStep = Math.max(10, Math.min(26, Math.round((elapsed / 2200) * 26)))
+              mark('loading', `正在下载 ${family}...（源 ${i + 1}/${cssCandidates.length}）`, Math.min(96, progressBase + progressStep))
+            }
+
+            if (document.fonts?.check?.(`14px "${loadedFamily}"`)) {
+              loaded = true
+              break
+            }
+          }
+
+          if (loaded) {
+            mark('loaded', '字体下载完成', 100)
+          } else {
+            mark('error', '字体下载超时，已回退系统字体', 0)
+          }
+          return
+        }
+
+        // 优先：fetch + FontFace，实现可感知进度
+        if (typeof src === 'string' && typeof fetch !== 'undefined' && typeof FontFace !== 'undefined' && document.fonts) {
+          const response = await fetch(src)
+          if (!response.ok) {
+            throw new Error(`字体请求失败: ${response.status}`)
+          }
+
+          const total = Number(response.headers.get('content-length') || 0)
+          if (response.body && response.body.getReader) {
+            const reader = response.body.getReader()
+            const chunks = []
+            let loadedBytes = 0
+
+            while (true) {
+              // eslint-disable-next-line no-await-in-loop
+              const { done, value } = await reader.read()
+              if (done) break
+              if (cancelled) return
+              if (value) {
+                chunks.push(value)
+                loadedBytes += value.byteLength
+                if (total > 0) {
+                  const progress = Math.max(8, Math.min(92, Math.round((loadedBytes / total) * 100)))
+                  mark('loading', `正在下载 ${family}...`, progress)
+                }
+              }
+            }
+
+            const blob = new Blob(chunks, { type: 'font/woff2' })
+            const objectUrl = URL.createObjectURL(blob)
+            try {
+              const font = new FontFace(family, `url(${objectUrl}) format("woff2")`, {
+                style: 'normal',
+                weight: '400',
+                display: 'swap',
+              })
+              const loaded = await font.load()
+              if (cancelled) return
+              document.fonts.add(loaded)
+              mark('loaded', '字体下载完成', 100)
+              return
+            } finally {
+              URL.revokeObjectURL(objectUrl)
+            }
+          }
+        }
+
+        // 回退：直接 FontFace 加载（无准确进度，使用阶段性进度）
+        mark('loading', `正在下载 ${family}...`, 35)
+        if (typeof src === 'string' && typeof FontFace !== 'undefined' && document.fonts) {
+          const font = new FontFace(family, `url(${src}) format("woff2")`, {
+            style: 'normal',
+            weight: '400',
+            display: 'swap',
+          })
+          mark('loading', `正在下载 ${family}...`, 75)
+          const loaded = await font.load()
+          if (cancelled) return
+          document.fonts.add(loaded)
+          mark('loaded', '字体下载完成', 100)
+          return
+        }
+
+        // 最后回退：注入 @font-face 后等待可用
+        const styleId = `dynamic-font-${family.replace(/\s+/g, '-').toLowerCase()}`
+        if (typeof src === 'string' && !document.getElementById(styleId)) {
+          const styleEl = document.createElement('style')
+          styleEl.id = styleId
+          styleEl.textContent = `
+            @font-face {
+              font-family: '${family}';
+              src: url('${src}') format('woff2');
+              font-weight: 400;
+              font-style: normal;
+              font-display: swap;
+            }
+          `
+          document.head.appendChild(styleEl)
+        }
+
+        const started = Date.now()
+        while (!document.fonts?.check?.(getRemoteFontDescriptor(family)) && Date.now() - started < 8000) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((resolve) => setTimeout(resolve, 120))
+          if (cancelled) return
+          const elapsed = Date.now() - started
+          const progress = Math.max(15, Math.min(92, Math.round((elapsed / 8000) * 100)))
+          mark('loading', `正在下载 ${family}...`, progress)
+        }
+
+        if (document.fonts?.check?.(getRemoteFontDescriptor(family))) {
+          mark('loaded', '字体下载完成', 100)
+        } else {
+          mark('error', '字体下载超时，已回退系统字体', 0)
+        }
+      } catch (error) {
+        if (cancelled) return
+        mark('error', '字体下载失败，已回退系统字体', 0)
+      }
+    }
+
+    const requestKey = fontDownloadRequests[family] || 0
+    const previousState = fontDownloadState[family]
+    const needDownloadByState = !previousState || previousState.status !== 'loaded'
+
+    if (needDownloadByState || requestKey > 0) {
+      run()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [editorFontFamily, fontDownloadRequests])
 
   // 从后端加载共享设置与编辑状态（含导出配置主题持久化）
   useEffect(() => {
@@ -5422,9 +6120,7 @@ function App() {
       max-width: 980px;
       margin: 0 auto;
       padding: 45px;
-      font-family: ${exportConfig.fontFamily === 'serif' ? 'Georgia, serif' :
-                     exportConfig.fontFamily === 'monospace' ? 'Monaco, Consolas, monospace' :
-                     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'};
+      font-family: ${getExportFontStack(exportConfig.fontFamily)};
       font-size: ${exportConfig.fontSize || '16px'};
       line-height: ${exportConfig.lineHeight || 1.8};
       text-align: ${exportConfig.textAlign || 'left'};
@@ -5726,7 +6422,72 @@ function App() {
     return container.innerHTML
   }, [])
 
+  const renderPlantUMLInHtmlForExport = useCallback(async (html) => {
+    const container = document.createElement('div')
+    container.innerHTML = html
+
+    const plantumlNodes = Array.from(container.querySelectorAll('.plantuml[data-code]'))
+
+    await Promise.all(plantumlNodes.map(async (node) => {
+      const encodedCode = node.getAttribute('data-code')
+      const code = encodedCode ? decodeURIComponent(encodedCode) : (node.textContent || '')
+      if (!code) return
+
+      const cachedSvg = renderedPlantUMLCacheRef.current.get(code)
+      if (cachedSvg) {
+        node.innerHTML = cachedSvg
+        node.classList.add('is-rendered')
+        node.setAttribute('data-rendered-code', code)
+        return
+      }
+
+      try {
+        const svg = await renderPlantUMLSvg(code)
+        node.innerHTML = svg
+        node.classList.add('is-rendered')
+        node.setAttribute('data-rendered-code', code)
+        renderedPlantUMLCacheRef.current.set(code, svg)
+      } catch (err) {
+        console.warn('[导出] PlantUML 渲染失败，保留原节点:', err)
+      }
+    }))
+
+    return container.innerHTML
+  }, [])
+
+  const ensurePlantUMLRenderedInPreview = useCallback(async () => {
+    if (!previewRef.current) return
+    const nodes = Array.from(previewRef.current.querySelectorAll('.plantuml'))
+    if (!nodes.length) return
+
+    await Promise.all(nodes.map(async (node) => {
+      if (node.classList.contains('is-rendered')) return
+      const encodedCode = node.getAttribute('data-code')
+      const code = encodedCode ? decodeURIComponent(encodedCode) : (node.textContent || '')
+      if (!code) return
+
+      const cachedSvg = renderedPlantUMLCacheRef.current.get(code)
+      if (cachedSvg) {
+        node.innerHTML = cachedSvg
+        node.classList.add('is-rendered')
+        node.setAttribute('data-rendered-code', code)
+        return
+      }
+
+      try {
+        const svg = await renderPlantUMLSvg(code)
+        node.innerHTML = svg
+        node.classList.add('is-rendered')
+        node.setAttribute('data-rendered-code', code)
+        renderedPlantUMLCacheRef.current.set(code, svg)
+      } catch (err) {
+        console.warn('[预览/导出] PlantUML 渲染失败，保留原节点:', err)
+      }
+    }))
+  }, [])
+
   const handleExport = useCallback(async (format) => {
+    await ensurePlantUMLRenderedInPreview()
     if (isOfficeReadOnly) {
       showToast('Office 只读预览：导出已禁用', 'warning', 3000)
       return
@@ -5773,7 +6534,8 @@ function App() {
             break
           }
 
-          const inlinedHtml = await inlineImagesInHtml(rawHtml)
+          const htmlWithPlantUML = await renderPlantUMLInHtmlForExport(rawHtml)
+          const inlinedHtml = await inlineImagesInHtml(htmlWithPlantUML)
 
           const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -5869,8 +6631,11 @@ function App() {
             })
           }
           
+          // 导出前确保 PlantUML 在预览与导出 HTML 中一致渲染
+          const previewWithPlantUML = await renderPlantUMLInHtmlForExport(previewHtml)
+
           // 转换为微信公众号专属格式
-          const wechatHtml = await convertToWechatFormat(previewHtml)
+          const wechatHtml = await convertToWechatFormat(previewWithPlantUML)
           
           // 优先使用 Clipboard API（支持富文本）
           if (navigator.clipboard && navigator.clipboard.write) {
@@ -5956,11 +6721,105 @@ function App() {
       setStatusType('error')
       console.error('Export error:', error)
     }
-  }, [content, currentPath, generateExportStyles, exportConfig, editorTheme, previewRef, openExportConfigPanel])
+  }, [content, currentPath, generateExportStyles, exportConfig, editorTheme, previewRef, openExportConfigPanel, ensurePlantUMLRenderedInPreview, renderPlantUMLInHtmlForExport, inlineImagesInHtml])
 
   const handleSettings = useCallback(() => {
     updateShowSettingsDialog(true)
   }, [updateShowSettingsDialog])
+
+  const handleRequestFontDownload = useCallback((family) => {
+    const normalized = (family || '').trim()
+    if (!normalized || !isRemoteFontFamily(normalized)) return
+
+    const mark = (status, message, progress = null) => {
+      setFontDownloadState((prev) => ({
+        ...prev,
+        [normalized]: {
+          ...(prev[normalized] || {}),
+          status,
+          message,
+          progress: typeof progress === 'number' ? progress : (prev[normalized]?.progress || 0),
+          updatedAt: Date.now(),
+        },
+      }))
+    }
+
+    ;(async () => {
+      try {
+        mark('loading', `正在下载 ${normalized}...`, 10)
+
+        const res = await fetch('/api/font-cache/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ family: normalized }),
+        })
+        const data = await safeParseJsonResponse(res, { ok: false })
+
+        if (!res.ok || !data?.ok || !data?.entry) {
+          mark('error', '字体下载失败，已回退系统字体', 0)
+          return
+        }
+
+        const entry = data.entry
+        injectLocalFontCacheEntry(normalized, entry)
+        setLocalFontCacheMap((prev) => ({ ...prev, [normalized]: entry }))
+
+        // 兼容旧逻辑：当前选中字体仍可通过请求计数触发 effect
+        setFontDownloadRequests((prev) => ({
+          ...prev,
+          [normalized]: (prev[normalized] || 0) + 1,
+        }))
+
+        mark('loaded', '字体下载完成（本地缓存）', 100)
+      } catch (error) {
+        mark('error', '字体下载失败，已回退系统字体', 0)
+      }
+    })()
+  }, [])
+
+  const handleRequestFontClearAndRetry = useCallback((family) => {
+    const normalized = (family || '').trim()
+    if (!normalized || !isRemoteFontFamily(normalized)) return
+
+    const mark = (status, message, progress = null) => {
+      setFontDownloadState((prev) => ({
+        ...prev,
+        [normalized]: {
+          ...(prev[normalized] || {}),
+          status,
+          message,
+          progress: typeof progress === 'number' ? progress : (prev[normalized]?.progress || 0),
+          updatedAt: Date.now(),
+        },
+      }))
+    }
+
+    ;(async () => {
+      try {
+        mark('loading', `正在清理 ${normalized} 缓存...`, 5)
+        const res = await fetch('/api/font-cache/clear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ family: normalized }),
+        })
+        const data = await safeParseJsonResponse(res, { ok: false })
+        if (!res.ok || !data?.ok) {
+          mark('error', '清理缓存失败，请稍后重试', 0)
+          return
+        }
+
+        setLocalFontCacheMap((prev) => {
+          const next = { ...prev }
+          delete next[normalized]
+          return next
+        })
+        mark('idle', '缓存已清理，准备重新下载', 0)
+        handleRequestFontDownload(normalized)
+      } catch (_) {
+        mark('error', '清理缓存失败，请稍后重试', 0)
+      }
+    })()
+  }, [handleRequestFontDownload])
 
   // 应用图注格式到 HTML（新版本：生成固定结构，通过 CSS 控制显示）
   const applyImageCaptionFormat = (html) => {
@@ -6148,43 +7007,76 @@ function App() {
       const file = await markdownProcessor.process(processedContent)
       let html = String(file)
 
-      // 提取 Mermaid 代码块及其内容
+      // 提取 Mermaid / PlantUML / Infographic 代码块统计信息
       const mermaidRegex = /(^|\n)\s*```+\s*mermaid\s*\r?\n([\s\S]*?)\r?\n\s*```+/g
+      const plantumlRegex = /(^|\n)\s*```+\s*(plantuml|puml)\s*\r?\n([\s\S]*?)\r?\n\s*```+/gi
+      const infographicRegex = /(^|\n)\s*```+\s*infographic\s*\r?\n([\s\S]*?)\r?\n\s*```+/gi
       let match
       let mermaidIndex = 0
+      let plantumlIndex = 0
+      let infographicIndex = 0
       const mermaidBlocks = []
-      
+      const plantumlBlocks = []
+      const infographicBlocks = []
+
       while ((match = mermaidRegex.exec(contentToRender)) !== null) {
         const code = match[2]
         const id = `mermaid-${mermaidIndex++}`
         mermaidBlocks.push({ id, code })
       }
 
-      console.log('Mermaid blocks found in content:', mermaidBlocks.length)
-      
-      // 一次性替换所有 Mermaid 代码块
-      console.log('查找 language-mermaid 代码块...')
-      const mermaidMatches = html.match(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g)
-      console.log('找到的 language-mermaid 块:', mermaidMatches ? mermaidMatches.length : 0)
-      
-      // 查找所有 pre code 块
-      const allCodeBlocks = html.match(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/g)
-      console.log('所有代码块数量:', allCodeBlocks ? allCodeBlocks.length : 0)
-      if (allCodeBlocks && allCodeBlocks.length > 0) {
-        console.log('前3个代码块:', allCodeBlocks.slice(0, 3).map(b => b.substring(0, 100)))
+      while ((match = plantumlRegex.exec(contentToRender)) !== null) {
+        const code = match[3]
+        const id = `plantuml-${plantumlIndex++}`
+        plantumlBlocks.push({ id, code })
       }
-      
-      let blockIndex = 0
+
+      while ((match = infographicRegex.exec(contentToRender)) !== null) {
+        const code = match[2]
+        const id = `infographic-${infographicIndex++}`
+        infographicBlocks.push({ id, code })
+      }
+
+      // 一次性替换 Mermaid 代码块
+      let mermaidBlockIndex = 0
       html = html.replace(
         /<pre><code class="hljs language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
-        (match, htmlCode) => {
-          const id = `mermaid-${blockIndex}`
-          blockIndex++
-          // 解码 HTML 实体
+        (fullMatch, htmlCode) => {
+          const id = `mermaid-${mermaidBlockIndex}`
+          mermaidBlockIndex++
           const textarea = document.createElement('textarea')
           textarea.innerHTML = htmlCode
           const decodedCode = textarea.value
           return `<div class="mermaid" id="${id}" data-code="${encodeURIComponent(decodedCode)}">${decodedCode}</div>`
+        }
+      )
+
+      // 一次性替换 PlantUML 代码块（支持 plantuml / puml）
+      // 兼容 class 不在首属性、存在其他属性、属性换行等情况
+      let plantumlBlockIndex = 0
+      html = html.replace(
+        /<pre>\s*<code[^>]*class="([^"]*\blanguage-(?:plantuml|puml)\b[^"]*)"[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi,
+        (fullMatch, className, htmlCode) => {
+          const id = `plantuml-${plantumlBlockIndex}`
+          plantumlBlockIndex++
+          const textarea = document.createElement('textarea')
+          textarea.innerHTML = htmlCode
+          const decodedCode = textarea.value
+          return `<div class="plantuml" id="${id}" data-code="${encodeURIComponent(decodedCode)}">${decodedCode}</div>`
+        }
+      )
+
+      // 一次性替换 Infographic 代码块
+      let infographicBlockIndex = 0
+      html = html.replace(
+        /<pre>\s*<code[^>]*class="([^"]*\blanguage-infographic\b[^"]*)"[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi,
+        (fullMatch, className, htmlCode) => {
+          const id = `infographic-${infographicBlockIndex}`
+          infographicBlockIndex++
+          const textarea = document.createElement('textarea')
+          textarea.innerHTML = htmlCode
+          const decodedCode = textarea.value
+          return `<div class="infographic" id="${id}" data-code="${encodeURIComponent(decodedCode)}">${decodedCode}</div>`
         }
       )
 
@@ -6258,7 +7150,6 @@ function App() {
           await new Promise(resolve => setTimeout(resolve, 100))
           
           const mermaidNodes = previewRef.current.querySelectorAll('.mermaid')
-          console.log('Mermaid nodes found:', mermaidNodes.length)
           
           // 逐个检查并渲染 Mermaid 图表（只渲染变化的）
           for (let i = 0; i < mermaidNodes.length; i++) {
@@ -6316,6 +7207,129 @@ function App() {
           setTimeout(() => setStatus('就绪'), 2000)
         }
       }
+
+      if (plantumlBlocks.length > 0) {
+        try {
+          // 等待 DOM diff 落地，避免首次 query 为空
+          await new Promise(resolve => setTimeout(resolve, 100))
+
+          let plantumlNodes = previewRef.current.querySelectorAll('.plantuml')
+
+          // 兜底：如果替换阶段未命中，则在 DOM 层再把 pre>code.language-plantuml/puml 转成 .plantuml
+          if (!plantumlNodes || plantumlNodes.length === 0) {
+            const codeNodes = previewRef.current.querySelectorAll('pre > code.language-plantuml, pre > code.language-puml')
+            codeNodes.forEach((codeEl, idx) => {
+              const pre = codeEl.parentElement
+              if (!pre || !pre.parentElement) return
+              const code = codeEl.textContent || ''
+              const div = document.createElement('div')
+              div.className = 'plantuml'
+              div.id = `plantuml-dom-${idx}`
+              div.setAttribute('data-code', encodeURIComponent(code))
+              div.textContent = code
+              pre.parentElement.replaceChild(div, pre)
+            })
+            plantumlNodes = previewRef.current.querySelectorAll('.plantuml')
+          }
+
+          for (let i = 0; i < plantumlNodes.length; i++) {
+            const node = plantumlNodes[i]
+            const encodedCode = node.getAttribute('data-code')
+            const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
+
+            try {
+              const cachedSvg = renderedPlantUMLCacheRef.current.get(code)
+              if (cachedSvg) {
+                node.innerHTML = cachedSvg
+                node.classList.add('is-rendered')
+                node.setAttribute('data-rendered-code', code)
+                continue
+              }
+
+              const svg = await renderPlantUMLSvg(code)
+              node.innerHTML = svg
+              node.classList.add('is-rendered')
+              node.setAttribute('data-rendered-code', code)
+              renderedPlantUMLCacheRef.current.set(code, svg)
+
+              if (renderedPlantUMLCacheRef.current.size > 200) {
+                const firstKey = renderedPlantUMLCacheRef.current.keys().next().value
+                if (firstKey) renderedPlantUMLCacheRef.current.delete(firstKey)
+              }
+            } catch (err) {
+              console.error(`Failed to render PlantUML ${i}:`, err)
+              node.innerHTML = `<pre style="color: #f85149; background: #161b22; padding: 16px; border-radius: 6px; border: 1px solid #30363d; white-space: pre-wrap;">PlantUML 渲染失败: ${err.message}\n\n原始代码：\n${code}</pre>`
+            }
+          }
+        } catch (err) {
+          logError(err, {
+            operation: 'PlantUML 渲染',
+            plantumlBlocksCount: plantumlBlocks.length
+          })
+          setStatus('PlantUML 渲染失败')
+          setTimeout(() => setStatus('就绪'), 2000)
+        }
+      }
+
+      if (infographicBlocks.length > 0) {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 100))
+
+          let infographicNodes = previewRef.current.querySelectorAll('.infographic')
+          if (!infographicNodes || infographicNodes.length === 0) {
+            const codeNodes = previewRef.current.querySelectorAll('pre > code.language-infographic')
+            codeNodes.forEach((codeEl, idx) => {
+              const pre = codeEl.parentElement
+              if (!pre || !pre.parentElement) return
+              const code = codeEl.textContent || ''
+              const div = document.createElement('div')
+              div.className = 'infographic'
+              div.id = `infographic-dom-${idx}`
+              div.setAttribute('data-code', encodeURIComponent(code))
+              div.textContent = code
+              pre.parentElement.replaceChild(div, pre)
+            })
+            infographicNodes = previewRef.current.querySelectorAll('.infographic')
+          }
+
+          for (let i = 0; i < infographicNodes.length; i++) {
+            const node = infographicNodes[i]
+            const encodedCode = node.getAttribute('data-code')
+            const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
+
+            try {
+              const cachedSvg = renderedInfographicCacheRef.current.get(code)
+              if (cachedSvg) {
+                node.innerHTML = cachedSvg
+                node.classList.add('is-rendered')
+                node.setAttribute('data-rendered-code', code)
+                continue
+              }
+
+              const svg = await renderInfographicSvg(code)
+              node.innerHTML = svg
+              node.classList.add('is-rendered')
+              node.setAttribute('data-rendered-code', code)
+              renderedInfographicCacheRef.current.set(code, svg)
+
+              if (renderedInfographicCacheRef.current.size > 200) {
+                const firstKey = renderedInfographicCacheRef.current.keys().next().value
+                if (firstKey) renderedInfographicCacheRef.current.delete(firstKey)
+              }
+            } catch (err) {
+              console.error(`Failed to render Infographic ${i}:`, err)
+              node.innerHTML = `<pre style="color: #f85149; background: #161b22; padding: 16px; border-radius: 6px; border: 1px solid #30363d; white-space: pre-wrap;">Infographic 渲染失败: ${err.message}\n\n原始代码：\n${code}</pre>`
+            }
+          }
+        } catch (err) {
+          logError(err, {
+            operation: 'Infographic 渲染',
+            infographicBlocksCount: infographicBlocks.length
+          })
+          setStatus('Infographic 渲染失败')
+          setTimeout(() => setStatus('就绪'), 2000)
+        }
+      }
     } catch (err) {
       const formattedError = handleError(err, {
         operation: 'Markdown 渲染',
@@ -6343,6 +7357,8 @@ function App() {
   // 记录上次渲染的内容，避免重复渲染
   const lastRenderedContentRef = useRef('')
   const lastRenderedHtmlRef = useRef('') // 缓存原始 HTML（未经后处理）
+  const renderedPlantUMLCacheRef = useRef(new Map())
+  const renderedInfographicCacheRef = useRef(new Map())
   
   // 记录是否正在渲染中
   const isRenderingRef = useRef(false)
@@ -7227,15 +8243,31 @@ function App() {
   }
 
   const handleZoomIn = () => {
-    setEditorFontSize(prev => Math.min(prev + 2, 32))
+    setEditorFontSize((prev) => {
+      const next = Math.min(prev + 2, 32)
+      persistSetting('editorFontSize', next).catch((err) => {
+        console.error('[App] 保存 editorFontSize 失败:', err)
+      })
+      return next
+    })
   }
 
   const handleZoomOut = () => {
-    setEditorFontSize(prev => Math.max(prev - 2, 10))
+    setEditorFontSize((prev) => {
+      const next = Math.max(prev - 2, 10)
+      persistSetting('editorFontSize', next).catch((err) => {
+        console.error('[App] 保存 editorFontSize 失败:', err)
+      })
+      return next
+    })
   }
 
   const handleZoomReset = () => {
-    setEditorFontSize(14)
+    const next = 14
+    setEditorFontSize(next)
+    persistSetting('editorFontSize', next).catch((err) => {
+      console.error('[App] 保存 editorFontSize 失败:', err)
+    })
   }
 
   // 帮助菜单处理函数
@@ -7901,9 +8933,7 @@ function App() {
             fontSize: exportConfig.fontSize || '16px',
             lineHeight: exportConfig.lineHeight || 1.8,
             textAlign: exportConfig.textAlign || 'left',
-            fontFamily: exportConfig.fontFamily === 'serif' ? 'Georgia, serif' :
-                       exportConfig.fontFamily === 'monospace' ? 'Monaco, Consolas, monospace' :
-                       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            fontFamily: getExportFontStack(exportConfig.fontFamily)
           }}
         />
       )}
@@ -8044,6 +9074,10 @@ function App() {
           wordWrap={editorWordWrap}
           syncPreviewWithEditor={syncPreviewWithEditor}
           enableSlashMenuReorder={enableSlashMenuReorder}
+          fontDownloadState={fontDownloadState}
+          remoteFontFamilies={Object.keys(DYNAMIC_FONT_SOURCES)}
+          onRequestFontDownload={handleRequestFontDownload}
+          onRequestFontClearAndRetry={handleRequestFontClearAndRetry}
           onThemeChange={(t) => toggleEditorTheme(t)}
           onSave={(s) => {
             if (s.fontSize) {
@@ -8406,7 +9440,7 @@ function App() {
                     automaticLayout: true,
                     tabSize: 2,
                     padding: { top: 86 },
-                    fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
+                    fontFamily: getEditorFontStack(editorFontFamily),
                     fontLigatures: true,
                     contextmenu: false, // 禁用默认右键菜单
                     // 行号配置
@@ -8449,6 +9483,9 @@ function App() {
                     onChange={handleExportConfigChange}
                     onClose={handleCloseExportConfigPanel}
                     compact
+                    fontDownloadState={fontDownloadState}
+                    remoteFontFamilies={Object.keys(DYNAMIC_FONT_SOURCES)}
+                    onRequestFontDownload={handleRequestFontDownload}
                   />
                 </div>
               </div>
@@ -8504,7 +9541,7 @@ function App() {
                             automaticLayout: true,
                             tabSize: 2,
                             padding: { top: 86 },
-                            fontFamily: `'${editorFontFamily}', 'Fira Code', monospace`,
+                            fontFamily: getEditorFontStack(editorFontFamily),
                             fontLigatures: true,
                             contextmenu: false,
                             lineNumbers: editorLineNumbers ? 'on' : 'off',
@@ -8557,6 +9594,9 @@ function App() {
                 onChange={handleExportConfigChange}
                 onClose={handleCloseExportConfigPanel}
                 style={{ width: `${exportConfigPanelWidth}px` }}
+                fontDownloadState={fontDownloadState}
+                remoteFontFamilies={Object.keys(DYNAMIC_FONT_SOURCES)}
+                onRequestFontDownload={handleRequestFontDownload}
               />
             </div>
           )}

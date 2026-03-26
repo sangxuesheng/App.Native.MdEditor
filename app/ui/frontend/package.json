@@ -13,6 +13,7 @@
   "dependencies": {
     "@fontsource/fira-code": "^5.2.7",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@antv/infographic": "^0.2.16",
     "@monaco-editor/react": "^4.6.0",
     "dom-to-image-more": "^3.7.2",
     "github-markdown-css": "^5.5.1",

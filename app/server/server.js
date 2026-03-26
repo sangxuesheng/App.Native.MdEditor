@@ -110,6 +110,222 @@ function getSharePath(shareName) {
   return path.join(SHARES_BASE, shareName);
 }
 
+const FONT_CACHE_DIR = process.env.TRIM_PKGVAR
+  ? path.join(process.env.TRIM_PKGVAR, 'font-cache')
+  : path.join(__dirname, '../var', 'font-cache');
+const LEGACY_FONT_CACHE_DIR = path.join(SHARES_BASE, 'mdeditor', 'font-cache');
+const FONT_CACHE_SETTING_KEY = 'fontLocalCache';
+
+const FONT_SOURCE_MAP = {
+  'JetBrains Mono': {
+    type: 'file',
+    urls: ['https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2'],
+    loadedFamily: 'JetBrains Mono',
+  },
+  'Fira Code': {
+    type: 'file',
+    urls: ['https://cdn.jsdelivr.net/npm/@fontsource/fira-code/files/fira-code-latin-400-normal.woff2'],
+    loadedFamily: 'Fira Code',
+  },
+  'Source Code Pro': {
+    type: 'file',
+    urls: ['https://cdn.jsdelivr.net/npm/@fontsource/source-code-pro/files/source-code-pro-latin-400-normal.woff2'],
+    loadedFamily: 'Source Code Pro',
+  },
+  'IBM Plex Mono': {
+    type: 'file',
+    urls: ['https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2'],
+    loadedFamily: 'IBM Plex Mono',
+  },
+  'Cascadia Code': {
+    type: 'file',
+    urls: ['https://cdn.jsdelivr.net/npm/@fontsource/cascadia-code/files/cascadia-code-latin-400-normal.woff2'],
+    loadedFamily: 'Cascadia Code',
+  },
+  '楷体': {
+    type: 'css',
+    urls: [
+      'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+      'https://unpkg.com/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+    ],
+    loadedFamily: 'LXGW WenKai',
+  },
+  'KaiTi': {
+    type: 'css',
+    urls: [
+      'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+      'https://unpkg.com/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+    ],
+    loadedFamily: 'LXGW WenKai',
+  },
+  '霞鹜文楷': {
+    type: 'css',
+    urls: [
+      'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+      'https://unpkg.com/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css',
+    ],
+    loadedFamily: 'LXGW WenKai',
+  },
+  '思源黑体': {
+    type: 'css',
+    urls: [
+      'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400&display=swap',
+      'https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400&display=swap',
+    ],
+    loadedFamily: 'Noto Sans SC',
+  },
+  '思源宋体': {
+    type: 'css',
+    urls: [
+      'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400&display=swap',
+      'https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@400&display=swap',
+    ],
+    loadedFamily: 'Noto Serif SC',
+  },
+  'Noto Serif SC': {
+    type: 'css',
+    urls: [
+      'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400&display=swap',
+      'https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@400&display=swap',
+    ],
+    loadedFamily: 'Noto Serif SC',
+  },
+  '阿里巴巴普惠体': {
+    type: 'css',
+    urls: [
+      'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap',
+      'https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap',
+    ],
+    loadedFamily: 'Noto Sans SC',
+  },
+  'HarmonyOS Sans SC': {
+    type: 'css',
+    urls: [
+      'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap',
+      'https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap',
+    ],
+    loadedFamily: 'Noto Sans SC',
+  },
+  'Ma Shan Zheng': {
+    type: 'css',
+    urls: [
+      'https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap',
+      'https://fonts.loli.net/css2?family=Ma+Shan+Zheng&display=swap',
+    ],
+    loadedFamily: 'Ma Shan Zheng',
+  },
+};
+
+function ensureFontCacheDir() {
+  if (!fs.existsSync(FONT_CACHE_DIR)) fs.mkdirSync(FONT_CACHE_DIR, { recursive: true });
+}
+
+function moveLegacyFontCacheIfNeeded() {
+  try {
+    if (!fs.existsSync(LEGACY_FONT_CACHE_DIR) || !fs.statSync(LEGACY_FONT_CACHE_DIR).isDirectory()) return;
+    ensureFontCacheDir();
+    const entries = fs.readdirSync(LEGACY_FONT_CACHE_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const src = path.join(LEGACY_FONT_CACHE_DIR, entry.name);
+      const dest = path.join(FONT_CACHE_DIR, entry.name);
+      if (!fs.existsSync(dest)) fs.copyFileSync(src, dest);
+    }
+  } catch (e) {
+    console.warn('[font-cache] migrate legacy cache skipped:', e.message);
+  }
+}
+
+function toSafeSlug(input) {
+  return String(input || '').replace(/\s+/g, '-').replace(/[^\w\-\u4e00-\u9fa5]/g, '').toLowerCase() || 'font';
+}
+
+function readFontCacheSetting() {
+  const db = getDb();
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(FONT_CACHE_SETTING_KEY);
+  if (!row?.value) return {};
+  try {
+    const parsed = JSON.parse(row.value);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeFontCacheSetting(next) {
+  const db = getDb();
+  const stmt = db.prepare(`
+    INSERT INTO settings (key, value)
+    VALUES (@key, @value)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `);
+  stmt.run({ key: FONT_CACHE_SETTING_KEY, value: JSON.stringify(next || {}) });
+}
+
+function clearFontCacheByFamily(family) {
+  const normalized = String(family || '').trim();
+  if (!normalized) {
+    return { ok: false, code: 'INVALID_FAMILY', message: '字体名称不能为空' };
+  }
+
+  ensureFontCacheDir();
+  const cacheMap = readFontCacheSetting();
+  const entry = cacheMap[normalized] || {};
+  const slug = toSafeSlug(normalized);
+
+  const candidates = new Set();
+  [
+    entry.fileName,
+    entry.cssFileName,
+  ].forEach((name) => {
+    if (name && typeof name === 'string') candidates.add(name);
+  });
+
+  try {
+    const allFiles = fs.readdirSync(FONT_CACHE_DIR, { withFileTypes: true })
+      .filter((d) => d.isFile())
+      .map((d) => d.name);
+
+    allFiles.forEach((name) => {
+      if (name === `${slug}.css` || name.startsWith(`${slug}-`)) {
+        candidates.add(name);
+      }
+    });
+
+    candidates.forEach((name) => {
+      if (!name || name.includes('..') || name.includes('/') || name.includes('\\')) return;
+      const target = path.join(FONT_CACHE_DIR, name);
+      if (fs.existsSync(target) && fs.statSync(target).isFile()) {
+        fs.unlinkSync(target);
+      }
+    });
+
+    if (cacheMap[normalized]) {
+      delete cacheMap[normalized];
+      writeFontCacheSetting(cacheMap);
+    }
+
+    return { ok: true, removed: Array.from(candidates) };
+  } catch (e) {
+    return { ok: false, code: 'FONT_CACHE_CLEAR_ERROR', message: e.message };
+  }
+}
+
+async function fetchFirstSuccessful(urls, asText = false) {
+  let lastErr = null;
+  for (const u of urls) {
+    try {
+      const res = await fetch(u);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const payload = asText ? await res.text() : Buffer.from(await res.arrayBuffer());
+      return { ok: true, url: u, payload };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  return { ok: false, error: lastErr };
+}
+
 // 授权目录解析：Folder 为文件树根，mdeditor 根目录支持在空白处新建文件夹
 function getAllowedRoots() {
   const roots = [];
@@ -419,6 +635,133 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 500, { ok: false, code: 'DB_ERROR', message: '保存设置失败' });
       }
     });
+    return;
+  }
+
+  // 字体本地缓存状态：GET /api/font-cache/status
+  if (parsed.pathname === '/api/font-cache/status' && req.method === 'GET') {
+    try {
+      moveLegacyFontCacheIfNeeded();
+      ensureFontCacheDir();
+      const cacheMap = readFontCacheSetting();
+      sendJson(res, 200, { ok: true, cache: cacheMap, basePath: FONT_CACHE_DIR });
+    } catch (e) {
+      console.error('[api/font-cache/status][GET] error:', e);
+      sendJson(res, 500, { ok: false, code: 'FONT_CACHE_STATUS_ERROR', message: '读取字体缓存状态失败' });
+    }
+    return;
+  }
+
+  // 清理指定字体缓存：POST /api/font-cache/clear  { family }
+  if (parsed.pathname === '/api/font-cache/clear' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req, res, 1024 * 16);
+      const family = (body?.family || '').trim();
+      const result = clearFontCacheByFamily(family);
+      if (!result.ok) {
+        sendJson(res, 400, { ok: false, code: result.code, message: result.message || '清理字体缓存失败' });
+        return;
+      }
+      sendJson(res, 200, { ok: true, family, removed: result.removed || [] });
+    } catch (e) {
+      if (e.message === 'PAYLOAD_TOO_LARGE' || e.message === 'INVALID_JSON') return;
+      console.error('[api/font-cache/clear][POST] error:', e);
+      sendJson(res, 500, { ok: false, code: 'FONT_CACHE_CLEAR_ERROR', message: '清理字体缓存失败' });
+    }
+    return;
+  }
+
+  // 下载字体到本地：POST /api/font-cache/download  { family }
+  if (parsed.pathname === '/api/font-cache/download' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req, res, 1024 * 16);
+      const family = (body?.family || '').trim();
+      if (!family || !FONT_SOURCE_MAP[family]) {
+        sendJson(res, 400, { ok: false, code: 'INVALID_FAMILY', message: '不支持的字体' });
+        return;
+      }
+
+      ensureFontCacheDir();
+      const source = FONT_SOURCE_MAP[family];
+      const slug = toSafeSlug(family);
+      const cacheMap = readFontCacheSetting();
+
+      if (source.type === 'file') {
+        const result = await fetchFirstSuccessful(source.urls || [], false);
+        if (!result.ok) {
+          sendJson(res, 500, { ok: false, code: 'FONT_DOWNLOAD_FAILED', message: '字体下载失败' });
+          return;
+        }
+
+        const fileName = `${slug}.woff2`;
+        const filePath = path.join(FONT_CACHE_DIR, fileName);
+        fs.writeFileSync(filePath, result.payload);
+
+        cacheMap[family] = {
+          status: 'cached',
+          type: 'file',
+          loadedFamily: source.loadedFamily || family,
+          localUrl: `/font-cache/${encodeURIComponent(fileName)}`,
+          fileName,
+          updatedAt: Date.now(),
+        };
+        writeFontCacheSetting(cacheMap);
+        sendJson(res, 200, { ok: true, family, entry: cacheMap[family] });
+        return;
+      }
+
+      if (source.type === 'css') {
+        const cssRes = await fetchFirstSuccessful(source.urls || [], true);
+        if (!cssRes.ok) {
+          sendJson(res, 500, { ok: false, code: 'FONT_DOWNLOAD_FAILED', message: '字体样式下载失败' });
+          return;
+        }
+        let cssText = String(cssRes.payload || '');
+
+        const urlRegex = /url\((['"]?)([^)'"\s]+)\1\)/g;
+        const matches = [];
+        let m;
+        while ((m = urlRegex.exec(cssText)) !== null) {
+          matches.push(m[2]);
+        }
+
+        for (const rawUrl of matches) {
+          const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, cssRes.url).toString();
+          const download = await fetchFirstSuccessful([absoluteUrl], false);
+          if (!download.ok) continue;
+
+          let ext = path.extname(new URL(absoluteUrl).pathname) || '.woff2';
+          if (!ext || ext.length > 8) ext = '.woff2';
+          const fontFileName = `${slug}-${crypto.createHash('md5').update(absoluteUrl).digest('hex').slice(0, 8)}${ext}`;
+          const fontFilePath = path.join(FONT_CACHE_DIR, fontFileName);
+          fs.writeFileSync(fontFilePath, download.payload);
+
+          cssText = cssText.split(rawUrl).join(`/font-cache/${encodeURIComponent(fontFileName)}`);
+        }
+
+        const cssFileName = `${slug}.css`;
+        const cssFilePath = path.join(FONT_CACHE_DIR, cssFileName);
+        fs.writeFileSync(cssFilePath, cssText, 'utf8');
+
+        cacheMap[family] = {
+          status: 'cached',
+          type: 'css',
+          loadedFamily: source.loadedFamily || family,
+          localCssUrl: `/font-cache/${encodeURIComponent(cssFileName)}`,
+          cssFileName,
+          updatedAt: Date.now(),
+        };
+        writeFontCacheSetting(cacheMap);
+        sendJson(res, 200, { ok: true, family, entry: cacheMap[family] });
+        return;
+      }
+
+      sendJson(res, 400, { ok: false, code: 'INVALID_SOURCE', message: '字体源配置无效' });
+    } catch (e) {
+      if (e.message === 'PAYLOAD_TOO_LARGE' || e.message === 'INVALID_JSON') return;
+      console.error('[api/font-cache/download][POST] error:', e);
+      sendJson(res, 500, { ok: false, code: 'FONT_CACHE_ERROR', message: '字体下载失败' });
+    }
     return;
   }
 
@@ -2453,6 +2796,152 @@ const server = http.createServer(async (req, res) => {
 
 
 
+  // PlantUML 渲染为 SVG：POST /api/plantuml/svg
+  if (parsed.pathname === '/api/plantuml/svg' && req.method === 'POST') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk.toString('utf8');
+      if (raw.length > 512 * 1024) {
+        raw = '';
+        sendJson(res, 413, { ok: false, code: 'PAYLOAD_TOO_LARGE', message: '内容过大' });
+        req.destroy();
+      }
+    });
+
+    req.on('end', async () => {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, code: 'INVALID_JSON', message: '请求体不是合法 JSON' });
+        return;
+      }
+
+      const code = body && body.code;
+      if (!code || typeof code !== 'string') {
+        sendJson(res, 400, { ok: false, code: 'MISSING_CODE', message: '缺少 code 参数' });
+        return;
+      }
+
+      try {
+        // PlantUML 官方服务对 POST /plantuml/svg 往往会返回 302，且浏览器端会受到 CORS 影响。
+        // 后端统一使用「编码后 GET」方式，避免重定向与跨域问题。
+        const zlib = require('zlib');
+        const encode6bit = (b) => {
+          if (b < 10) return String.fromCharCode(48 + b);
+          b -= 10;
+          if (b < 26) return String.fromCharCode(65 + b);
+          b -= 26;
+          if (b < 26) return String.fromCharCode(97 + b);
+          b -= 26;
+          if (b === 0) return '-';
+          if (b === 1) return '_';
+          return '?';
+        };
+        const append3bytes = (b1, b2, b3) => {
+          const c1 = b1 >> 2;
+          const c2 = ((b1 & 0x3) << 4) | (b2 >> 4);
+          const c3 = ((b2 & 0xF) << 2) | (b3 >> 6);
+          const c4 = b3 & 0x3F;
+          return '' + encode6bit(c1 & 0x3F) + encode6bit(c2 & 0x3F) + encode6bit(c3 & 0x3F) + encode6bit(c4 & 0x3F);
+        };
+        const encodePlantUml = (text) => {
+          const data = zlib.deflateRawSync(Buffer.from(text, 'utf8'));
+          let out = '';
+          for (let i = 0; i < data.length; i += 3) {
+            if (i + 2 === data.length) out += append3bytes(data[i], data[i + 1], 0);
+            else if (i + 1 === data.length) out += append3bytes(data[i], 0, 0);
+            else out += append3bytes(data[i], data[i + 1], data[i + 2]);
+          }
+          return out;
+        };
+
+        const encoded = encodePlantUml(code);
+        const upstreamUrl = `https://www.plantuml.com/plantuml/svg/${encoded}`;
+        const upstream = await fetch(upstreamUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'image/svg+xml,text/plain;q=0.9,*/*;q=0.8',
+          },
+          redirect: 'follow',
+        });
+
+        if (!upstream.ok) {
+          const errText = await upstream.text().catch(() => '');
+          sendJson(res, 502, {
+            ok: false,
+            code: 'PLANTUML_UPSTREAM_ERROR',
+            message: `PlantUML 服务错误: ${upstream.status}`,
+            details: (errText || '').slice(0, 500),
+            upstreamStatus: upstream.status,
+            upstreamType: upstream.headers.get('content-type') || '',
+            upstreamUrl: upstream.url || '',
+          });
+          return;
+        }
+
+        const svg = await upstream.text();
+        const normalized = (svg || '').trim();
+        const hasSvgTag = /<svg[\s>]/i.test(normalized);
+
+        // 官方服务在某些网络环境会返回 HTML/网关页；失败时回退到 Kroki。
+        if (!normalized || !hasSvgTag) {
+          const kroki = await fetch('https://kroki.io/plantuml/svg', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Accept': 'image/svg+xml,text/plain;q=0.9,*/*;q=0.8',
+            },
+            body: code,
+            redirect: 'follow',
+          });
+
+          if (!kroki.ok) {
+            const krokiErr = await kroki.text().catch(() => '');
+            sendJson(res, 502, {
+              ok: false,
+              code: 'PLANTUML_INVALID_RESPONSE',
+              message: 'PlantUML 返回内容不是 SVG，且 Kroki 回退失败',
+              details: normalized.slice(0, 200),
+              upstreamStatus: upstream.status,
+              upstreamType: upstream.headers.get('content-type') || '',
+              upstreamUrl: upstream.url || '',
+              fallbackStatus: kroki.status,
+              fallbackType: kroki.headers.get('content-type') || '',
+              fallbackDetails: (krokiErr || '').slice(0, 200),
+            });
+            return;
+          }
+
+          const krokiSvg = (await kroki.text()).trim();
+          if (!/<svg[\s>]/i.test(krokiSvg)) {
+            sendJson(res, 502, {
+              ok: false,
+              code: 'PLANTUML_INVALID_RESPONSE',
+              message: 'PlantUML 与 Kroki 均未返回 SVG',
+              details: krokiSvg.slice(0, 200),
+              upstreamStatus: upstream.status,
+              upstreamType: upstream.headers.get('content-type') || '',
+              upstreamUrl: upstream.url || '',
+              fallbackStatus: kroki.status,
+              fallbackType: kroki.headers.get('content-type') || '',
+            });
+            return;
+          }
+
+          sendJson(res, 200, { ok: true, svg: krokiSvg, source: 'kroki' });
+          return;
+        }
+
+        sendJson(res, 200, { ok: true, svg: normalized, source: 'plantuml' });
+      } catch (err) {
+        console.error('PlantUML render error:', err);
+        sendJson(res, 500, { ok: false, code: 'PLANTUML_RENDER_ERROR', message: 'PlantUML 渲染失败' });
+      }
+    });
+    return;
+  }
+
   // 数学公式渲染为 SVG：POST /api/math/svg
   if (parsed.pathname === '/api/math/svg' && req.method === 'POST') {
     let raw = '';
@@ -3353,6 +3842,49 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 静态文件服务
+
+  // 字体本地缓存静态文件服务：/font-cache/...
+  if (parsed.pathname.startsWith('/font-cache/')) {
+    try {
+      ensureFontCacheDir();
+      const fileName = decodeURIComponent(parsed.pathname.replace(/^\/font-cache\//, ''));
+      if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+        res.writeHead(400);
+        res.end('Bad Request');
+        return;
+      }
+      const filePath = path.join(FONT_CACHE_DIR, fileName);
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeTypes = {
+          '.css': 'text/css; charset=utf-8',
+          '.woff': 'font/woff',
+          '.woff2': 'font/woff2',
+          '.ttf': 'font/ttf',
+          '.otf': 'font/otf',
+        };
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        fs.readFile(filePath, (err, data) => {
+          if (err) {
+            res.writeHead(500);
+            res.end('Internal Server Error');
+            return;
+          }
+          res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=31536000, immutable',
+          });
+          res.end(data);
+        });
+        return;
+      }
+    } catch (e) {
+      console.error('[font-cache][static] error:', e);
+    }
+    res.writeHead(404);
+    res.end('Not Found');
+    return;
+  }
 
   // 图片静态文件服务：/images/...
   if (parsed.pathname.startsWith('/images/')) {

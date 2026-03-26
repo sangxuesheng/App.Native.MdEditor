@@ -1364,16 +1364,25 @@ img[style*="width"] {
   margin-right: 8px;
 }
 
-/* Mermaid 图表样式 */
-.mermaid {
+/* Mermaid / PlantUML 图表样式 */
+.mermaid,
+.plantuml,
+.infographic {
   border-radius: 6px;
   padding: 16px;
   margin: 16px auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: block;
   max-width: 100%;
-  overflow-x: auto;
+  overflow-x: hidden;
+}
+
+.plantuml svg,
+.infographic svg,
+.mermaid svg {
+  display: block;
+  max-width: 100% !important;
+  width: 100% !important;
+  height: auto !important;
 }
 
 /* data-theme-bg 未设置时，mermaid 跟随编辑器主题 */
