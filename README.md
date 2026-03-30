@@ -18,6 +18,52 @@
 - 图片能力：粘贴/拖拽上传、图片管理、HEIC 转换、图注与缩放
 - 图床能力：支持多类型图床（含 本地、阿里云OSS、腾讯云OSS、github、七牛云、MinIO、WebDAV、自定义 OSS）
 
+
+<details style="border: 1px solid #d0d7de; border-radius: 8px; padding: 10px 12px;">
+<summary><span style="color: #0969da; font-weight: 600;">点击查看编辑器预览图</span></summary>
+<img src="https://pic1.imgdb.cn/item/69c65e5bebec5f1015549e1f.png" alt="飞牛NAS编辑器预览">
+<div style="text-align: center; margin-top: -4px;"><sub>飞牛NAS编辑器预览</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92d6f3833931b653e7493.png" alt="桌面端暗黑模式预览">
+<div style="text-align: center; margin-top: -4px;"><sub>桌面端暗黑模式预览</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c7d8724066a6014cf59e36.png" alt="多平台发布"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>多平台发布</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92a923833931b653e73a0.png" alt="多图床支持"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>多图床支持</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92afa3833931b653e73a7.png" alt="AI会话"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>AI会话</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92b1c3833931b653e73ae.png" alt="AI文生图"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>AI文生图</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92b453833931b653e73ba.png" alt="AI内置服务与服务商配置"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>AI内置服务与服务商配置</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92bb33833931b653e73d2.png" alt="主题与导出配置"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>主题与导出配置</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92c303833931b653e73e6.png" alt="文件夹挂载方式"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>文件夹挂载方式</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92c803833931b653e7425.png" alt="文件自动备份"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>文件自动备份</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92e793833931b653e74e6.png" alt="Excel表格转换预览（试验性）">
+<div style="text-align: center; margin-top: -4px;"><sub>Excel表格转换预览（试验性）</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92ebf3833931b653e74f8.png" alt="PDF文件预览"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>PDF文件预览</sub></div><br>
+<img src="https://pic1.imgdb.cn/item/69c92eef3833931b653e7501.png" alt="Word文档转换预览（试验性）"><br>
+<div style="text-align: center; margin-top: -4px;"><sub>Word文档转换预览（试验性）</sub></div><br>
+<div style="text-align: center;">
+  <div style="display: inline-block; width: 32%; vertical-align: top;">
+    <img src="https://pic1.imgdb.cn/item/69c92cfa3833931b653e745f.png" alt="移动端编辑区预览" width="100%">
+    <div style="margin-top: -4px;"><sub>移动端编辑区预览</sub></div>
+  </div>
+  <div style="display: inline-block; width: 32%; vertical-align: top;">
+    <img src="https://pic1.imgdb.cn/item/69c9a93e3833931b653eea12.png" alt="移动端明亮模式预览" width="100%">
+    <div style="margin-top: -4px;"><sub>移动端明亮模式预览</sub></div>
+  </div>
+  <div style="display: inline-block; width: 32%; vertical-align: top;">
+    <img src="https://pic1.imgdb.cn/item/69c92d353833931b653e7485.png" alt="移动端暗黑模式预览" width="100%">
+    <div style="margin-top: -4px;"><sub>移动端暗黑模式预览</sub></div>
+  </div>
+</div>
+
+</details>
+
 ## 最近更新
 
 ### v1.29.61 (2026-03-30)
@@ -105,6 +151,7 @@ docker run -d --rm --name mdeditor2 -p 18080:18080 \
 
 提交问题时建议附带：版本号、运行环境、错误信息、复现步骤。
 
+鸣谢 <a href="https://doocs.org/" target="_blank">Doocs</a> 开发者友好的开源社区，开源项目支持 <a href="https://github.com/doocs/cose" target="_blank">cose</a>
 ## 许可证
 
 MIT License
