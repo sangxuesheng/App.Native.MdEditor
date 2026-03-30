@@ -1,4 +1,12 @@
 /* 复用 ImageManagerDialog 的基础样式 */
+:root {
+  --dialog-overlay-duration: 220ms;
+  --dialog-panel-duration: 260ms;
+  --dialog-ease: cubic-bezier(0.22, 0.8, 0.22, 1);
+  --dialog-enter-y: 14px;
+  --dialog-enter-scale: 0.985;
+}
+
 /* 遮罩层 - 与 ImageManagerDialog 保持一致 */
 .img-preview-mask {
   position: fixed;
@@ -9,7 +17,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: img-preview-fade-in 0.2s ease;
+  animation: dialogOverlayEnter var(--dialog-overlay-duration) var(--dialog-ease);
 }
 
 /* 卡片容器 - 与 ImageManagerDialog 保持一致 */
@@ -21,7 +29,8 @@
   border: 1px solid rgba(255,255,255,0.12);
   box-shadow: 0 24px 60px rgba(0,0,0,0.5);
   overflow: hidden;
-  animation: img-preview-slide-up 0.22s ease;
+  transform-origin: center center;
+  animation: dialogPanelEnter var(--dialog-panel-duration) var(--dialog-ease);
 }
 
 /* 图片信息头部 */
@@ -116,19 +125,19 @@
   margin-bottom: 0;
 }
 
-/* 动画 - 复用 ImageManagerDialog 的动画 */
-@keyframes img-preview-fade-in {
+/* 动画 - 复用统一 Dialog 动效 */
+@keyframes dialogOverlayEnter {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-@keyframes img-preview-slide-up {
+@keyframes dialogPanelEnter {
   from {
-    transform: translateY(20px);
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
@@ -149,5 +158,13 @@
 
   .img-preview-body {
     padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .img-preview-mask,
+  .img-preview-card {
+    animation: none !important;
+    transform: none !important;
   }
 }

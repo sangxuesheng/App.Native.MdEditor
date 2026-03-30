@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Trash2, Edit2 } from 'lucide-react'
 import './CustomDialog.css'
 
@@ -7,6 +7,9 @@ const CustomDialog = ({ isOpen, onClose, onConfirm, title, message, type = 'aler
   const [editTheme, setEditTheme] = useState(null)
   const [editCSS, setEditCSS] = useState('')
   const [editThemeName, setEditThemeName] = useState('')
+  const [rendered, setRendered] = useState(isOpen)
+  const [isClosing, setIsClosing] = useState(false)
+  const closeTimerRef = useRef(null)
 
   useEffect(() => {
     setInputValue(defaultValue)
@@ -20,7 +23,36 @@ const CustomDialog = ({ isOpen, onClose, onConfirm, title, message, type = 'aler
     }
   }, [isOpen])
 
-  if (!isOpen) return null
+  useEffect(() => {
+    if (isOpen) {
+      setRendered(true)
+      setIsClosing(false)
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = null
+      }
+      return
+    }
+
+    if (!rendered || isClosing) return
+    setIsClosing(true)
+    closeTimerRef.current = setTimeout(() => {
+      setRendered(false)
+      setIsClosing(false)
+      closeTimerRef.current = null
+    }, 180)
+  }, [isOpen, rendered, isClosing])
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = null
+      }
+    }
+  }, [])
+
+  if (!rendered) return null
 
   const confirmDialog = () => {
     if (type === 'prompt') {
@@ -69,7 +101,7 @@ const CustomDialog = ({ isOpen, onClose, onConfirm, title, message, type = 'aler
   }
 
   return (
-    <div className="custom-dialog-overlay" onClick={handleOverlayClick}>
+    <div className={`custom-dialog-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className="custom-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="custom-dialog-header">
           <h3>{title}</h3>

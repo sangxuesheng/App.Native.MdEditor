@@ -17,7 +17,23 @@ cd /vol4/1000/开发文件夹/mac
 优化并打包
 
 cd "/vol4/1000/开发文件夹/mac"
-bash -x scripts/build-fpk-fast.sh
+time bash -x scripts/build-fpk-fast.sh
+
+
+
+
+
+bash scripts/build-fpk-multi-arch.sh          # 同时构建 amd64 + arm64
+bash scripts/build-fpk-multi-arch.sh arm64    # 仅构建 arm64
+bash scripts/build-fpk-multi-arch.sh amd64    # 仅构建 amd64
+
+如果你要精确值，下次这样跑：
+
+time bash scripts/build-fpk-multi-arch.sh
+time bash scripts/build-fpk-multi-arch.sh arm64 
+time bash scripts/build-fpk-multi-arch.sh amd64
+会直接输出 real（真实总耗时）
+
 
 优化说明：
 - 只打包必要文件（依赖 .fpkignore 排除备份与文档等）
@@ -98,7 +114,7 @@ ln -s /var/apps/python312/target/bin/python3 /usr/local/bin/python
 cd /vol4/1000/开发文件夹/mac/app/ui/frontend && export PATH=/var/apps/nodejs_v22/target/bin:$PATH && npm run dev
 
 # 或者使用完整的服务器环境配置
-# cd /vol4/1000/开发文件夹/mac/app/ui/frontend && /var/apps/nodejs_v22/target/bin/npm run dev
+# cd /vol4/1000/an开发文件夹/mac/app/ui/frontend && /var/apps/nodejs_v22/target/bin/npm run dev
 
 
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react'
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
 import {
   Heading1,
   Bold,
@@ -75,6 +75,43 @@ function SlashCommandMenu({
   const [dragOverId, setDragOverId] = useState(null)
   const [expandedSubmenuId, setExpandedSubmenuId] = useState(null)
   const menuRef = useRef(null)
+  const [menuPosition, setMenuPosition] = useState({ left: x, top: y })
+
+  const updateMenuPosition = useCallback(() => {
+    const menuEl = menuRef.current
+    if (!visible || !menuEl) return
+
+    const viewportW = window.innerWidth
+    const viewportH = window.innerHeight
+    const gap = 8
+    const preferredOffset = 6
+
+    const menuW = menuEl.offsetWidth
+    const menuH = menuEl.offsetHeight
+
+    const minLeft = gap
+    const maxLeft = Math.max(gap, viewportW - menuW - gap)
+    const nextLeft = Math.min(Math.max(x, minLeft), maxLeft)
+
+    const defaultTop = y
+    const aboveTop = y - menuH - preferredOffset
+    const hasBottomSpace = defaultTop + menuH <= viewportH - gap
+    const hasAboveSpace = aboveTop >= gap
+
+    let nextTop = defaultTop
+    if (!hasBottomSpace && hasAboveSpace) {
+      nextTop = aboveTop
+    } else {
+      const minTop = gap
+      const maxTop = Math.max(gap, viewportH - menuH - gap)
+      nextTop = Math.min(Math.max(defaultTop, minTop), maxTop)
+    }
+
+    setMenuPosition((prev) => {
+      if (prev.left === nextLeft && prev.top === nextTop) return prev
+      return { left: nextLeft, top: nextTop }
+    })
+  }, [visible, x, y])
 
   useEffect(() => {
     if (Array.isArray(commandOrder) && commandOrder.length) {
@@ -162,6 +199,27 @@ function SlashCommandMenu({
     }
   }, [activeIndex, visible])
 
+  useLayoutEffect(() => {
+    if (!visible) return
+    updateMenuPosition()
+  }, [visible, x, y, displayItems.length, expandedSubmenuId, query, updateMenuPosition])
+
+  useEffect(() => {
+    if (!visible) return undefined
+
+    const onViewportChange = () => {
+      updateMenuPosition()
+    }
+
+    window.addEventListener('resize', onViewportChange)
+    window.addEventListener('scroll', onViewportChange, true)
+
+    return () => {
+      window.removeEventListener('resize', onViewportChange)
+      window.removeEventListener('scroll', onViewportChange, true)
+    }
+  }, [visible, updateMenuPosition])
+
   const reorderCommand = (sourceId, targetId) => {
     if (!enableReorder) return
     if (!sourceId || !targetId || sourceId === targetId) return
@@ -180,7 +238,7 @@ function SlashCommandMenu({
   if (!visible) return null
 
   return (
-    <div ref={menuRef} className={`slash-menu theme-${theme}`} style={{ left: x, top: y }}>
+    <div ref={menuRef} className={`slash-menu theme-${theme}`} style={{ left: menuPosition.left, top: menuPosition.top }}>
       {enableReorder && (
         <div className="slash-menu-header">
           <button

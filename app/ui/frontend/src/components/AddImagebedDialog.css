@@ -2,6 +2,14 @@
  * 添加图床对话框样式
  */
 
+:root {
+  --dialog-overlay-duration: 220ms;
+  --dialog-panel-duration: 260ms;
+  --dialog-ease: cubic-bezier(0.22, 0.8, 0.22, 1);
+  --dialog-enter-y: 14px;
+  --dialog-enter-scale: 0.985;
+}
+
 .imagebed-dialog-overlay {
   position: fixed;
   top: 0;
@@ -14,6 +22,7 @@
   background: rgba(0, 0, 0, 0.5);
   z-index: 1000;
   padding: 16px;
+  animation: dialogOverlayEnter var(--dialog-overlay-duration) var(--dialog-ease);
 }
 
 .imagebed-dialog {
@@ -26,6 +35,49 @@
   background: var(--bg-primary, #fff);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   overflow: hidden;
+  transform-origin: center center;
+  animation: dialogPanelEnter var(--dialog-panel-duration) var(--dialog-ease);
+}
+
+@keyframes dialogOverlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialogOverlayExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes dialogPanelEnter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dialogPanelExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
+  }
+}
+
+.imagebed-dialog-overlay.closing {
+  pointer-events: none;
+  animation: dialogOverlayExit 180ms ease-in forwards;
+}
+
+.imagebed-dialog-overlay.closing .imagebed-dialog {
+  animation: dialogPanelExit 180ms ease-in forwards;
 }
 
 .imagebed-dialog-overlay.theme-dark .imagebed-dialog {
@@ -452,6 +504,16 @@
 }
 
 /* 响应式设计 */
+@media (prefers-reduced-motion: reduce) {
+  .imagebed-dialog-overlay,
+  .imagebed-dialog,
+  .imagebed-dialog-overlay.closing,
+  .imagebed-dialog-overlay.closing .imagebed-dialog {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 @media (max-width: 600px) {
   .imagebed-dialog {
     max-width: 100%;
@@ -661,6 +723,63 @@
   border-radius: 0 4px 4px 0;
   font-size: 12px;
   color: #dc3545;
+}
+
+.help-details {
+  margin-top: 10px;
+}
+
+.help-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin-bottom: 8px;
+}
+
+.help-table {
+  margin-top: 8px;
+  border: 1px solid var(--border-color, #d0d7de);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-primary, #fff);
+}
+
+.help-table table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.help-table th,
+.help-table td {
+  border: 1px solid var(--border-color, #d0d7de);
+  padding: 8px 10px;
+  text-align: center;
+  vertical-align: middle;
+  word-break: break-word;
+}
+
+.help-table th {
+  background: var(--bg-secondary, #f6f8fa);
+  font-weight: 600;
+}
+
+.imagebed-dialog-overlay.dark .help-details summary {
+  color: var(--text-primary, #ccc);
+}
+
+.imagebed-dialog-overlay.dark .help-table {
+  border-color: var(--border-color, #444);
+  background: var(--bg-secondary, #2a2a2a);
+}
+
+.imagebed-dialog-overlay.dark .help-table th,
+.imagebed-dialog-overlay.dark .help-table td {
+  border-color: var(--border-color, #444);
+}
+
+.imagebed-dialog-overlay.dark .help-table th {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .imagebed-dialog-overlay.dark .repo-add-btn {

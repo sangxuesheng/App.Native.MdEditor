@@ -2,7 +2,7 @@
  * 添加图床对话框组件
  */
 
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { X, Plus, Trash2, Eye, EyeOff } from 'lucide-react'
 import './AddImagebedDialog.css'
 import AnimatedSelect from './AnimatedSelect'
@@ -15,6 +15,9 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
   const [aliyunHelpExpanded, setAliyunHelpExpanded] = useState(false)
   const [tencentHelpExpanded, setTencentHelpExpanded] = useState(false)
   const [qiniuHelpExpanded, setQiniuHelpExpanded] = useState(false)
+  const [webdavHelpExpanded, setWebdavHelpExpanded] = useState(false)
+  const [MinIOHelpExpanded, setMinIOHelpExpanded] = useState(false)
+  const [customOssHelpExpanded, setCustomOssHelpExpanded] = useState(false)
   // GitHub 多仓库列表
   const [repoList, setRepoList] = useState(() => {
     if (editingConfig?.type === 'github') {
@@ -28,6 +31,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const [visibleSecrets, setVisibleSecrets] = useState({})
+  const [isClosing, setIsClosing] = useState(false)
   const isEditing = !!editingConfig
 
   // 当编辑配置改变时，更新表单状态
@@ -35,7 +39,15 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
     if (editingConfig) {
       setType(editingConfig.type || 'local')
       setName(editingConfig.name || '')
-      setConfig(editingConfig.config || {})
+      const nextConfig = { ...(editingConfig.config || {}) }
+      if (editingConfig.type === 'customoss' && nextConfig.headers && !nextConfig.headersJson) {
+        try {
+          nextConfig.headersJson = JSON.stringify(nextConfig.headers)
+        } catch {
+          // ignore invalid headers object
+        }
+      }
+      setConfig(nextConfig)
       if (editingConfig.type === 'github') {
         const repos = editingConfig?.config?.repos
         if (Array.isArray(repos) && repos.length > 0) {
@@ -51,6 +63,9 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
       setAliyunHelpExpanded(false)
       setTencentHelpExpanded(false)
       setQiniuHelpExpanded(false)
+      setWebdavHelpExpanded(false)
+      setMinIOHelpExpanded(false)
+      setCustomOssHelpExpanded(false)
     }
   }, [editingConfig])
 
@@ -60,6 +75,9 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
     { value: 'qiniu', label: '七牛云', description: '国内快速，免费额度' },
     { value: 'aliyun', label: '阿里云 OSS', description: '国内主流服务' },
     { value: 'tencent', label: '腾讯云 COS', description: '腾讯云生态' },
+    { value: 'webdav', label: 'WebDAV', description: '适配 OpenList 等服务' },
+    { value: 'MinIO', label: 'MinIO', description: '原生 MinIO（S3 兼容）' },
+    { value: 'customoss', label: '自定义 OSS', description: 'S3 兼容 / OSS 接口' },
     { value: 'custom', label: '自定义图床', description: '灵活配置' },
   ]
 
@@ -113,6 +131,44 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
       { key: 'useDatePath', label: '按年月日自动分目录', type: 'checkbox', required: false, defaultValue: true, description: '上传路径：上传目录/YYYY/MM/DD/文件名' },
       { key: 'domain', label: '域名（可选）', type: 'text', required: false },
     ],
+    webdav: [
+      { key: 'publicBaseUrl', label: '访问域名（含路径前缀）', type: 'text', required: true, placeholder: '例如：https://img.example.com/公共目录/' },
+      { key: 'urlQueries', label: 'URL Queries', type: 'text', required: false, placeholder: '请输入 url 额外参数' },
+      { key: 'baseUrl', label: '连接地址', type: 'text', required: true, placeholder: '请输入连接地址' },
+      { key: 'authType', label: '认证方式', type: 'select', required: true, defaultValue: 'auto', options: [
+        { value: 'auto', label: 'Auto' },
+        { value: 'basic', label: 'Basic' },
+        { value: 'digest', label: 'Digest' },
+        { value: 'ntlm', label: 'Ntlm' },
+      ]},
+      { key: 'path', label: '上传路径前缀', type: 'text', required: false, defaultValue: 'images/' },
+      { key: 'username', label: '用户名', type: 'text', required: false, placeholder: '请输入用户名' },
+      { key: 'password', label: '密码', type: 'password', required: false, placeholder: '请输入密码' },
+      { key: 'useDatePath', label: '按年月日自动分目录', type: 'checkbox', required: false, defaultValue: true, description: '上传路径：路径前缀/YYYY/MM/DD/文件名' },
+    ],
+    MinIO: [
+      { key: 'endPoint', label: 'Endpoint', type: 'text', required: true, placeholder: '例如：192.168.1.10' },
+      { key: 'port', label: '端口', type: 'number', required: false, placeholder: '9000' },
+      { key: 'useSSL', label: '使用 HTTPS', type: 'checkbox', required: false, defaultValue: false, description: '若使用 https，请勾选' },
+      { key: 'accessKey', label: 'Access Key', type: 'password', required: true },
+      { key: 'secretKey', label: 'Secret Key', type: 'password', required: true },
+      { key: 'bucket', label: 'Bucket', type: 'text', required: true },
+      { key: 'path', label: '上传目录', type: 'text', required: false, defaultValue: 'images/' },
+      { key: 'useDatePath', label: '按年月日自动分目录', type: 'checkbox', required: false, defaultValue: true, description: '上传路径：上传目录/YYYY/MM/DD/文件名' },
+      { key: 'publicBaseUrl', label: '访问域名（可选）', type: 'text', required: false, placeholder: '例如：https://cdn.example.com' },
+    ],
+    customoss: [
+      { key: 'uploadUrl', label: '上传 URL', type: 'text', required: true, placeholder: 'https://oss-gateway.example.com/upload' },
+      { key: 'deleteUrl', label: '删除 URL（可选）', type: 'text', required: false },
+      { key: 'listUrl', label: '列表 URL（可选）', type: 'text', required: false },
+      { key: 'accessKey', label: 'Access Key（可选）', type: 'password', required: false },
+      { key: 'secretKey', label: 'Secret Key（可选）', type: 'password', required: false },
+      { key: 'bucket', label: 'Bucket（可选）', type: 'text', required: false },
+      { key: 'region', label: 'Region（可选）', type: 'text', required: false },
+      { key: 'uploadFieldName', label: '上传字段名', type: 'text', required: false, defaultValue: 'file' },
+      { key: 'responseUrlPath', label: '响应 URL 路径', type: 'text', required: false, defaultValue: 'url' },
+      { key: 'headersJson', label: '额外请求头（JSON，可选）', type: 'text', required: false, placeholder: '{"X-API-Key":"***"}' },
+    ],
     custom: [
       { key: 'uploadUrl', label: '上传 URL', type: 'text', required: true, placeholder: 'https://api.example.com/upload' },
       { key: 'deleteUrl', label: '删除 URL', type: 'text', required: false },
@@ -131,7 +187,16 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
   }
 
   const handleConfigChange = (key, value) => {
-    setConfig(prev => ({ ...prev, [key]: normalizePathFieldValue(key, value) }))
+    // 输入时不做 path 自动格式化，避免光标跳动和“输入即插入/”的问题
+    setConfig(prev => ({ ...prev, [key]: value }))
+  }
+
+  const normalizeConfigForSubmit = (baseConfig) => {
+    const next = { ...baseConfig }
+    if (Object.prototype.hasOwnProperty.call(next, 'path')) {
+      next.path = normalizePathFieldValue('path', next.path)
+    }
+    return next
   }
 
   const toggleSecretVisibility = (key) => {
@@ -165,9 +230,22 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
   const getFinalConfig = () => {
     if (type === 'github') {
       const repos = repoList.filter(r => r.trim())
-      return applyDefaults({ ...config, repos, repo: repos[0] || '' })
+      return applyDefaults(normalizeConfigForSubmit({ ...config, repos, repo: repos[0] || '' }))
     }
-    return applyDefaults(config)
+
+    if (type === 'customoss') {
+      const next = { ...config }
+      if (typeof next.headersJson === 'string' && next.headersJson.trim()) {
+        try {
+          next.headers = JSON.parse(next.headersJson)
+        } catch {
+          // 保留原值，交由保存前校验提示
+        }
+      }
+      return applyDefaults(normalizeConfigForSubmit(next))
+    }
+
+    return applyDefaults(normalizeConfigForSubmit(config))
   }
 
   const handleTest = async () => {
@@ -180,6 +258,15 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
     setTestResult(null)
     try {
       const finalConfig = getFinalConfig()
+      if (type === 'customoss' && config.headersJson) {
+        try {
+          JSON.parse(config.headersJson)
+        } catch {
+          setTestResult({ success: false, message: '✗ 额外请求头 JSON 格式不正确' })
+          setTesting(false)
+          return
+        }
+      }
       // 先添加临时配置进行测试
       const response = await fetch('/api/imagebed/add', {
         method: 'POST',
@@ -235,6 +322,15 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
       }
     }
 
+    if (type === 'customoss' && config.headersJson) {
+      try {
+        JSON.parse(config.headersJson)
+      } catch {
+        setTestResult({ success: false, message: '✗ 额外请求头 JSON 格式不正确' })
+        return
+      }
+    }
+
     const finalConfig = getFinalConfig()
     setSaving(true)
     try {
@@ -269,12 +365,20 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
 
   const currentFields = configFields[type] || []
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onClose()
+    }, 180)
+  }, [isClosing, onClose])
+
   return (
-    <div className={`imagebed-dialog-overlay ${theme}`} onClick={onClose}>
+    <div className={`imagebed-dialog-overlay ${theme} ${isClosing ? 'closing' : ''}`} onClick={requestClose}>
       <div className="imagebed-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h3>{isEditing ? '编辑图床' : '添加新图床'}</h3>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={requestClose}>
             <X size={20} />
           </button>
         </div>
@@ -522,6 +626,159 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
               )}
             </div>
           )}
+
+          {/* WebDAV 配置帮助 */}
+          {type === 'webdav' && (
+            <div className="github-help-section">
+              <button
+                className={`github-help-toggle ${webdavHelpExpanded ? 'open' : ''}`}
+                onClick={() => setWebdavHelpExpanded(prev => !prev)}
+                type="button"
+              >
+                <span>如何配置 WebDAV 图床？</span>
+                <span className={`help-arrow ${webdavHelpExpanded ? 'expanded' : ''}`}>▶</span>
+              </button>
+              {webdavHelpExpanded && (
+                <div className="github-help-content">
+                  <ol>
+                    <li>在启用WebDAV 服务，并确认 WebDAV 地址（常见格式：<code>https://你的域名/dav</code>）。</li>
+                    <li><strong>连接地址</strong>：填写实际用于上传的 WebDAV 接口地址（通常与上一步一致）。</li>
+                    <li><strong>用户名 / 密码</strong>：填写 你的 WebDAV 账号凭证，建议使用单独账号并限制权限。</li>
+                    <li><strong>上传路径前缀</strong>：用于指定文件落盘目录，例如 <code>dav/本地/图床/</code>；该字段<strong>不参与</strong>访问链接拼接。</li>
+                    <li><strong>访问域名（含路径前缀）</strong>：用于生成外链，请填写可访问文件的完整前缀（例如 <code>https://cdn.example.com/图床/</code>）。</li>
+                    <li>最终外链规则：
+                      <ul>
+                        <li>关闭年月日分层：<code>访问域名前缀 + 文件名</code></li>
+                        <li>开启年月日分层：<code>访问域名前缀 + YYYY/MM/DD/ + 文件名</code></li>
+                      </ul>
+                    </li>
+                    <li><strong>认证方式</strong>可选 <code>Auto</code> / <code>Basic</code> / <code>Digest</code> / <code>Ntlm</code>。如不确定，优先使用 <code>Auto</code>（会默认回落到 Basic）。</li>
+                    <li><strong>URL Queries</strong>（可选）：例如 <code>raw=1&amp;download=0</code>，会自动附加到上传请求和生成链接末尾。</li>
+                    <li>点击「测试连接」确认上传成功后再保存配置。</li>
+                  </ol>
+                  <details className="help-details">
+                    <summary>OpenList 配置方式（示例）</summary>
+                    <div className="help-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>配置项</th>
+                            <th>配置内容</th>
+                            <th>说明</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>名称</td>
+                            <td>WebDAV 存储区</td>
+                            <td></td>
+                          </tr>
+                          <tr>
+                            <td>储存策略</td>
+                            <td>WebDAV</td>
+                            <td></td>
+                          </tr>
+                          <tr>
+                            <td>访问域名</td>
+                            <td>https://tingwen.cn/d/***</td>
+                            <td>记得添加 /d/*** */ 后缀</td>
+                          </tr>
+                          <tr>
+                            <td>URL Queries</td>
+                            <td></td>
+                            <td>留空</td>
+                          </tr>
+                          <tr>
+                            <td>连接地址</td>
+                            <td>https://tingwen.cn</td>
+                            <td>为 OpenList 服务访问域名</td>
+                          </tr>
+                          <tr>
+                            <td>认证方式</td>
+                            <td>Basic</td>
+                            <td></td>
+                          </tr>
+                          <tr>
+                            <td>路径前缀</td>
+                            <td>dav/***</td>
+                            <td>***号是与 OpenList 存储配置保持一致</td>
+                          </tr>
+                          <tr>
+                            <td>用户名</td>
+                            <td><code>${'{'}username{'}'}</code></td>
+                            <td>OpenList WebDAV 用户名</td>
+                          </tr>
+                          <tr>
+                            <td>密码</td>
+                            <td><code>${'{'}password{'}'}</code></td>
+                            <td>OpenList WebDAV 密码</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                  <p className="help-note">💡 若 WebDAV 仅内网可访问，请通过反向代理 / 内网穿透提供稳定的外网访问地址。</p>
+                  <p className="help-warning">⚠️ 请确保「连接地址」可写、「访问域名」可读；两者可以不同，混用会导致上传成功但外链无法访问。</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MiniO 配置帮助 */}
+          {type === 'MinIO' && (
+            <div className="github-help-section">
+              <button
+                className={`github-help-toggle ${MinIOHelpExpanded ? 'open' : ''}`}
+                onClick={() => setMinIOHelpExpanded(prev => !prev)}
+                type="button"
+              >
+                <span>如何配置 MinIO 图床？</span>
+                <span className={`help-arrow ${MinIOHelpExpanded ? 'expanded' : ''}`}>▶</span>
+              </button>
+              {MinIOHelpExpanded && (
+                <div className="github-help-content">
+                  <ol>
+                    <li>确认 MinIO 服务地址（如 <code>http://localhost:9000</code>）和 Bucket 名称。</li>
+                    <li><strong>Endpoint</strong> 只填写主机名或 IP（例如 <code>192.168.2.166</code>），不要带协议。</li>
+                    <li><strong>端口</strong> 填 MinIO API 端口（常见 <code>9000</code>）。</li>
+                    <li><strong>使用 HTTPS</strong>：如果 API 是 <code>https</code> 则勾选，否则不勾选。</li>
+                    <li>填写 <strong>Access Key</strong>、<strong>Secret Key</strong> 和 <strong>Bucket</strong>。</li>
+                    <li><strong>存储桶访问策略</strong>：建议设置为<strong>公共读</strong>或通过<strong>预签名 URL</strong>访问，确保外链可正常打开。</li>
+                    <li><strong>上传目录</strong> 可选，默认 <code>images/</code>；可按需开启按年月日分目录。</li>
+                    <li><strong>访问域名（可选）</strong>：如有 CDN/反代域名可填写，不填则使用 MinIO 默认访问路径。</li>
+                    <li>点击「测试连接」验证配置是否正确，再保存。</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 自定义 OSS 配置帮助 */}
+          {type === 'customoss' && (
+            <div className="github-help-section">
+              <button
+                className={`github-help-toggle ${customOssHelpExpanded ? 'open' : ''}`}
+                onClick={() => setCustomOssHelpExpanded(prev => !prev)}
+                type="button"
+              >
+                <span>如何配置自定义 OSS 图床？</span>
+                <span className={`help-arrow ${customOssHelpExpanded ? 'expanded' : ''}`}>▶</span>
+              </button>
+              {customOssHelpExpanded && (
+                <div className="github-help-content">
+                  <ol>
+                    <li>填写<strong>上传 URL</strong>（你的 OSS 网关或 S3 兼容接口）。</li>
+                    <li>如有删除/列表接口，请填写对应 URL。</li>
+                    <li>如需要鉴权，填写 AccessKey/SecretKey/Bucket/Region（可选）。</li>
+                    <li><strong>上传字段名</strong>默认 <code>file</code>，如接口字段不同请修改。</li>
+                    <li><strong>响应 URL 路径</strong>默认 <code>url</code>，按接口返回调整。</li>
+                    <li>如需自定义 Header，可填写 JSON 格式字符串。</li>
+                    <li>点击「测试连接」验证配置是否正确，再保存。</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="dialog-footer">
           <div className="footer-left">
@@ -532,7 +789,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
             )}
           </div>
           <div className="footer-right">
-            <button className="cancel-btn" onClick={onClose}>
+            <button className="cancel-btn" onClick={requestClose}>
               取消
             </button>
             <button

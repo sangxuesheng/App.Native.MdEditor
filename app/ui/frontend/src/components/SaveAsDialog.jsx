@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import FileBrowser from './FileBrowser';
 import './SaveAsDialog.css';
@@ -10,6 +10,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
   const [error, setError] = useState('');
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [targetPath, setTargetPath] = useState('');
+  const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
     // 设置文件名：保留用户输入/当前文件的后缀
@@ -113,13 +114,21 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
     }
   };
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+    window.setTimeout(() => {
+      requestClose();
+    }, 180);
+  }, [isClosing, onClose]);
+
   const performSaveAs = async (path) => {
     setLoading(true);
     setError('');
 
     try {
       onConfirm(path);
-      onClose();
+      requestClose();
     } catch (err) {
       setError('保存失败，请重试');
       console.error('Save as error:', err);
@@ -140,11 +149,11 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
   };
 
   const handleOverlayClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleCloseClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleCancelClick = () => {
@@ -152,7 +161,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
       cancelOverwriteSave();
       return;
     }
-    onClose();
+    requestClose();
   };
 
   const handleConfirmClick = () => {
@@ -172,7 +181,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
   };
 
   return (
-    <div className={`dialog-overlay compact-panel-overlay save-as-dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
+    <div className={`dialog-overlay compact-panel-overlay save-as-dialog-overlay theme-${theme} ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div
         className={`dialog-container compact-panel-dialog save-as-dialog ${showOverwriteConfirm ? 'overwrite-mode' : ''}`}
         onClick={(e) => e.stopPropagation()}

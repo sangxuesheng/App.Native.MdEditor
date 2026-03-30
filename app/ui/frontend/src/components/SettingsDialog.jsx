@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AnimatedSelect from './AnimatedSelect';
 import { getSettingsFontOptions } from '../constants/fontOptions';
+import { DEFAULT_LOGO_CONFIG, normalizeLogoConfig } from './DynamicAppLogo';
 import './Dialog.css';
 import './SettingsDialog.css';
 
@@ -15,6 +16,7 @@ const SettingsDialog = ({
   wordWrap = true,
   syncPreviewWithEditor = true,
   enableSlashMenuReorder = false,
+  appLogoConfig = DEFAULT_LOGO_CONFIG,
   showNewWindowButton = true,
   showExportConfigButton = true,
   showPublishButton = true,
@@ -37,12 +39,14 @@ const SettingsDialog = ({
     // 编辑与预览联动（编辑滚动时预览是否跟随）
     syncPreviewWithEditor,
     enableSlashMenuReorder,
+    appLogoConfig: normalizeLogoConfig(appLogoConfig),
     showNewWindowButton,
     showExportConfigButton,
     showPublishButton,
   });
 
   const [hasChanges, setHasChanges] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
     // 弹窗中的设置项始终以父组件当前状态为准，避免显示默认值
@@ -56,6 +60,7 @@ const SettingsDialog = ({
       wordWrap,
       syncPreviewWithEditor,
       enableSlashMenuReorder,
+      appLogoConfig: normalizeLogoConfig(appLogoConfig),
       showNewWindowButton,
       showExportConfigButton,
       showPublishButton,
@@ -70,6 +75,7 @@ const SettingsDialog = ({
     wordWrap,
     syncPreviewWithEditor,
     enableSlashMenuReorder,
+    appLogoConfig,
     showNewWindowButton,
     showExportConfigButton,
     showPublishButton
@@ -77,6 +83,44 @@ const SettingsDialog = ({
 
   const handleChange = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const handleLogoModeChange = (mode) => {
+    const normalizedMode = mode === 'custom' || mode === 'about-svg' ? mode : 'markdown';
+
+    setSettings(prev => ({
+      ...prev,
+      appLogoConfig: {
+        ...prev.appLogoConfig,
+        mode: normalizedMode,
+        customLogoUrl: normalizedMode === 'custom' ? prev.appLogoConfig?.customLogoUrl || '' : prev.appLogoConfig?.customLogoUrl || '',
+      },
+    }));
+    setHasChanges(true);
+  };
+
+  const handleCustomLogoUrlChange = (value) => {
+    setSettings(prev => ({
+      ...prev,
+      appLogoConfig: {
+        ...prev.appLogoConfig,
+        mode: 'custom',
+        customLogoUrl: value,
+      },
+    }));
+    setHasChanges(true);
+  };
+
+  const clearCustomLogo = () => {
+    setSettings(prev => ({
+      ...prev,
+      appLogoConfig: {
+        ...prev.appLogoConfig,
+        mode: 'custom',
+        customLogoUrl: '',
+      },
+    }));
     setHasChanges(true);
   };
 
@@ -92,7 +136,7 @@ const SettingsDialog = ({
     }
 
     setHasChanges(false);
-    onClose();
+    requestClose();
   };
 
   const doRestoreDefaults = () => {
@@ -106,6 +150,7 @@ const SettingsDialog = ({
       fontFamily: 'JetBrains Mono',
       syncPreviewWithEditor: true,
       enableSlashMenuReorder: false,
+      appLogoConfig: { ...DEFAULT_LOGO_CONFIG },
       showNewWindowButton: true,
       showExportConfigButton: true,
       showPublishButton: true,
@@ -114,16 +159,24 @@ const SettingsDialog = ({
     setHasChanges(true);
   };
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+    window.setTimeout(() => {
+      onClose();
+    }, 180);
+  }, [isClosing, onClose]);
+
   const handleOverlayClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleCloseClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleCancelClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleConfirmClick = () => {
@@ -252,7 +305,7 @@ const SettingsDialog = ({
   }
 
   return (
-    <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
+    <div className={`dialog-overlay compact-panel-overlay theme-${theme} ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className={`dialog-container compact-panel-dialog settings-dialog`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>设置</h2>
@@ -445,6 +498,56 @@ const SettingsDialog = ({
                 </label>
               </div>
 
+            </div>
+
+            <div className="settings-section">
+              <h3 className="section-title">Logo</h3>
+
+              <div className="setting-item">
+                <div className="setting-label">
+                  <label>主页 Logo</label>
+                </div>
+                <AnimatedSelect
+                  value={settings.appLogoConfig?.mode || 'about-svg'}
+                  onChange={handleLogoModeChange}
+                  options={[
+                    { value: 'about-svg', label: '动态 SVG Logo' },
+                    { value: 'markdown', label: 'Markdown Logo' },
+                    { value: 'custom', label: '自定义 URL' },
+                  ]}
+                  wrapperClassName="setting-select-control"
+                />
+              </div>
+
+              {settings.appLogoConfig?.mode === 'custom' && (
+                <>
+                  <div className="setting-item">
+                    <div className="setting-label">
+                      <label>自定义 Logo URL</label>
+                      <p className="setting-description">支持 http(s)、/images/...、data:image/...；建议使用透明背景 PNG/SVG</p>
+                    </div>
+                    <input
+                      type="text"
+                      value={settings.appLogoConfig?.customLogoUrl || ''}
+                      onChange={(e) => handleCustomLogoUrlChange(e.target.value)}
+                      placeholder="例如：https://example.com/logo.svg"
+                      className="form-input"
+                    />
+                  </div>
+
+                  {(settings.appLogoConfig?.customLogoUrl || '').trim() && (
+                    <div className="setting-item">
+                      <div className="setting-label">
+                        <label>清空自定义 Logo</label>
+                        <p className="setting-description">恢复到默认 Logo 显示</p>
+                      </div>
+                      <button type="button" className="btn-secondary" onClick={clearCustomLogo}>
+                        清空
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* 工具栏按钮 */}

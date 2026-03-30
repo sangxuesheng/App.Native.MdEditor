@@ -1,20 +1,30 @@
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import './Dialog.css'
 import './ShortcutsDialog.css'
 
 function ShortcutsDialog({ onClose, theme }) {
+  const [isClosing, setIsClosing] = useState(false)
+
   const getThemeClass = () => {
     if (theme === 'light') return 'theme-light'
     if (theme === 'md3') return 'theme-md3'
     return 'theme-dark'
   }
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onClose()
+    }, 180)
+  }, [isClosing, onClose])
+
   const handleOverlayClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleCloseClick = () => {
-    onClose()
+    requestClose()
   }
 
   const shortcuts = [
@@ -68,7 +78,7 @@ function ShortcutsDialog({ onClose, theme }) {
   ]
 
   return (
-    <div className="dialog-overlay compact-panel-overlay" onClick={handleOverlayClick}>
+    <div className={`dialog-overlay compact-panel-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className={`dialog-container compact-panel-dialog shortcuts-dialog ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>快捷键列表</h2>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Scroll, Trash2, ArrowLeft } from 'lucide-react'
 import { 
   getVersionContent,
@@ -24,6 +24,7 @@ function FileHistoryDialog({
   const { showToast, requestConfirm } = useAppUi()
   const [selectedVersion, setSelectedVersion] = useState(null)
   const [showDiff, setShowDiff] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
   const themeClass = theme === 'light' ? 'theme-light' : theme === 'md3' ? 'theme-md3' : 'theme-dark'
 
   const doSelectVersion = async (version) => {
@@ -53,7 +54,7 @@ function FileHistoryDialog({
 
     if (confirmed) {
       onRestore(selectedVersion.content)
-      onClose()
+      requestClose()
     }
   }
 
@@ -85,12 +86,20 @@ function FileHistoryDialog({
     doToggleDiffView()
   }
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onClose()
+    }, 180)
+  }, [isClosing, onClose])
+
   const handleOverlayClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleCloseClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleConfirmClick = () => {
@@ -114,7 +123,7 @@ function FileHistoryDialog({
   }
 
   return (
-    <div className={`dialog-overlay compact-panel-overlay ${themeClass}`} onClick={handleOverlayClick}>
+    <div className={`dialog-overlay compact-panel-overlay ${themeClass} ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className={`dialog-container compact-panel-dialog history-dialog ${themeClass}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>文件历史记录</h2>
@@ -136,29 +145,31 @@ function FileHistoryDialog({
                 <div className="history-list-header">
                   <span>版本历史 ({history.length}/{10})</span>
                 </div>
-                {history.map((version, index) => (
-                  <div
-                    key={version.versionNumber}
-                    className={`history-item ${selectedVersion?.versionNumber === version.versionNumber ? 'selected' : ''}`}
-                    onClick={() => { void handleVersionClick(version) }}
-                  >
-                    <div className="history-item-header">
-                      <span className="history-index">#{index + 1}</span>
-                      <span className="history-time">{formatHistoryTime(version.timestamp)}</span>
-                    </div>
-                    <div className="history-item-info">
-                      <span className="history-size">{formatFileSize(version.size)}</span>
-                      <span className="history-lines">{version.lines} 行</span>
-                    </div>
-                    <button
-                      className="history-delete-btn"
-                      onClick={(e) => handleDeleteClick(e, version)}
-                      title="删除此版本"
+                <div className="history-list-content">
+                  {history.map((version, index) => (
+                    <div
+                      key={version.versionNumber}
+                      className={`history-item ${selectedVersion?.versionNumber === version.versionNumber ? 'selected' : ''}`}
+                      onClick={() => { void handleVersionClick(version) }}
                     >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
+                      <div className="history-item-header">
+                        <span className="history-index">#{index + 1}</span>
+                        <span className="history-time">{formatHistoryTime(version.timestamp)}</span>
+                      </div>
+                      <div className="history-item-info">
+                        <span className="history-size">{formatFileSize(version.size)}</span>
+                        <span className="history-lines">{version.lines} 行</span>
+                      </div>
+                      <button
+                        className="history-delete-btn"
+                        onClick={(e) => handleDeleteClick(e, version)}
+                        title="删除此版本"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="history-preview">

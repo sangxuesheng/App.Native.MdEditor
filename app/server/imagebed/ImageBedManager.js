@@ -9,6 +9,9 @@ const GitHubAdapter = require('./GitHubAdapter');
 const QiniuAdapter = require('./QiniuAdapter');
 const AliyunOSSAdapter = require('./AliyunOSSAdapter');
 const TencentCOSAdapter = require('./TencentCOSAdapter');
+const WebDAVAdapter = require('./WebDAVAdapter');
+const MinIOAdapter = require('./MinIOAdapter');
+const CustomOSSAdapter = require('./CustomOSSAdapter');
 const CustomAdapter = require('./CustomAdapter');
 const ImageBedCache = require('./ImageBedCache');
 
@@ -187,6 +190,15 @@ class ImageBedManager {
       case 'tencent':
         adapter = new TencentCOSAdapter({ name: config.name, ...configData });
         break;
+      case 'webdav':
+        adapter = new WebDAVAdapter({ name: config.name, ...configData });
+        break;
+      case 'MinIO':
+        adapter = new MinIOAdapter({ name: config.name, ...configData });
+        break;
+      case 'customoss':
+        adapter = new CustomOSSAdapter({ name: config.name, ...configData });
+        break;
       case 'custom':
         adapter = new CustomAdapter({ name: config.name, ...configData });
         break;
@@ -210,6 +222,11 @@ class ImageBedManager {
     delete sanitized.accessKeySecret;
     delete sanitized.secretId;
     delete sanitized.secretKey;
+    delete sanitized.password;
+    delete sanitized.accessKey;
+    delete sanitized.token;
+    delete sanitized.headers;
+    delete sanitized.headersJson;
     delete sanitized.refreshToken;
     return sanitized;
   }

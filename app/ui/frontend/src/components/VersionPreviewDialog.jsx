@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Clock, RotateCcw, X, FileText } from 'lucide-react'
 import { getVersionContent } from '../utils/fileHistoryManagerV2'
 import './VersionPreviewDialog.css'
@@ -10,6 +10,7 @@ function VersionPreviewDialog({ version, filePath, theme = 'light', onClose, onR
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isClosing, setIsClosing] = useState(false)
 
   useEffect(() => {
     loadVersionContent()
@@ -30,11 +31,19 @@ function VersionPreviewDialog({ version, filePath, theme = 'light', onClose, onR
     }
   }
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onClose()
+    }, 180)
+  }, [isClosing, onClose])
+
   const doRestoreVersion = () => {
     if (onRestore) {
       onRestore(version, content)
     }
-    onClose()
+    requestClose()
   }
 
   const formatTime = (timestamp) => {
@@ -50,11 +59,11 @@ function VersionPreviewDialog({ version, filePath, theme = 'light', onClose, onR
   }
 
   const handleOverlayClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleCloseClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleConfirmClick = () => {
@@ -62,7 +71,7 @@ function VersionPreviewDialog({ version, filePath, theme = 'light', onClose, onR
   }
 
   return (
-    <div className={`dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
+    <div className={`dialog-overlay theme-${theme} ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className="dialog-content version-preview-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <div className="version-title">

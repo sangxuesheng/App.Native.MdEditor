@@ -175,6 +175,26 @@ html, body {
   flex-shrink: 0;
 }
 
+.dynamic-app-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dynamic-app-logo--toolbar {
+  width: 46px;
+  height: 28px;
+}
+
+.dynamic-app-logo--toolbar .dynamic-app-logo-img,
+.dynamic-app-logo--toolbar svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 .title {
   font-size: 15px;
   font-weight: 600;
@@ -1223,7 +1243,9 @@ html, body {
 /* 表格基础布局样式（全局，不分主题） */
 .markdown-body table {
   border-collapse: collapse;
-  width: 100%;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
   display: block;
   max-width: 100%;
   overflow-x: auto;
@@ -1383,6 +1405,7 @@ img[style*="width"] {
   max-width: 100% !important;
   width: 100% !important;
   height: auto !important;
+  background: transparent !important;
 }
 
 /* data-theme-bg 未设置时，mermaid 跟随编辑器主题 */
@@ -2354,6 +2377,12 @@ img[style*="width"] {
   border-color: #58a6ff;
 }
 
+/* 预览区粗体文本固定颜色 */
+.app .preview-pane .markdown-body strong,
+.app .preview-pane .markdown-body b {
+  color: #55C9E9 !important;
+}
+
 /* 暗黑主题高亮文本 */
 .app.theme-dark mark {
   background-color: #ffd700;
@@ -2581,6 +2610,15 @@ img[style*="width"] {
 /* 确保查找窗口的关闭按钮始终可见 */
 .monaco-editor .find-widget {
   z-index: 1000 !important;
+}
+
+/* 修复查找/替换框在窄宽度下被裁剪 */
+.editor-pane .monaco-editor .find-widget {
+  max-width: none !important;
+  width: auto !important;
+  left: 8px !important;
+  right: 8px !important;
+  box-sizing: border-box !important;
 }
 
 /* 移除 Escape 键提示 */
@@ -2839,25 +2877,76 @@ mark {
   gap: 8px;
 }
 
-/* 隐藏 Monaco Editor 的 "Close (Escape)" 提示 */
-.monaco-hover .hover-contents:has-text("Close (Escape)"),
-.monaco-hover .hover-row:has(.hover-contents:contains("Close")),
-.monaco-hover .hover-contents {
+/* Monaco Hover：仅隐藏底部状态栏（含 Close/Escape 提示），不要隐藏真实内容（如颜色选择器） */
+.monaco-hover .hover-row.status-bar {
   display: none !important;
 }
 
-/* 只显示实际的 hover 内容，隐藏关闭提示 */
-.monaco-hover .hover-row.markdown-hover {
-  display: block !important;
-}
-
-.monaco-hover .hover-row.markdown-hover .hover-contents {
-  display: block !important;
-}
-
-/* 隐藏包含 "Escape" 的 hover 行 */
-.monaco-hover .hover-row:last-child {
+/* 全局禁用 Monaco 的 workbench hover（包括 Close/Escape 浮层提示） */
+.editor-pane .monaco-editor .context-view .workbench-hover-container {
   display: none !important;
+}
+
+/* 查找/替换功能保留：仅隐藏提示类内容 */
+.editor-pane .monaco-editor .find-widget .button.codicon-find-close::after,
+.editor-pane .monaco-editor .find-widget .monaco-keybinding,
+.editor-pane .monaco-editor .find-widget .monaco-keybinding-key,
+.editor-pane .monaco-editor .find-widget .keybinding {
+  display: none !important;
+}
+
+/* 注意：不要改写 Monaco hover 的原始布局(display/flex)，否则颜色选择器会只剩轮廓 */
+
+/* 修复颜色选择器透明问题：仅恢复颜色区容器背景与可见度 */
+.monaco-editor .monaco-hover .monaco-hover-content .colorpicker-widget,
+.monaco-editor .monaco-hover .monaco-hover-content .colorpicker-body {
+  background-color: var(--editor-bg, #ffffff) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.app.theme-dark .monaco-editor .monaco-hover .monaco-hover-content .colorpicker-widget,
+.app.theme-dark .monaco-editor .monaco-hover .monaco-hover-content .colorpicker-body {
+  background-color: #1e1e1e !important;
+}
+
+/* 颜色选择器核心绘制层必须不透明（Monaco 在这些层上绘制 hue/sat/alpha） */
+.monaco-editor .monaco-hover .colorpicker-widget canvas,
+.monaco-editor .monaco-hover .colorpicker-widget svg,
+.monaco-editor .monaco-hover .colorpicker-widget .saturation-wrap,
+.monaco-editor .monaco-hover .colorpicker-widget .strip,
+.monaco-editor .monaco-hover .colorpicker-widget .opacity-strip {
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+}
+
+/*
+ * 维护说明（请勿随意移除）：
+ * 1) 编辑区此前使用 transform/backface-visibility/will-change 做滚动优化；
+ * 2) 在 macOS/WebKit + Monaco Hover(Color Picker) 组合下，会触发合成层渲染异常，出现“颜色区透明、只剩边框”；
+ * 3) 因此仅在桌面端（fine pointer）关闭这组 3D 合成相关属性，移动端保留原优化策略。
+ */
+@media (hover: hover) and (pointer: fine) {
+  .editor-pane .monaco-editor,
+  .editor-pane .monaco-editor .overflow-guard {
+    transform: none !important;
+    -webkit-transform: none !important;
+    backface-visibility: visible !important;
+    -webkit-backface-visibility: visible !important;
+    will-change: auto !important;
+  }
+
+  .monaco-editor .overflowingContentWidget,
+  .monaco-editor .monaco-hover,
+  .monaco-editor .monaco-hover .monaco-hover-content,
+  .monaco-editor .monaco-hover .colorpicker-widget,
+  .monaco-editor .monaco-hover .colorpicker-body {
+    opacity: 1 !important;
+    visibility: visible !important;
+    filter: none !important;
+  }
 }
 
 /* 移动端另存为对话框居中显示 */

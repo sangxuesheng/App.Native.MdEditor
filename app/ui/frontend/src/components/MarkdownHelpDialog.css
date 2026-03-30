@@ -1,3 +1,7 @@
+.markdown-help-dialog .dialog-footer {
+  justify-content: flex-end;
+}
+
 .markdown-help-content {
   /* 让内容居中显示 */
   max-width: 500px;

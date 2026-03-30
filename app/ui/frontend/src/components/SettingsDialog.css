@@ -42,11 +42,12 @@
   align-items: flex-start;
   gap: 20px;
   padding: 10px 0;
+  flex-wrap: wrap;
 }
 
 .setting-label {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 220px;
+  min-width: 180px;
 }
 
 .setting-select-control {
@@ -149,8 +150,10 @@
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 13px;
+  line-height: 1.4;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 .form-input:focus {

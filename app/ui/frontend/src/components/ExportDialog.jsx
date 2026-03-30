@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Globe, FileText, File, FileCode, Image, FileType } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import './Dialog.css';
@@ -13,6 +13,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [fileName, setFileName] = useState('');
+  const [isClosing, setIsClosing] = useState(false);
 
   // 初始化文件名
   React.useEffect(() => {
@@ -810,16 +811,24 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
     }
   };
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+    window.setTimeout(() => {
+      onClose();
+    }, 180);
+  }, [isClosing, onClose]);
+
   const handleOverlayClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleCloseClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleCancelClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleConfirmClick = () => {
@@ -827,7 +836,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
   };
 
   return (
-    <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
+    <div className={`dialog-overlay compact-panel-overlay theme-${theme} ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className="dialog-container compact-panel-dialog export-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>导出文档</h2>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import './Dialog.css'
 import './RenameDialog.css'
 
@@ -13,6 +13,7 @@ function RenameDialog({
 }) {
   const [newName, setNewName] = useState(node?.name || '')
   const [error, setError] = useState('')
+  const [isClosing, setIsClosing] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -28,6 +29,14 @@ function RenameDialog({
     }
   }, [node])
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onCancel()
+    }, 180)
+  }, [isClosing, onCancel])
+
   const doRenameNode = () => {
     // 验证
     if (!newName.trim()) {
@@ -36,7 +45,7 @@ function RenameDialog({
     }
 
     if (newName === node.name) {
-      onCancel()
+      requestClose()
       return
     }
 
@@ -60,26 +69,26 @@ function RenameDialog({
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
-      onCancel()
+      requestClose()
     }
   }
 
   const handleOverlayClick = () => {
-    onCancel()
+    requestClose()
   }
 
   const handleCloseClick = () => {
-    onCancel()
+    requestClose()
   }
 
   const handleCancelClick = () => {
-    onCancel()
+    requestClose()
   }
 
   if (!node) return null
 
   return (
-    <div className={`dialog-overlay compact-panel-overlay theme-${theme}`} onClick={handleOverlayClick}>
+    <div className={`dialog-overlay compact-panel-overlay theme-${theme} ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className="dialog-container compact-panel-dialog rename-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>重命名</h2>

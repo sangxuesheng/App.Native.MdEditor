@@ -1,4 +1,12 @@
 /* 图片管理对话框样式 */
+:root {
+  --dialog-overlay-duration: 220ms;
+  --dialog-panel-duration: 260ms;
+  --dialog-ease: cubic-bezier(0.22, 0.8, 0.22, 1);
+  --dialog-enter-y: 14px;
+  --dialog-enter-scale: 0.985;
+}
+
 .image-manager-overlay {
   position: fixed;
   top: 0;
@@ -11,6 +19,7 @@
   justify-content: center;
   z-index: 10000;
   backdrop-filter: blur(4px);
+  animation: dialogOverlayEnter var(--dialog-overlay-duration) var(--dialog-ease);
 }
 
 .image-manager-dialog {
@@ -24,7 +33,8 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.3s ease-out;
+  transform-origin: center center;
+  animation: dialogPanelEnter var(--dialog-panel-duration) var(--dialog-ease);
 }
 
 /* 响应式调整 */
@@ -61,15 +71,45 @@
   }
 }
 
-@keyframes slideUp {
+@keyframes dialogOverlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialogOverlayExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes dialogPanelEnter {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
+}
+
+@keyframes dialogPanelExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
+  }
+}
+
+.image-manager-overlay.closing {
+  pointer-events: none;
+  animation: dialogOverlayExit 180ms ease-in forwards;
+}
+
+.image-manager-overlay.closing .image-manager-dialog {
+  animation: dialogPanelExit 180ms ease-in forwards;
 }
 
 /* 暗黑主题 */

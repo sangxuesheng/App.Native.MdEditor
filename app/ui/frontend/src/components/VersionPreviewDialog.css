@@ -237,21 +237,7 @@
 
 .version-preview-dialog .btn-secondary,
 .version-preview-dialog .btn-primary {
-  height: 38px;
-  min-width: 90px;
-  padding: 0 20px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 6px;
-  box-sizing: border-box;
-  white-space: nowrap;
-  border: none;
 }
 
 .version-preview-dialog .btn-secondary {

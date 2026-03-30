@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import './Dialog.css'
 import './NewFolderDialog.css'
 
 /**
@@ -11,6 +12,7 @@ function NewFolderDialog({
 }) {
   const [folderName, setFolderName] = useState('')
   const [error, setError] = useState('')
+  const [isClosing, setIsClosing] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -18,6 +20,14 @@ function NewFolderDialog({
       inputRef.current.focus()
     }
   }, [])
+
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onCancel()
+    }, 180)
+  }, [isClosing, onCancel])
 
   const doCreateFolder = () => {
     // 验证
@@ -52,24 +62,24 @@ function NewFolderDialog({
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
-      onCancel()
+      requestClose()
     }
   }
 
   const handleOverlayClick = () => {
-    onCancel()
+    requestClose()
   }
 
   const handleCloseClick = () => {
-    onCancel()
+    requestClose()
   }
 
   const handleCancelClick = () => {
-    onCancel()
+    requestClose()
   }
 
   return (
-    <div className="dialog-overlay new-folder-dialog-overlay" onClick={handleOverlayClick}>
+    <div className={`dialog-overlay new-folder-dialog-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className="dialog-content new-folder-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>新建文件夹</h2>

@@ -14,12 +14,20 @@ import {
   Save,
   FolderOpen,
   FileText as FileTextIcon,
-  Trash2
+  Trash2,
+  Sparkles,
+  Loader2
 } from 'lucide-react'
 import ElasticSlider from './ElasticSlider'
 import CustomDialog from './CustomDialog'
 import AnimatedSelect from './AnimatedSelect'
-import { getExportFontOptions } from '../constants/fontOptions'
+import { getExportFontOptions, getExportFontOptionsWithGroups } from '../constants/fontOptions'
+import { AIService } from '../utils/ai/aiService'
+import { loadSetting } from '../utils/settingsApi'
+import { AI_SERVICES, DEFAULT_CONFIG } from '../constants/aiConfig'
+import { buildElementStylePrompt } from '../constants/elementStyleAIPrompts'
+import { sanitizeCssDeclarations } from '../utils/elementStyleAiHelpers'
+import { normalizeThemeCssOutput } from '../utils/ai/themeCssNormalizer'
 import './ExportConfigPanel.css'
 
 /**
@@ -156,7 +164,7 @@ const ELEMENT_LABELS = {
   image: '图片', bg: '背景',
 }
 
-const ElementStyleItem = ({ elementKey, value = {}, colors, themeColor, onChange }) => {
+const ElementStyleItem = ({ elementKey, value = {}, colors, themeColor, onChange, onGenerateAI, aiGenerating, aiStyleDirection, aiRequirementDirection, onStyleDirectionChange, onRequirementDirectionChange, strictUserIntent, onStrictUserIntentChange }) => {
   const [open, setOpen] = useState(false)
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, width: 0 })
   const [draftCSS, setDraftCSS] = useState(value.customCSS || '')
@@ -296,7 +304,62 @@ const ElementStyleItem = ({ elementKey, value = {}, colors, themeColor, onChange
           rows={3}
           spellCheck={false}
         />
+        <div className="element-style-section">
+          <div className="element-style-section-label">AI 风格方向</div>
+          <textarea
+            className="element-style-textarea"
+            value={aiStyleDirection}
+            onChange={(e) => onStyleDirectionChange?.(e.target.value)}
+            placeholder="例如：简约科技风、商务稳重、公众号友好"
+            rows={2}
+            spellCheck={false}
+          />
+        </div>
+        <div className="element-style-section">
+          <div className="element-style-section-label">AI 需求方向</div>
+          <textarea
+            className="element-style-textarea"
+            value={aiRequirementDirection}
+            onChange={(e) => onRequirementDirectionChange?.(e.target.value)}
+            placeholder="例如：增强层级对比、减弱阴影、提高移动端可读性"
+            rows={2}
+            spellCheck={false}
+          />
+        </div>
+        <div className="element-style-section">
+          <label className="toggle-label" style={{ justifyContent: 'space-between' }}>
+            <span>严格遵循用户需求</span>
+            <input
+              type="checkbox"
+              className="toggle-checkbox"
+              checked={!!strictUserIntent}
+              onChange={(e) => onStrictUserIntentChange?.(e.target.checked)}
+            />
+            <span className="toggle-slider-new"></span>
+          </label>
+        </div>
         <div className="element-style-actions">
+          <button
+            className="element-style-btn"
+            onClick={async () => {
+              if (!onGenerateAI || aiGenerating) return
+              const generated = await onGenerateAI({
+                elementKey,
+                value,
+                themeColor,
+                currentDraft: draftCSS,
+                styleDirection: aiStyleDirection,
+                requirementDirection: aiRequirementDirection,
+                strictUserIntent,
+              })
+              if (generated) setDraftCSS(generated)
+            }}
+            disabled={!!aiGenerating}
+            title="AI 生成样式"
+          >
+            {aiGenerating ? <Loader2 size={14} className="spin" /> : <Sparkles size={14} />}
+            {aiGenerating ? '生成中' : 'AI'}
+          </button>
           <button className="element-style-btn clear" onClick={() => { setDraftCSS(''); update({ customCSS: '' }) }}>清除</button>
           <button className="element-style-btn apply" onClick={() => { update({ customCSS: draftCSS }); setOpen(false) }}>应用</button>
         </div>
@@ -791,9 +854,14 @@ const ExportConfigPanel = ({
   fontDownloadState = {},
   remoteFontFamilies = [],
   onRequestFontDownload,
+  onOpenAIWriteTheme,
 }) => {
   // 获取保存的自定义主题（从后端数据库加载）
   const [customThemes, setCustomThemes] = useState({})
+  const [aiGeneratingKey, setAiGeneratingKey] = useState('')
+  const [aiStyleDirection, setAiStyleDirection] = useState('')
+  const [aiRequirementDirection, setAiRequirementDirection] = useState('')
+  const [strictUserIntent, setStrictUserIntent] = useState(true)
 
   useEffect(() => {
     const loadThemes = async () => {
@@ -847,6 +915,7 @@ const ExportConfigPanel = ({
     { value: 'simple', label: '简洁' },
     { value: 'gradient', label: '渐变背景' },
     { value: 'morandi', label: '莫兰迪色系' },
+    { value: 'retro-paper', label: '复古纸张' },
     ...Object.keys(customThemes).map(name => ({
       value: `custom:${name}`,
       label: (
@@ -859,28 +928,26 @@ const ExportConfigPanel = ({
     { value: 'custom', label: '+ 新建自定义' }
   ]
 
-  // 字体选项（与设置页同源）
-  const fontOptions = getExportFontOptions()
+  // 字体选项（与设置页同源，支持分组）
+  const fontOptions = getExportFontOptionsWithGroups() // 使用新的函数
 
   const withCloudTag = (fontName) => {
     return fontName
   }
 
+  // 统一字体预览函数，与设置对话框保持一致
   const getFontPreviewFamily = (fontValue) => {
     switch (fontValue) {
-      case 'sans-serif':
-        return `'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`
-      case 'serif':
-        return `'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif`
       case '楷体':
       case 'KaiTi':
-      case '霞鹜文楷':
         return `'LXGW WenKai', 'KaiTi', 'STKaiti', 'Kaiti SC', serif`
       case '思源黑体':
         return `'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`
       case '思源宋体':
       case 'Noto Serif SC':
         return `'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif`
+      case '霞鹜文楷':
+        return `'LXGW WenKai', 'KaiTi', 'STKaiti', 'Kaiti SC', serif`
       case '阿里巴巴普惠体':
         return `'Alibaba PuHuiTi 3.0 55 Regular', 'Alibaba PuHuiTi', 'PingFang SC', 'Microsoft YaHei', sans-serif`
       case 'HarmonyOS Sans SC':
@@ -894,14 +961,24 @@ const ExportConfigPanel = ({
       case 'Cascadia Code':
       case 'Monaco':
       case 'Consolas':
-      case 'monospace':
         return `'${fontValue}', 'Fira Code', 'JetBrains Mono', 'Monaco', 'Consolas', monospace`
+      case 'monospace':
+        return 'monospace'
+      case 'sans-serif':
+        return `'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`
+      case 'serif':
+        return `'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif`
       default:
         return `'${fontValue}', sans-serif`
     }
   }
 
   const renderFontOption = (option) => {
+    // 跳过分组标题的下载按钮渲染
+    if (option.disabled) {
+      return <span>{option.label}</span>
+    }
+    
     const isRemote = remoteFontFamilies.includes(option.value)
     const state = fontDownloadState?.[option.value] || null
     const progress = state?.progress || 0
@@ -1060,6 +1137,70 @@ const ExportConfigPanel = ({
       [key]: value
     })
   }
+
+  const getEffectiveAiConfig = async () => {
+    const saved = await loadSetting('aiConfig', null)
+    const merged = {
+      ...DEFAULT_CONFIG,
+      ...(saved && typeof saved === 'object' ? saved : {}),
+    }
+
+    const service = AI_SERVICES.find((s) => s.value === merged.type)
+    const apiKey = merged.apiKeys?.[merged.type] ?? merged.apiKey ?? ''
+    const endpoint = merged.endpoints?.[merged.type] ?? service?.endpoint ?? merged.endpoint ?? ''
+
+    return {
+      ...merged,
+      apiKey,
+      endpoint,
+      model: merged.model || DEFAULT_CONFIG.model,
+      temperature: merged.temperature ?? 0.6,
+      maxTokens: merged.maxTokens ?? 1024,
+    }
+  }
+
+  const generateElementStyleWithAI = async ({ elementKey, value, themeColor, currentDraft, styleDirection, requirementDirection }) => {
+    setAiGeneratingKey(elementKey)
+    try {
+      const aiConfig = await getEffectiveAiConfig()
+      const aiService = new AIService(aiConfig)
+      const prompt = buildElementStylePrompt({
+        elementKey,
+        themeColor,
+        preset: value?.preset,
+        currentColor: value?.color,
+        currentCustomCSS: currentDraft || value?.customCSS,
+        styleDirection,
+        requirementDirection,
+        strictUserIntent,
+      })
+
+      let text = ''
+      await new Promise((resolve, reject) => {
+        aiService.sendMessage(
+          [{ role: 'user', content: prompt }],
+          (chunk) => { text += chunk || '' },
+          () => resolve(),
+          (err) => reject(err)
+        )
+      })
+
+      const cleaned = sanitizeCssDeclarations(text, elementKey)
+      if (!cleaned) throw new Error('AI 未返回可用 CSS')
+      return cleaned
+    } catch (error) {
+      console.error('[ExportConfigPanel] AI 生成元素样式失败:', error)
+      showDialog({
+        type: 'alert',
+        title: 'AI 生成失败',
+        message: error?.message || '请稍后重试',
+        onConfirm: closeDialog,
+      })
+      return ''
+    } finally {
+      setAiGeneratingKey('')
+    }
+  }
   
   // 处理主题选择
   const handleThemeChange = (value) => {
@@ -1099,6 +1240,23 @@ const ExportConfigPanel = ({
       lines.push('')
     }
 
+    // 主题色导出（即使未设置元素细则，也保留主题色基线）
+    if (config.themeColor) {
+      lines.push('/* 主题色基线 */')
+      lines.push(`link {`)
+      lines.push(`  color: ${tc};`)
+      lines.push('}')
+      lines.push('')
+      lines.push('blockquote {')
+      lines.push(`  border-left: 4px solid ${tc};`)
+      lines.push('}')
+      lines.push('')
+      lines.push('hr {')
+      lines.push(`  border-top: 2px solid ${tc};`)
+      lines.push('}')
+      lines.push('')
+    }
+
     // 选择器映射表
     const selectorMap = {
       h1: 'h1', h2: 'h2', h3: 'h3', h4: 'h4', h5: 'h5', h6: 'h6',
@@ -1113,14 +1271,14 @@ const ExportConfigPanel = ({
       const el = es[key] || {}
       const props = []
 
+      // 预设
+      const preset = el.preset || 'default'
+
       // 颜色
       if (el.color) {
         if (key === 'bg') props.push(`  background-color: ${el.color};`)
         else if (preset !== 'theme-bg') props.push(`  color: ${el.color};`)
       }
-
-      // 预设
-      const preset = el.preset || 'default'
       if (preset === 'border-bottom') {
         props.push(`  border-bottom: 2px solid ${tc};`)
         props.push(`  padding-bottom: 0.3em;`)
@@ -1395,9 +1553,9 @@ const ExportConfigPanel = ({
                 <label className="config-label">自定义主题管理</label>
                 <textarea
                   className="config-textarea"
-                  placeholder="输入自定义 CSS 样式...&#10;&#10;示例：&#10;.markdown-body h1 {&#10;  color: #ff6b6b;&#10;  font-size: 2.5em;&#10;}"
+                  placeholder="输入自定义 CSS 样式...&#10;&#10;示例：&#10;.container h1 {&#10;  color: #ff6b6b;&#10;  font-size: 2.5em;&#10;}"
                   value={config.customCSS || ''}
-                  onChange={(e) => updateConfig('customCSS', e.target.value)}
+                  onChange={(e) => updateConfig('customCSS', normalizeThemeCssOutput(e.target.value))}
                   rows={10}
                   style={{ fontFamily: 'Monaco, Consolas, monospace', fontSize: '12px' }}
                 />
@@ -1866,6 +2024,14 @@ code_pre {
                 <button
                   className="btn-group-item"
                   style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={onOpenAIWriteTheme}
+                >
+                  <Sparkles size={16} />
+                  打开 AI 对话（帮我写主题）
+                </button>
+                <button
+                  className="btn-group-item"
+                  style={{ width: '100%', justifyContent: 'center' }}
                   onClick={exportToCustomCSS}
                 >
                   <Download size={16} />
@@ -1879,7 +2045,10 @@ code_pre {
           <AnimatedSelect
             label="字体"
             value={config.fontFamily || 'sans-serif'}
-            options={fontOptions.map((opt) => ({ ...opt, label: withCloudTag(opt.value) }))}
+            options={fontOptions.map((opt) => ({ 
+              ...opt, 
+              label: opt.disabled ? opt.label : withCloudTag(opt.label) 
+            }))}
             onChange={(value) => updateConfig('fontFamily', value)}
             renderOption={renderFontOption}
             renderValue={(option) => (
@@ -1888,6 +2057,7 @@ code_pre {
               </span>
             )}
           />
+          
           <AnimatedSelect
             label="字号"
             value={config.fontSize || '16px'}
@@ -1967,6 +2137,14 @@ code_pre {
               value={config.elementStyles?.[key] || {}}
               colors={fontColors}
               themeColor={config.themeColor || '#3daeff'}
+              aiGenerating={aiGeneratingKey === key}
+              aiStyleDirection={aiStyleDirection}
+              aiRequirementDirection={aiRequirementDirection}
+              strictUserIntent={strictUserIntent}
+              onStyleDirectionChange={setAiStyleDirection}
+              onRequirementDirectionChange={setAiRequirementDirection}
+              onStrictUserIntentChange={setStrictUserIntent}
+              onGenerateAI={generateElementStyleWithAI}
               onChange={(v) => {
                 const newStyles = { ...config.elementStyles, [key]: v }
                 updateConfig('elementStyles', newStyles)

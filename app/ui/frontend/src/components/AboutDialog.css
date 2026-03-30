@@ -1,29 +1,135 @@
 .about-dialog {
-  max-width: 500px;
+  max-width: 620px;
+}
+
+.about-dialog .dialog-footer {
+  justify-content: flex-end;
 }
 
 .about-content {
   text-align: center;
   /* 让内容居中显示 */
-  max-width: 450px;
+  max-width: 520px;
   margin: 0 auto;
 }
 
 .about-logo {
   margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
 }
 
 .logo-circle {
-  display: inline-block;
-  animation: float 3s ease-in-out infinite;
+  display: inline-flex;
+  width: 202px;
+  height: 118px;
 }
 
-@keyframes float {
+.logo-circle .dynamic-app-logo,
+.logo-circle .dynamic-app-logo--about {
+  width: 100%;
+  height: 100%;
+}
+
+.logo-circle svg,
+.logo-circle .dynamic-app-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.05));
+}
+
+/* 与首屏懒加载一致的动画 */
+.logo-circle .border-draw {
+  stroke-dasharray: 1360;
+  stroke-dashoffset: 1360;
+  animation: borderDraw 2.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
+}
+
+.logo-circle .logo-draw {
+  stroke-dasharray: 1200;
+  stroke-dashoffset: 1200;
+  transform-origin: 600px 350px;
+  animation:
+    logoDraw 2.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards,
+    logoRotate 2.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
+}
+
+.logo-circle .breathing-group {
+  transform-origin: 600px 350px;
+  animation: breathScale 4s ease-in-out infinite 2.5s;
+}
+
+.logo-circle .shimmer-rect {
+  fill: url(#shimmerGradient);
+  animation: shimmerMove 3s infinite linear 2.5s;
+}
+
+.logo-circle .arrow-group {
+  animation: arrowFloat 2s ease-in-out infinite 2.5s;
+}
+
+@keyframes borderDraw {
+  0% {
+    stroke-dashoffset: 1360;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes logoDraw {
+  0% {
+    stroke-dashoffset: 1200;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes logoRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes breathScale {
   0%, 100% {
-    transform: translateY(0px);
+    transform: scale(0.97);
   }
   50% {
-    transform: translateY(-10px);
+    transform: scale(1.03);
+  }
+}
+
+@keyframes shimmerMove {
+  0% {
+    transform: translateX(-600px) skewX(-30deg);
+  }
+  100% {
+    transform: translateX(1000px) skewX(-30deg);
+  }
+}
+
+@keyframes arrowFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(12px);
   }
 }
 
@@ -71,22 +177,31 @@
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
 .about-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   font-size: 14px;
+  line-height: 1.5;
   color: var(--text-secondary);
-  padding: 8px 12px;
+  padding: 9px 12px;
   background: var(--item-bg);
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.2s;
+}
+
+.about-features li svg {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .about-features li:hover {
   background: var(--item-hover-bg);
-  transform: translateX(4px);
+  transform: translateX(3px);
 }
 
 .tech-tags {
@@ -113,9 +228,41 @@
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+.about-thanks {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--item-bg);
+}
+
+.about-thanks h4 {
+  font-size: 15px;
+  margin: 0 0 8px;
+  color: var(--text-primary);
+}
+
+.about-thanks p {
+  margin: 4px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.about-thanks a {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--tag-color);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.about-thanks a:hover {
+  text-decoration: underline;
+}
+
 .about-footer-info {
-  margin-top: 24px;
-  padding-top: 24px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid var(--border-color);
 }
 
@@ -135,6 +282,10 @@
   --tag-bg: #f6f8fa;
   --tag-color: #0969da;
   --border-color: #d0d7de;
+  --logo-stroke: #1e293b;
+  --skeleton-gray: #E2E8F0;
+  --dark-sky-blue: #1E293B;
+  --accent-glow: rgba(56, 189, 248, 0.3);
 }
 
 /* 暗黑主题 */
@@ -147,6 +298,10 @@
   --tag-bg: #161b22;
   --tag-color: #58a6ff;
   --border-color: #30363d;
+  --logo-stroke: #94a3b8;
+  --skeleton-gray: #334155;
+  --dark-sky-blue: #94A3B8;
+  --accent-glow: rgba(56, 189, 248, 0.5);
 }
 
 @media (max-width: 767px) {

@@ -1,20 +1,24 @@
 .history-panel {
   flex: 1;
   position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-primary);
   min-height: 0;
+  height: 100%;
   align-self: stretch;
+  max-height: 100%;
 }
 
 /* 内容容器 */
 .history-panel .history-content {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 0;
+  max-height: 100%;
   overflow: hidden;
 }
 
@@ -117,8 +121,14 @@
 
 /* 版本列表 */
 .history-panel .history-list {
-  flex: 1 1 0% !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 0;
+  max-height: none;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 8px;
   background: var(--bg-primary);
 }
@@ -135,6 +145,7 @@
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
+  touch-action: pan-y;
 }
 
 .history-item:hover {

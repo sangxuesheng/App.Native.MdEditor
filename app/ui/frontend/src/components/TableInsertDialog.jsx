@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 import './TableInsertDialog.css'
 
@@ -88,16 +88,26 @@ function TableInsertDialog({ onClose, onInsert, theme }) {
     onClose()
   }
 
+  const [isClosing, setIsClosing] = useState(false)
+
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onClose()
+    }, 180)
+  }, [isClosing, onClose])
+
   const handleOverlayClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleCloseClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleCancelClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleConfirmClick = () => {
@@ -105,7 +115,7 @@ function TableInsertDialog({ onClose, onInsert, theme }) {
   }
 
   return (
-    <div className="table-insert-overlay" onClick={handleOverlayClick}>
+    <div className={`table-insert-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div 
         className={`table-insert-dialog ${theme}`}
         onClick={(e) => e.stopPropagation()}

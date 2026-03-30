@@ -34,6 +34,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
   const [testNotification, setTestNotification] = useState(null) // 测试连接通知
   const [uploadNotification, setUploadNotification] = useState(null) // 上传通知
   const [deleteNotification, setDeleteNotification] = useState(null) // 删除提示
+  const [isClosing, setIsClosing] = useState(false)
   const longPressTimerRef = useRef(null)
   const longPressTriggeredRef = useRef(false)
   const fileInputRef = useRef(null)
@@ -186,14 +187,26 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
   }, [isOpen])
 
 
+  const currentUploadImagebed = (() => {
+    if (activeImagebed) {
+      return imagebedConfigs.find(b => b.id === activeImagebed) || null
+    }
+
+    if (defaultImagebed?.id) {
+      return imagebedConfigs.find(b => b.id === defaultImagebed.id) || defaultImagebed
+    }
+
+    return null
+  })()
+
   // 处理文件上传
   const handleFileUpload = useCallback(async (files) => {
     if (!files || files.length === 0) return
 
     setUploading(true)
     const formData = new FormData()
-    if (defaultImagebed?.id) {
-      formData.append('imagebedId', String(defaultImagebed.id))
+    if (currentUploadImagebed?.id) {
+      formData.append('imagebedId', String(currentUploadImagebed.id))
     }
     
     // 统计 HEIC 文件数量
@@ -289,16 +302,31 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
         result.images.forEach(img => {
           console.log(`上传成功: filename="${img.filename}", alt="${img.alt}", url="${img.url}"`)
         })
-        
+
+        const fallbackCount = Array.isArray(result.images)
+          ? result.images.filter(img => !!img.fallback).length
+          : 0
+
         setUploadedImages(prev => [...result.images, ...prev])
         // 如果当前在图片库标签页，刷新图片库
         if (activeTab === 'library') {
           loadLibraryImages()
         }
-        setUploadNotification(`✓ 成功上传 ${result.images.length} 张图片`)
+
+        if (fallbackCount > 0) {
+          const successCount = result.images.length - fallbackCount
+          const fallbackMsg = successCount > 0
+            ? `⚠ 已上传 ${result.images.length} 张（其中 ${fallbackCount} 张图床失败，已自动保存到本地）`
+            : `⚠ 图床上传失败，已自动保存到本地（${fallbackCount} 张）`
+          setUploadNotification(fallbackMsg)
+          onNotify?.('检测到图床上传失败，已自动降级保存到本地，请检查图床配置', 'warning')
+        } else {
+          setUploadNotification(`✓ 成功上传 ${result.images.length} 张图片`)
+        }
+
         setTimeout(() => {
           setUploadNotification(null)
-        }, 3000)
+        }, 4500)
         
         // 自动滚动到上传的图片位置
         setTimeout(() => {
@@ -324,7 +352,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
     } finally {
       setUploading(false)
     }
-  }, [imageSettings, activeTab, loadLibraryImages, onNotify])
+  }, [imageSettings, activeTab, loadLibraryImages, onNotify, currentUploadImagebed])
 
   // 拖拽处理
   const handleDrag = useCallback((e) => {
@@ -409,6 +437,12 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
       }
     }
   }, [isOpen, activeTab, handlePaste])
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsClosing(false)
+    }
+  }, [isOpen])
 
   // 插入图片链接
   const doInsertImageLink = async () => {
@@ -560,16 +594,24 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
     doInsertUploadedImage(image)
   }
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onClose()
+    }, 180)
+  }, [isClosing, onClose])
+
   const handleOverlayClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleCloseClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleCancelClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleConfirmClick = () => {
@@ -710,7 +752,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
 
   return (
     <>
-    <div className="image-manager-overlay" onClick={handleOverlayClick}>
+    <div className={`image-manager-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div 
         className={`image-manager-dialog ${theme}`} 
         onClick={(e) => e.stopPropagation()}
@@ -804,8 +846,8 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
               <div className="current-storage">
                 <Folder size={16} />
                 <span>当前图床：</span>
-                <strong>{defaultImagebed ? defaultImagebed.name : '加载中...'}</strong>
-                <span className="star"><Star size={16} fill="currentColor" /></span>
+                <strong>{currentUploadImagebed ? currentUploadImagebed.name : '加载中...'}</strong>
+                {currentUploadImagebed?.isDefault && <span className="star"><Star size={16} fill="currentColor" /></span>}
                 <button className="settings-icon-btn" onClick={() => setActiveTab('imagebed')} title="图床设置">
                   <Settings size={16} />
                 </button>

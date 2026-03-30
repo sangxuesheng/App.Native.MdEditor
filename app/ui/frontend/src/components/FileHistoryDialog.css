@@ -56,17 +56,25 @@
 .history-container {
   display: flex;
   gap: 16px;
-  height: calc(80vh - 200px);
-  max-height: 500px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .history-list {
   flex: 0 0 280px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   overflow: hidden;
+}
+
+.history-list-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .history-list-header {
@@ -132,7 +140,7 @@
   transition: opacity 0.15s;
 }
 
-.history-list,
+.history-list-content,
 .preview-content {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -192,92 +200,23 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.diff-stats {
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-}
-
-.diff-stat {
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-weight: 500;
-}
-
-.diff-stat.added {
-  background: var(--added-bg);
-  color: var(--added-color);
-}
-
-.diff-stat.removed {
-  background: var(--removed-bg);
-  color: var(--removed-color);
-}
-
-.diff-stat.modified {
-  background: var(--modified-bg);
-  color: var(--modified-color);
-}
-
-.preview-content {
-  flex: 1;
-  overflow: auto;
-  padding: 16px;
-  background: var(--preview-bg);
-}
-
-.preview-text {
-  margin: 0;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text-color);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.preview-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-secondary);
-}
-
-.placeholder-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  opacity: 0.3;
-}
-
-.placeholder-text {
-  font-size: 14px;
-}
-
-/* 滚动条样式 */
-.history-list,
-.preview-content {
-  overflow-y: auto;
-}
-
-.history-list::-webkit-scrollbar,
+.history-list-content::-webkit-scrollbar,
 .preview-content::-webkit-scrollbar {
   width: 8px;
 }
 
-.history-list::-webkit-scrollbar-track,
+.history-list-content::-webkit-scrollbar-track,
 .preview-content::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.history-list::-webkit-scrollbar-thumb,
+.history-list-content::-webkit-scrollbar-thumb,
 .preview-content::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
-.history-list::-webkit-scrollbar-thumb:hover,
+.history-list-content::-webkit-scrollbar-thumb:hover,
 .preview-content::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
@@ -344,7 +283,7 @@
     min-height: 0;
   }
 
-  .history-list {
+  .history-dialog .history-list {
     flex: 0 0 auto;
     max-height: 220px;
   }
@@ -410,7 +349,6 @@
 
   .preview-actions .btn-secondary,
   .preview-actions .btn-primary {
-    min-height: 38px;
     padding: 0 14px;
   }
 }

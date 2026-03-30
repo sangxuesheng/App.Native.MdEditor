@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { AIService } from '../../utils/ai/aiService'
 import { aiStorage } from '../../utils/ai/aiStorage'
 import { DEFAULT_CONFIG, AI_SERVICES } from '../../constants/aiConfig'
+import { normalizeThemeCssOutput } from '../../utils/ai/themeCssNormalizer'
 
 function getEffectiveConfig(config) {
   if (!config?.type) return config
@@ -144,8 +145,28 @@ export function useAIChat() {
           setMessages((prev) => {
             const lastIdx = prev.length - 1
             if (lastIdx < 0) return prev
+            const lastAssistant = prev[lastIdx]
+            const prevUser = prev[lastIdx - 1]
+            const userAskedTheme =
+              prevUser?.role === 'user' &&
+              typeof prevUser.content === 'string' &&
+              /帮我写主题|主题\s*css|自定义\s*css/i.test(prevUser.content)
+
+            const rawAssistantContent = lastAssistant?.content || ''
+            const looksLikeThemeCss =
+              /```css/i.test(rawAssistantContent) ||
+              /(\.|#)?container\s*\{/i.test(rawAssistantContent) ||
+              /(\.|#)?h1\s*[,\{]/i.test(rawAssistantContent) ||
+              /(\.|#)?blockquote\s*\{/i.test(rawAssistantContent)
+
+            const shouldNormalizeThemeCss = userAskedTheme || looksLikeThemeCss
+
+            const normalizedContent = shouldNormalizeThemeCss
+              ? normalizeThemeCssOutput(rawAssistantContent) || rawAssistantContent
+              : rawAssistantContent
+
             return prev.map((msg, i) =>
-              i === lastIdx ? { ...msg, done: true } : msg
+              i === lastIdx ? { ...msg, content: normalizedContent, done: true } : msg
             )
           })
           setIsStreaming(false)

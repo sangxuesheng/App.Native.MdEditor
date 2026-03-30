@@ -80,6 +80,7 @@ function extractFirstParagraph(md) {
 }
 
 function SyncDialog({ onClose, theme, currentPath, markdown, renderedHtml }) {
+  const [isClosing, setIsClosing] = useState(false)
   const { showToast } = useAppUi()
   const themeClass = theme === 'light' ? 'theme-light' : theme === 'md3' ? 'theme-md3' : 'theme-dark'
 
@@ -233,14 +234,22 @@ function SyncDialog({ onClose, theme, currentPath, markdown, renderedHtml }) {
   const selectedCount = selected.size
   const autoTitle     = titleFromPath(currentPath)
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onClose()
+    }, 180)
+  }, [isClosing, onClose])
+
   const handleOverlayClick = () => {
     if (!isSyncing) {
-      onClose()
+      requestClose()
     }
   }
 
   const handleCloseClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleConfirmClick = () => {
@@ -250,7 +259,7 @@ function SyncDialog({ onClose, theme, currentPath, markdown, renderedHtml }) {
   // ── 未安装引导界面 ────────────────────────────────────────────────────
   if (coseInstalled === false) {
     return (
-      <div className="dialog-overlay" onClick={handleOverlayClick}>
+      <div className={`dialog-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
         <div className={`dialog-container sync-dialog ${themeClass}`} onClick={e => e.stopPropagation()}>
           <div className="dialog-header">
             <h2>发布到平台</h2>
@@ -301,8 +310,10 @@ function SyncDialog({ onClose, theme, currentPath, markdown, renderedHtml }) {
               </details>
             </div>
           </div>
-          <div className="dialog-footer">
-            <button className="btn-secondary" onClick={handleCloseClick}>关闭</button>
+          <div className="dialog-footer sync-footer">
+            <div className="sync-footer-actions">
+              <button className="btn-secondary" onClick={handleCloseClick}>关闭</button>
+            </div>
           </div>
         </div>
       </div>
@@ -312,7 +323,7 @@ function SyncDialog({ onClose, theme, currentPath, markdown, renderedHtml }) {
   // ── 检测中 loading ────────────────────────────────────────────────────
   if (coseInstalled === null) {
     return (
-      <div className="dialog-overlay" onClick={handleOverlayClick}>
+      <div className={`dialog-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
         <div className={`dialog-container sync-dialog ${themeClass}`} onClick={e => e.stopPropagation()}>
           <div className="dialog-header">
             <h2>发布到平台</h2>
@@ -331,7 +342,7 @@ function SyncDialog({ onClose, theme, currentPath, markdown, renderedHtml }) {
   const hasSyncResults = Object.keys(syncResults).length > 0
 
   return (
-    <div className="dialog-overlay" onClick={handleOverlayClick}>
+    <div className={`dialog-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className={`dialog-container sync-dialog ${themeClass}`} onClick={e => e.stopPropagation()}>
 
         {/* 头部 */}

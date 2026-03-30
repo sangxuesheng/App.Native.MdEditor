@@ -29,3 +29,12 @@ Thumbs.db
 # package-lock.json
 
 
+#
+# Docs / Cursor / Local helper files (do not upload)
+#
+docs/
+docs-site/
+根目录/
+.lingma/
+.cursor/
+scripts/

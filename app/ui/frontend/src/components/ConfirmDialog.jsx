@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import './ConfirmDialog.css'
 
 /**
@@ -15,25 +15,35 @@ function ConfirmDialog({
   confirmVariant = 'danger',
   closeOnOverlayClick = true
 }) {
+  const [isClosing, setIsClosing] = useState(false)
+
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onCancel()
+    }, 180)
+  }, [isClosing, onCancel])
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
-        onCancel()
+        requestClose()
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onCancel])
+  }, [requestClose])
 
   const handleOverlayClick = () => {
     if (closeOnOverlayClick) {
-      onCancel()
+      requestClose()
     }
   }
 
   const handleCancelClick = () => {
-    onCancel()
+    requestClose()
   }
 
   const handleConfirmClick = () => {
@@ -47,7 +57,7 @@ function ConfirmDialog({
     .filter(Boolean)
 
   return (
-    <div className={`dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
+    <div className={`dialog-overlay theme-${theme} ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div
         className="dialog-container confirm-dialog"
         onClick={(e) => e.stopPropagation()}

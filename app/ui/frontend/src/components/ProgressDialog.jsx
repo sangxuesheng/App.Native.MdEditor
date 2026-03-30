@@ -1,4 +1,5 @@
 import React from 'react'
+import './Dialog.css'
 import './ProgressDialog.css'
 
 /**
@@ -12,8 +13,8 @@ function ProgressDialog({
   showProgress = true
 }) {
   return (
-    <div className="dialog-overlay">
-      <div className="dialog-content progress-dialog">
+    <div className="dialog-overlay compact-panel-overlay">
+      <div className="dialog-content progress-dialog compact-panel-dialog">
         <div className="dialog-header">
           <h2>{title}</h2>
         </div>

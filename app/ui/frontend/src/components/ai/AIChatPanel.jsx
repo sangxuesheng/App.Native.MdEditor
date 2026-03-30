@@ -29,6 +29,8 @@ export default function AIChatPanel({
   onOpenConfig,
   onClose,
   onSwitchToImage,
+  autoQuickCommandId,
+  onConsumeAutoQuickCommand,
   getEditorContent,
   getSelectedText,
   onInsertText,
@@ -123,6 +125,16 @@ export default function AIChatPanel({
     }
   }, [showConversations, onGetAllConversations])
 
+  // 外部请求：自动选中快捷指令（用于“帮我写主题”一键打开）
+  React.useEffect(() => {
+    if (!autoQuickCommandId) return
+    const command = DEFAULT_QUICK_COMMANDS.find((c) => c.id === autoQuickCommandId)
+    if (command) {
+      handleQuickCommand(command)
+    }
+    onConsumeAutoQuickCommand?.()
+  }, [autoQuickCommandId, onConsumeAutoQuickCommand])
+
   // 浮框位置：使用 bottom 锚定按钮上方，避免内容较少（如无匹配模型）时下拉框与按钮间距过大
   React.useLayoutEffect(() => {
     if (!showModelSwitcher) {
@@ -190,7 +202,11 @@ export default function AIChatPanel({
   // 若已启用引用全文，则保留引用全文，将提示词放入输入框，便于对全文执行润色/翻译等操作
   const handleQuickCommand = (command) => {
     const text = (getSelectedText ? getSelectedText() : '') || ''
-    const prompt = command.template.replace('{{sel}}', text)
+    let prompt = command.template.replace('{{sel}}', text)
+
+    if (command.id === 'write-theme') {
+      prompt += '\n\n再次强调：最终回复只能是纯 CSS 主题内容，禁止出现任何说明性文字。'
+    }
     if (quoteFullContent) {
       // 引用全文 + 快捷指令：保留引用全文，提示词放入输入框
       setInput(prompt)

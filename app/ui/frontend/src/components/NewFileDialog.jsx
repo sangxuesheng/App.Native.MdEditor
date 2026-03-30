@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { FileText, StickyNote, FileCheck, Pen, ListTodo, Calendar } from 'lucide-react';
 import { DEFAULT_DOCUMENT_CONTENT } from '../constants/defaultDocument';
+import './Dialog.css';
 import './NewFileDialog.css';
 
 const TEMPLATES = [
@@ -184,6 +185,7 @@ categories: [分类]
 
 const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
   const [selectedTemplate, setSelectedTemplate] = useState('blank');
+  const [isClosing, setIsClosing] = useState(false);
 
   const handleTemplateSelect = (templateId) => {
     setSelectedTemplate(templateId);
@@ -197,19 +199,27 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
     // 只传递内容给父组件，不需要文件名
     // 文件名和保存位置将在用户保存时填写
     onConfirm(content);
-    onClose();
+    requestClose();
   };
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+    window.setTimeout(() => {
+      onClose();
+    }, 180);
+  }, [isClosing, onClose]);
+
   const handleOverlayClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleCloseClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleCancelClick = () => {
-    onClose();
+    requestClose();
   };
 
   const handleConfirmClick = () => {
@@ -219,8 +229,8 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
   const selectedTemplateData = TEMPLATES.find(t => t.id === selectedTemplate);
 
   return (
-    <div className={`dialog-overlay new-file-dialog-overlay theme-${theme}`} onClick={handleOverlayClick}>
-      <div className="dialog-content new-file-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className={`dialog-overlay compact-panel-overlay new-file-dialog-overlay theme-${theme} ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
+      <div className="dialog-container compact-panel-dialog new-file-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>新建文件</h2>
           <button className="dialog-close" onClick={handleCloseClick}>×</button>
@@ -242,7 +252,7 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
                     default: return <FileText size={32} />
                   }
                 }
-                
+
                 return (
                   <div
                     key={template.id}
@@ -268,8 +278,8 @@ const NewFileDialog = ({ onClose, onConfirm, rootDirs, theme }) => {
 
         <div className="dialog-footer">
           <button className="btn-secondary" onClick={handleCancelClick}>取消</button>
-          <button 
-            className="btn-primary" 
+          <button
+            className="btn-primary"
             onClick={handleConfirmClick}
           >
             创建并编辑

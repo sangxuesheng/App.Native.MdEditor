@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import AIChatPanel from './AIChatPanel'
 import AIConfigPanel from './AIConfigPanel'
@@ -9,10 +9,13 @@ import { aiStorage } from '../../utils/ai/aiStorage'
 import { persistSetting } from '../../utils/settingsApi'
 import { AI_IMAGE_SERVICES } from '../../constants/aiImageConfig'
 
-export default function AIDialog({ isOpen, onClose, getEditorContent, getSelectedText, onInsertImage, onInsertText, onOpenImageManager }) {
+export default function AIDialog({ isOpen, onClose, autoQuickCommandId, onConsumeAutoQuickCommand, getEditorContent, getSelectedText, onInsertImage, onInsertText, onOpenImageManager }) {
   const [showConfig, setShowConfig] = React.useState(false)
   const [mode, setMode] = React.useState('chat') // 'chat' | 'image'
   const [configPanelTab, setConfigPanelTab] = React.useState('chat') // 打开配置面板时默认标签：'chat' | 'image'
+  const [rendered, setRendered] = useState(isOpen)
+  const [isClosing, setIsClosing] = useState(false)
+  const closeTimerRef = useRef(null)
 
   const chat = useAIChat()
   const image = useAIImage()
@@ -66,10 +69,46 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
     setShowConfig(true)
   }
 
-  if (!isOpen) return null
+  useEffect(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+
+    if (isOpen) {
+      setRendered(true)
+      setIsClosing(false)
+      return
+    }
+
+    if (!rendered || isClosing) return
+
+    setIsClosing(true)
+    closeTimerRef.current = window.setTimeout(() => {
+      setRendered(false)
+      setIsClosing(false)
+      closeTimerRef.current = null
+    }, 180)
+  }, [isOpen, rendered, isClosing])
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = null
+      }
+    }
+  }, [])
+
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    onClose()
+  }, [isClosing, onClose])
+
+  if (!rendered) return null
 
   return (
-    <div className="ai-dialog-overlay" onClick={onClose}>
+    <div className={`ai-dialog-overlay ${isClosing ? 'closing' : ''}`} onClick={requestClose}>
       <div className="ai-dialog" onClick={(e) => e.stopPropagation()}>
         {showConfig ? (
           <AIConfigPanel
@@ -99,7 +138,7 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
             onGenerate={(extra) => image.generateWithConfig(effectiveImageConfig, extra)}
             onCancel={image.cancel}
             onOpenConfig={openImageConfig}
-            onClose={onClose}
+            onClose={requestClose}
             onSwitchToChat={() => setMode('chat')}
             onInsertImage={onInsertImage}
             onImageConfigChange={handleImageConfigChange}
@@ -125,8 +164,10 @@ export default function AIDialog({ isOpen, onClose, getEditorContent, getSelecte
             onGetAllConversations={chat.getAllConversations}
             onToggleQuoteFullContent={chat.setQuoteFullContent}
             onOpenConfig={openChatConfig}
-            onClose={onClose}
+            onClose={requestClose}
             onSwitchToImage={() => setMode('image')}
+            autoQuickCommandId={autoQuickCommandId}
+            onConsumeAutoQuickCommand={onConsumeAutoQuickCommand}
             getEditorContent={getEditorContent}
             getSelectedText={getSelectedText}
             onInsertText={onInsertText}

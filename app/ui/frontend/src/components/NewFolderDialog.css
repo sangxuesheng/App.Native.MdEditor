@@ -47,18 +47,6 @@
   align-items: center;
 }
 
-/* 统一按钮样式 */
-.new-folder-dialog .btn-secondary,
-.new-folder-dialog .btn-primary {
-  height: 38px;
-  min-width: 90px;
-  padding: 0 20px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-}
 
 .new-folder-dialog .form-hint {
   flex: 1;
@@ -218,6 +206,5 @@
   .new-folder-dialog .btn-secondary,
   .new-folder-dialog .btn-primary {
     min-width: 80px;
-    height: 36px;
   }
 }

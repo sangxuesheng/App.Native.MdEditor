@@ -1,3 +1,21 @@
+:root {
+  --dialog-overlay-duration: 220ms;
+  --dialog-panel-duration: 260ms;
+  --dialog-ease: cubic-bezier(0.22, 0.8, 0.22, 1);
+  --dialog-enter-y: 14px;
+  --dialog-enter-scale: 0.985;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-insert-overlay,
+  .table-insert-dialog,
+  .table-insert-overlay.closing,
+  .table-insert-overlay.closing .table-insert-dialog {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 .table-insert-overlay {
   position: fixed;
   top: 0;
@@ -9,6 +27,7 @@
   align-items: center;
   justify-content: center;
   z-index: 10000;
+  animation: dialogOverlayEnter var(--dialog-overlay-duration) var(--dialog-ease);
 }
 
 .table-insert-dialog {
@@ -20,6 +39,49 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transform-origin: center center;
+  animation: dialogPanelEnter var(--dialog-panel-duration) var(--dialog-ease);
+}
+
+@keyframes dialogOverlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialogOverlayExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes dialogPanelEnter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dialogPanelExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
+  }
+}
+
+.table-insert-overlay.closing {
+  pointer-events: none;
+  animation: dialogOverlayExit 180ms ease-in forwards;
+}
+
+.table-insert-overlay.closing .table-insert-dialog {
+  animation: dialogPanelExit 180ms ease-in forwards;
 }
 
 /* 浅色主题 */

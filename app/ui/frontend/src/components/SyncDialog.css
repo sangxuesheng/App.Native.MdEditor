@@ -480,16 +480,27 @@
 }
 
 /* ── 底部 ────────────────────────────────────── */
+.sync-dialog .dialog-footer {
+  justify-content: flex-end;
+}
+
+/* 未安装状态只有一个关闭按钮，强制靠右 */
+.sync-dialog .dialog-footer > .btn-secondary:first-child {
+  margin-left: auto;
+}
+
 .sync-footer {
   flex-wrap: wrap;
   gap: 12px;
+  justify-content: flex-end;
 }
 
 .sync-footer-actions {
+  margin-left: auto;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
-  margin-left: auto;
 }
 
 @media (pointer: coarse) {

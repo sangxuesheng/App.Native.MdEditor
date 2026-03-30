@@ -56,6 +56,29 @@ export const getSettingsFontOptions = (withCloudTag) => {
 
 export const getExportFontOptions = () => {
   return BASE_FONTS
-    .filter((item) => item.scopes.includes('settings'))
+    .filter((item) => item.scopes.includes('export') || item.scopes.includes('settings'))
     .map((item) => ({ value: item.value, label: item.label }))
+}
+
+// 新增：支持分组的导出字体选项
+export const getExportFontOptionsWithGroups = () => {
+  const byGroup = SETTINGS_GROUP_HEADERS.map((group) => {
+    const options = BASE_FONTS
+      .filter((item) => item.group === group.value && (item.scopes.includes('export') || item.scopes.includes('settings')))
+      .map((item) => ({
+        value: item.value,
+        label: item.label,
+      }))
+
+    // 只有当该分组有可用选项时才返回分组标题
+    if (options.length > 0) {
+      return [
+        { value: group.value, label: group.label, disabled: true },
+        ...options,
+      ]
+    }
+    return []
+  })
+
+  return byGroup.flat().filter(Boolean)
 }

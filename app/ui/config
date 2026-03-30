@@ -1,7 +1,7 @@
 {
   ".url": {
     "App.Native.MdEditor2.Application": {
-      "title": "Markdown 编辑器 v2",
+      "title": "Markdown 编辑器",
       "icon": "images/icon-{0}.png",
       "type": "iframe",
       "protocol": "http",

@@ -3,20 +3,7 @@
   max-width: 450px;
 }
 
-/* 避免被全局 App.css 的 .btn-* 覆盖，重命名弹窗按钮使用对话框统一风格 */
-.rename-dialog .dialog-footer .btn-secondary,
-.rename-dialog .dialog-footer .btn-primary {
-  min-height: 38px;
-  min-width: 90px;
-  padding: 0 20px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
+/* 按钮尺寸/布局由 Dialog.css 统一，这里仅在必要时覆盖配色 */
 
 .rename-dialog .dialog-footer .btn-secondary {
   background: #ffffff;
@@ -79,20 +66,10 @@
   gap: 12px;
 }
 
-/* 避免被 App.css 的全局 .btn-primary 覆盖，显式固定属性弹窗按钮风格 */
+/* 属性弹窗按钮样式由 Dialog.css 统一，仅保留必要主题色覆盖 */
 .properties-dialog .dialog-footer .btn-primary {
-  min-height: 38px;
-  min-width: 90px;
-  padding: 0 20px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
   background: #086ADA;
   color: #ffffff;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .theme-dark .properties-dialog .dialog-footer .btn-primary {

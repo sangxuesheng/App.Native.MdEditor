@@ -18,8 +18,8 @@ import 'katex/dist/katex.min.css'
 import FileTree from './components/FileTree'
 import OutlinePanel from './components/OutlinePanel'
 import Resizer from './components/Resizer'
-import markdownLogo from './assets/markdown.svg'
 import EditorToolbar from './components/EditorToolbar'
+import DynamicAppLogo, { DEFAULT_LOGO_CONFIG, normalizeLogoConfig } from './components/DynamicAppLogo'
 import MenuBar from './components/MenuBar'
 import NewFileDialog from './components/NewFileDialog'
 import SaveAsDialog from './components/SaveAsDialog'
@@ -324,7 +324,8 @@ const loadInfographic = async () => {
           if (!iconId || typeof iconId !== 'string') return null
 
           try {
-            const res = await fetch(`https://api.iconify.design/${encodeURIComponent(iconId)}.svg`)
+            const safeId = iconId.trim()
+            const res = await fetch(`https://api.iconify.design/${safeId}.svg`)
             if (!res.ok) return null
             const text = await res.text()
             return api.loadSVGResource(text)
@@ -345,7 +346,7 @@ const loadInfographic = async () => {
   return infographicLoadPromise
 }
 
-const renderInfographicSvg = async (code) => {
+const renderInfographicSvg = async (code, theme = 'light', backgroundColor = '', contrastThreshold = 0.55) => {
   const api = await loadInfographic()
 
   // 预检查模板是否存在：当前依赖版本与官网 gallery 可能不完全一致。
@@ -444,8 +445,206 @@ const renderInfographicSvg = async (code) => {
     if (commaIdx < 0) throw new Error('Infographic SVG 数据无效')
 
     const encoded = dataUrl.slice(commaIdx + 1)
-    const svg = decodeURIComponent(encoded)
+    let svg = decodeURIComponent(encoded)
     if (!/<svg[\s>]/i.test(svg)) throw new Error('Infographic SVG 内容无效')
+
+    // SVG 内容后处理：尽量移除整张深色背景层，保留业务图形
+    try {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(svg, 'image/svg+xml')
+      const root = doc.documentElement
+
+      const viewBox = (root.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number)
+      const vbW = viewBox.length === 4 ? Math.abs(viewBox[2]) : null
+      const vbH = viewBox.length === 4 ? Math.abs(viewBox[3]) : null
+      const wAttr = parseFloat((root.getAttribute('width') || '').replace('px', ''))
+      const hAttr = parseFloat((root.getAttribute('height') || '').replace('px', ''))
+      const svgW = Number.isFinite(wAttr) ? wAttr : vbW
+      const svgH = Number.isFinite(hAttr) ? hAttr : vbH
+
+      const darkFill = (v) => {
+        const s = String(v || '').toLowerCase()
+        if (!s) return false
+        if (s === 'none' || s === 'transparent') return false
+        return /^#0{3,8}$/.test(s)
+          || /^#111(111)?$/.test(s)
+          || /^#121212$/.test(s)
+          || /^#1a1a1a$/.test(s)
+          || /^#1f1f1f$/.test(s)
+          || /^rgb\(\s*0\s*,\s*0\s*,\s*0\s*\)/.test(s)
+          || /^rgb\(\s*31\s*,\s*31\s*,\s*31\s*\)/.test(s)
+          || /^rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*(0\.[5-9]|1(\.0+)?)\s*\)/.test(s)
+          || /^rgba\(\s*31\s*,\s*31\s*,\s*31\s*,\s*(0\.[5-9]|1(\.0+)?)\s*\)/.test(s)
+      }
+
+      const candidates = Array.from(root.querySelectorAll('rect,path')).filter((el) => {
+        const tag = el.tagName.toLowerCase()
+        const fill = el.getAttribute('fill') || ''
+        const style = el.getAttribute('style') || ''
+        const styleFill = /fill\s*:\s*([^;]+)/i.exec(style)?.[1] || ''
+        const hasFill = !!(fill || styleFill)
+        const hasDarkFill = darkFill(fill) || darkFill(styleFill)
+        if (!hasFill) return false
+        if (el.getAttribute('stroke')) return false
+
+        const isBackgroundName = /background|bg|backdrop/i.test(el.getAttribute('id') || '')
+          || /background|bg|backdrop/i.test(el.getAttribute('class') || '')
+
+        if (tag === 'rect') {
+          const x = parseFloat(el.getAttribute('x') || '0')
+          const y = parseFloat(el.getAttribute('y') || '0')
+          const w = parseFloat(el.getAttribute('width') || '0')
+          const h = parseFloat(el.getAttribute('height') || '0')
+          if (!svgW || !svgH) return hasDarkFill
+          const coversSvg = Math.abs(x) <= 2 && Math.abs(y) <= 2 && Math.abs(w - svgW) <= 3 && Math.abs(h - svgH) <= 3
+          return isBackgroundName || coversSvg
+        }
+
+        if (tag === 'path') {
+          const d = el.getAttribute('d') || ''
+          const isRectLikeL = /M[\d\s.,-]+L[\d\s.,-]+L[\d\s.,-]+L[\d\s.,-]+Z/i.test(d)
+          const isRectLikeHV = /M[\d\s.,-]+H[\d\s.,-]+V[\d\s.,-]+H[\d\s.,-]+Z/i.test(d)
+          const isRectLike = isRectLikeL || isRectLikeHV
+          return isBackgroundName || isRectLike
+        }
+        return false
+      })
+
+      candidates.forEach((el) => el.parentNode?.removeChild(el))
+
+      // 兜底：移除大面积深色背景 rect（兼容宽高不完全等于 viewBox 的情况）
+      if (svgW && svgH) {
+        const rects = Array.from(root.querySelectorAll('rect'))
+        for (const rect of rects) {
+          const x = parseFloat(rect.getAttribute('x') || '0')
+          const y = parseFloat(rect.getAttribute('y') || '0')
+          const w = parseFloat(rect.getAttribute('width') || '0')
+          const h = parseFloat(rect.getAttribute('height') || '0')
+          const fill = rect.getAttribute('fill') || ''
+          const style = rect.getAttribute('style') || ''
+          const styleFill = /fill\s*:\s*([^;]+)/i.exec(style)?.[1] || ''
+          const rectArea = Math.abs(w * h)
+          const svgArea = Math.abs(svgW * svgH)
+          const isLarge = svgArea > 0 ? (rectArea / svgArea) >= 0.6 : false
+          const nearOrigin = Math.abs(x) <= 2 && Math.abs(y) <= 2
+          const coversSvg = Math.abs(x) <= 2 && Math.abs(y) <= 2 && Math.abs(w - svgW) <= 3 && Math.abs(h - svgH) <= 3
+          const isDark = darkFill(fill) || darkFill(styleFill)
+          if (coversSvg || (nearOrigin && isLarge && isDark)) {
+            rect.parentNode?.removeChild(rect)
+          }
+        }
+      }
+
+      const rootStyle = (root.getAttribute('style') || '')
+        .replace(/background-color\s*:\s*[^;]+;?/gi, '')
+        .replace(/background\s*:\s*[^;]+;?/gi, '')
+        .trim()
+      root.setAttribute('style', `${rootStyle};background:transparent;`)
+
+      // 最终兜底：将明显的黑色填充改为透明，仅针对背景命名元素
+      root.querySelectorAll('[id*="bg" i],[id*="background" i],[class*="bg" i],[class*="background" i]').forEach((el) => {
+        const tag = (el.tagName || '').toLowerCase()
+        if (!['rect', 'path', 'g'].includes(tag)) return
+        const fill = el.getAttribute('fill') || ''
+        const style = el.getAttribute('style') || ''
+        if (/^#0{3,8}$/i.test(fill) || /^#111(111)?$/i.test(fill) || /^#121212$/i.test(fill)) {
+          el.setAttribute('fill', 'none')
+        }
+        if (/fill\s*:\s*(#0{3,8}|#111(?:111)?|#121212)/i.test(style)) {
+          el.setAttribute('style', style.replace(/fill\s*:\s*[^;]+;?/ig, 'fill:none;'))
+        }
+      })
+
+      // 文本颜色逻辑：
+      // 1) 未设置主题背景色 => 按明暗模式（亮模深字 / 暗模浅字）
+      // 2) 设置了主题背景色 => 优先按背景色反差选字色（浅背景深字 / 深背景浅字）
+      const normalizedBackgroundColor = String(backgroundColor || '').trim()
+      const parseColorToRgb = (value) => {
+        const v = String(value || '').trim().toLowerCase()
+        if (!v) return null
+        if (v.startsWith('#')) {
+          const hex = v.replace('#', '')
+          if (hex.length === 3) {
+            const r = parseInt(hex[0] + hex[0], 16)
+            const g = parseInt(hex[1] + hex[1], 16)
+            const b = parseInt(hex[2] + hex[2], 16)
+            return [r, g, b]
+          }
+          if (hex.length === 6) {
+            const r = parseInt(hex.slice(0, 2), 16)
+            const g = parseInt(hex.slice(2, 4), 16)
+            const b = parseInt(hex.slice(4, 6), 16)
+            return [r, g, b]
+          }
+          return null
+        }
+        const rgbMatch = v.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i)
+        if (rgbMatch) {
+          const r = Math.min(255, Math.max(0, Number(rgbMatch[1])))
+          const g = Math.min(255, Math.max(0, Number(rgbMatch[2])))
+          const b = Math.min(255, Math.max(0, Number(rgbMatch[3])))
+          return [r, g, b]
+        }
+        return null
+      }
+      const getContrastText = (color) => {
+        const rgb = parseColorToRgb(color)
+        if (!rgb) return null
+        const [r, g, b] = rgb.map((n) => n / 255)
+        const toLinear = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
+        const l = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+        // 亮度高则用黑字，亮度低则用浅色字
+        return l > contrastThreshold ? '#000000' : '#e6edf3'
+      }
+      const textFallback = normalizedBackgroundColor
+        ? (getContrastText(normalizedBackgroundColor) || (theme === 'dark' ? '#e6edf3' : '#000000'))
+        : (theme === 'dark' ? '#e6edf3' : '#000000')
+      const normalizeTextColor = (value) => {
+        const v = String(value || '').trim().toLowerCase()
+        if (!v) return null
+
+        const isWhite = v === '#fff'
+          || v === '#ffffff'
+          || v === 'white'
+          || /^rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)/.test(v)
+
+        if (isWhite) return textFallback
+
+        // 暗色模式下，黑字在透明背景上可能不可读，统一提升为浅色文本
+        if (theme === 'dark') {
+          const isBlack = /^#0{3,8}$/.test(v)
+            || v === '#111'
+            || v === '#111111'
+            || v === '#121212'
+            || v === 'black'
+            || /^rgb\(\s*0\s*,\s*0\s*,\s*0\s*\)/.test(v)
+            || /^rgb\(\s*17\s*,\s*17\s*,\s*17\s*\)/.test(v)
+            || /^rgb\(\s*18\s*,\s*18\s*,\s*18\s*\)/.test(v)
+          if (isBlack) return textFallback
+        }
+
+        return null
+      }
+
+      root.querySelectorAll('text').forEach((el) => {
+        const fill = el.getAttribute('fill') || ''
+        const next = normalizeTextColor(fill)
+        if (next) el.setAttribute('fill', next)
+      })
+
+      root.querySelectorAll('foreignObject span').forEach((el) => {
+        const style = el.getAttribute('style') || ''
+        const colorMatch = /color\s*:\s*([^;]+)/i.exec(style)
+        const next = normalizeTextColor(colorMatch?.[1])
+        if (next) {
+          el.setAttribute('style', style.replace(/color\s*:\s*[^;]+;?/ig, `color:${next};`))
+        }
+      })
+
+      svg = new XMLSerializer().serializeToString(root)
+    } catch {
+      // 保持原 SVG 兜底
+    }
 
     return svg
   } finally {
@@ -510,6 +709,7 @@ const DEFAULT_EXPORT_CONFIG = {
   textAlign: 'left',
   lineHeight: 1.8,
   themeColor: '',
+  infographicTextContrastThreshold: 0.55,
   elementStyles: {
     h1: { color: '', preset: 'default', customCSS: '' },
     h2: { color: '', preset: 'default', customCSS: '' },
@@ -588,7 +788,7 @@ const hasInfographic = (content) => {
   return false
 }
 
-const renderPlantUMLSvg = async (code) => {
+const renderPlantUMLSvg = async (code, theme = 'light', backgroundColor = '', contrastThreshold = 0.55) => {
   const response = await fetch('/api/plantuml/svg', {
     method: 'POST',
     headers: {
@@ -617,7 +817,94 @@ const renderPlantUMLSvg = async (code) => {
     throw new Error(data?.message || 'PlantUML 渲染失败')
   }
 
-  return data.svg
+  let svg = data.svg
+  try {
+    const parseColorToRgb = (value) => {
+      const v = String(value || '').trim().toLowerCase()
+      if (!v) return null
+      if (v.startsWith('#')) {
+        const hex = v.replace('#', '')
+        if (hex.length === 3) {
+          const r = parseInt(hex[0] + hex[0], 16)
+          const g = parseInt(hex[1] + hex[1], 16)
+          const b = parseInt(hex[2] + hex[2], 16)
+          return [r, g, b]
+        }
+        if (hex.length === 6) {
+          const r = parseInt(hex.slice(0, 2), 16)
+          const g = parseInt(hex.slice(2, 4), 16)
+          const b = parseInt(hex.slice(4, 6), 16)
+          return [r, g, b]
+        }
+      }
+      const rgbMatch = v.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i)
+      if (rgbMatch) {
+        const r = Math.min(255, Math.max(0, Number(rgbMatch[1])))
+        const g = Math.min(255, Math.max(0, Number(rgbMatch[2])))
+        const b = Math.min(255, Math.max(0, Number(rgbMatch[3])))
+        return [r, g, b]
+      }
+      return null
+    }
+    const getContrastText = (color) => {
+      const rgb = parseColorToRgb(color)
+      if (!rgb) return null
+      const [r, g, b] = rgb.map((n) => n / 255)
+      const toLinear = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
+      const l = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+      return l > contrastThreshold ? '#000000' : '#e6edf3'
+    }
+
+    const normalizedBackgroundColor = String(backgroundColor || '').trim()
+    const textFallback = normalizedBackgroundColor
+      ? (getContrastText(normalizedBackgroundColor) || (theme === 'dark' ? '#e6edf3' : '#000000'))
+      : (theme === 'dark' ? '#e6edf3' : '#000000')
+
+    const normalizeTextColor = (value) => {
+      const v = String(value || '').trim().toLowerCase()
+      if (!v) return null
+      const isWhite = v === '#fff' || v === '#ffffff' || v === 'white' || /^rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)/.test(v)
+      const isBlack = /^#0{3,8}$/.test(v)
+        || v === '#111'
+        || v === '#111111'
+        || v === '#121212'
+        || v === 'black'
+        || /^rgb\(\s*0\s*,\s*0\s*,\s*0\s*\)/.test(v)
+        || /^rgb\(\s*17\s*,\s*17\s*,\s*17\s*\)/.test(v)
+        || /^rgb\(\s*18\s*,\s*18\s*,\s*18\s*\)/.test(v)
+
+      if (isWhite || isBlack) return textFallback
+      return null
+    }
+
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(svg, 'image/svg+xml')
+    const root = doc.documentElement
+
+    root.querySelectorAll('text, tspan').forEach((el) => {
+      const fill = el.getAttribute('fill') || ''
+      const next = normalizeTextColor(fill)
+      if (next) el.setAttribute('fill', next)
+    })
+
+    root.querySelectorAll('[style]').forEach((el) => {
+      const style = el.getAttribute('style') || ''
+      const colorMatch = /(?:^|;)\s*color\s*:\s*([^;]+)/i.exec(style)
+      const fillMatch = /(?:^|;)\s*fill\s*:\s*([^;]+)/i.exec(style)
+      const nextColor = normalizeTextColor(colorMatch?.[1])
+      const nextFill = normalizeTextColor(fillMatch?.[1])
+      let nextStyle = style
+      if (nextColor) nextStyle = nextStyle.replace(/color\s*:\s*[^;]+;?/ig, `color:${nextColor};`)
+      if (nextFill) nextStyle = nextStyle.replace(/fill\s*:\s*[^;]+;?/ig, `fill:${nextFill};`)
+      if (nextStyle !== style) el.setAttribute('style', nextStyle)
+    })
+
+    svg = new XMLSerializer().serializeToString(root)
+  } catch {
+    // 保持原 SVG 兜底
+  }
+
+  return svg
 }
 
 function App() {
@@ -658,6 +945,7 @@ function App() {
   const [historyVersions, setHistoryVersions] = useState([])
   const [showToolbar, setShowToolbar] = useState(true)
   const [aiDialogOpen, setAiDialogOpen] = useState(false)
+  const [aiAutoQuickCommandRequest, setAiAutoQuickCommandRequest] = useState(null)
   const [initialStateLoaded, setInitialStateLoaded] = useState(false)
   const [editorFontSize, setEditorFontSize] = useState(14)
   const [editorLineHeight, setEditorLineHeight] = useState(24)
@@ -673,6 +961,7 @@ function App() {
   const [recentFiles, setRecentFiles] = useState([])
   const [favorites, setFavorites] = useState([])
   const [imageCaptionFormat, setImageCaptionFormat] = useState(DEFAULT_APP_STATE.imageCaptionFormat)
+  const [appLogoConfig, setAppLogoConfig] = useState({ ...DEFAULT_LOGO_CONFIG })
 
   // 导出配置面板状态
   const [showExportConfigPanel, setShowExportConfigPanel] = useState(false)
@@ -685,6 +974,11 @@ function App() {
 
   // 斜杠菜单状态
   const [slashMenu, setSlashMenu] = useState({ visible: false, x: 0, y: 0, query: '', range: null })
+
+  useEffect(() => {
+    if (!showNewFileDialog) return
+    setSlashMenu((prev) => (prev.visible ? { ...prev, visible: false } : prev))
+  }, [showNewFileDialog])
 
   // 全格式支持：当前文件格式、图片预览数据、PDF预览数据、非支持格式弹窗、保存确认弹窗
   const [currentFileFormat, setCurrentFileFormat] = useState(null) // 'md'|'text'|'image'|'pdf'|'unsupported'
@@ -1222,6 +1516,53 @@ function App() {
         border-radius: 12px !important;
         border: 1px solid ${editorTheme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'} !important;
         box-shadow: 0 2px 12px ${editorTheme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'} !important;
+      }
+        `
+        break
+
+      case 'retro-paper':
+        // 复古纸张主题
+        themeStyles = `
+      .markdown-body {
+        max-width: 880px !important;
+        margin: 30px auto !important;
+        padding: 30px 40px !important;
+        background: #fef7eb !important;
+        line-height: 1.8 !important;
+        color: #4b453c !important;
+        border-radius: 0 !important;
+        border: 1px solid #d9c7b1 !important;
+      }
+      .markdown-body h1 {
+        border: 2px solid #92400e !important;
+        outline: 1px solid #92400e !important;
+        outline-offset: 2px !important;
+        padding: 12px 20px !important;
+        text-align: center !important;
+        font-size: 22px !important;
+        color: #92400e !important;
+      }
+      .markdown-body h2 {
+        border: 1px solid #b45309 !important;
+        padding: 8px 16px !important;
+        font-size: 19px !important;
+        color: #b45309 !important;
+      }
+      .markdown-body h3 {
+        border: 1px dashed #c97313 !important;
+        padding: 6px 14px !important;
+        font-size: 17px !important;
+        color: #c97313 !important;
+      }
+      .markdown-body blockquote {
+        background: #fae9cd !important;
+        border-left: 4px solid #b45309 !important;
+        padding: 14px !important;
+      }
+      .markdown-body pre {
+        background: #fae9cd !important;
+        padding: 16px !important;
+        border: 1px solid #d9c7b1 !important;
       }
         `
         break
@@ -1875,6 +2216,16 @@ function App() {
           document.head.appendChild(tableBgStyleEl)
         }
         tableBgStyleEl.textContent = `
+          /* 强制整体预览容器背景，避免只在表格/图表显示背景 */
+          .app .markdown-body {
+            background-color: ${solidBg} !important;
+          }
+          .app .preview-pane .markdown-body,
+          .app .preview-panel .markdown-body,
+          .app .editor-preview-wrapper .markdown-body {
+            background-color: ${solidBg} !important;
+          }
+
           .app .markdown-body table th,
           .app .markdown-body table td {
             background-color: ${solidBg} !important;
@@ -2603,6 +2954,9 @@ function App() {
         if (typeof s.showShortcuts === 'boolean') setShowShortcuts(s.showShortcuts)
         if (typeof s.showAbout === 'boolean') setShowAbout(s.showAbout)
         if (typeof s.showHistory === 'boolean') setShowHistory(s.showHistory)
+        if (s.appLogoConfig) {
+          setAppLogoConfig(normalizeLogoConfig(s.appLogoConfig))
+        }
 
         // 方案1：启动时不恢复上次编辑的文件，仅恢复布局等设置
         setFileTreeWidth(persistedState.fileTreeWidth || DEFAULT_APP_STATE.fileTreeWidth)
@@ -2643,19 +2997,16 @@ function App() {
     const editor = editorInstance
     if (!editor) return
 
-    const previewRoot = previewRef.current
-    const previewPane = previewRoot?.parentElement || previewRoot
-    if (!previewPane) return
-
-    // 编辑器 → 预览
+    // 编辑器滚动：始终更新标题位移；有预览时再做联动同步
     const scrollDisposable = editor.onDidScrollChange(() => {
       setEditorScrollTop(editor.getScrollTop())
-      if (!syncPreviewWithEditorRef.current) return
-      if (syncFromPreviewRef.current) return // 正在从预览同步过来，避免回环
-      if (!previewRef.current) return
 
       const previewRootCur = previewRef.current
-      const previewPaneCur = previewRootCur.parentElement || previewRootCur
+      const previewPaneCur = previewRootCur?.parentElement || previewRootCur
+      if (!previewPaneCur) return
+
+      if (!syncPreviewWithEditorRef.current) return
+      if (syncFromPreviewRef.current) return // 正在从预览同步过来，避免回环
 
       const editorScrollTop = editor.getScrollTop()
       const editorScrollHeight = editor.getScrollHeight()
@@ -2672,11 +3023,18 @@ function App() {
       syncFromEditorRef.current = false
     })
 
+    const previewRoot = previewRef.current
+    const previewPane = previewRoot?.parentElement || previewRoot
+    if (!previewPane) {
+      return () => {
+        scrollDisposable?.dispose()
+      }
+    }
+
     // 预览 → 编辑器
     const handlePreviewScroll = () => {
       if (!syncPreviewWithEditorRef.current) return
       if (syncFromEditorRef.current) return // 正在从编辑器同步过来，避免回环
-      if (!editor) return
 
       const previewRootCur = previewRef.current
       const previewPaneCur = previewRootCur?.parentElement || previewRootCur
@@ -4615,12 +4973,14 @@ function App() {
   }, [openFileWithGuard])
 
   const handleNewFile = useCallback(() => {
+    setSlashMenu((prev) => (prev.visible ? { ...prev, visible: false } : prev))
     setShowNewFileDialog(true)
   }, [])
 
   const [initialFileName, setInitialFileName] = useState('')
 
   const handleNewFileConfirm = useCallback((fileContent) => {
+    setSlashMenu((prev) => (prev.visible ? { ...prev, visible: false } : prev))
     void clearPersistedContent()
     clearEditorDraft()
     imageDataRef.current = null
@@ -6062,6 +6422,58 @@ function App() {
         `
         break
         
+      case 'retro-paper':
+        // 复古纸张主题
+        themeStyles = `
+      .markdown-body {
+        max-width: 880px !important;
+        margin: 30px auto !important;
+        padding: 30px 40px !important;
+        background: #fef7eb !important;
+        line-height: 1.8 !important;
+        color: #4b453c !important;
+        border-radius: 0 !important;
+        border: 1px solid #d9c7b1 !important;
+      }
+
+      .markdown-body h1 {
+        border: 2px solid #92400e !important;
+        outline: 1px solid #92400e !important;
+        outline-offset: 2px !important;
+        padding: 12px 20px !important;
+        text-align: center !important;
+        font-size: 22px !important;
+        color: #92400e !important;
+      }
+
+      .markdown-body h2 {
+        border: 1px solid #b45309 !important;
+        padding: 8px 16px !important;
+        font-size: 19px !important;
+        color: #b45309 !important;
+      }
+
+      .markdown-body h3 {
+        border: 1px dashed #c97313 !important;
+        padding: 6px 14px !important;
+        font-size: 17px !important;
+        color: #c97313 !important;
+      }
+
+      .markdown-body blockquote {
+        background: #fae9cd !important;
+        border-left: 4px solid #b45309 !important;
+        padding: 14px !important;
+      }
+
+      .markdown-body pre {
+        background: #fae9cd !important;
+        padding: 16px !important;
+        border: 1px solid #d9c7b1 !important;
+      }
+        `
+        break
+
       default:
         // 默认主题 - 使用 github-markdown-css 的默认样式，只添加必要的覆盖
         themeStyles = `
@@ -6176,6 +6588,12 @@ function App() {
     .markdown-body p {
       text-indent: ${exportConfig.paragraphIndent ? '2em' : '0'} !important;
       text-align: ${exportConfig.paragraphJustify ? 'justify' : (exportConfig.textAlign || 'left')} !important;
+    }
+
+    /* 预览区粗体文本颜色 */
+    .markdown-body strong,
+    .markdown-body b {
+      color: #55C9E9 !important;
     }
     
     .markdown-body pre {
@@ -6427,13 +6845,24 @@ function App() {
     container.innerHTML = html
 
     const plantumlNodes = Array.from(container.querySelectorAll('.plantuml[data-code]'))
+    const plantumlThemeKey = editorTheme === 'dark' ? 'dark' : 'light'
+    const plantumlContrastThresholdRaw = Number(exportConfig?.infographicContrastThreshold)
+    const plantumlContrastThreshold = Number.isFinite(plantumlContrastThresholdRaw)
+      ? Math.min(0.9, Math.max(0.1, plantumlContrastThresholdRaw))
+      : 0.5
+    const plantumlFallbackBg = exportConfig.theme === 'morandi'
+      ? '#f9f7f5'
+      : (editorTheme === 'dark' ? '#0d1117' : '#ffffff')
+    const plantumlBackgroundColor = exportConfig.bgColor || plantumlFallbackBg
+    const plantumlBgKey = String(plantumlBackgroundColor || '').trim() || 'auto'
 
     await Promise.all(plantumlNodes.map(async (node) => {
       const encodedCode = node.getAttribute('data-code')
       const code = encodedCode ? decodeURIComponent(encodedCode) : (node.textContent || '')
       if (!code) return
 
-      const cachedSvg = renderedPlantUMLCacheRef.current.get(code)
+      const cacheKey = `v2::${plantumlThemeKey}::${plantumlBgKey}::${plantumlContrastThreshold}::${code}`
+      const cachedSvg = renderedPlantUMLCacheRef.current.get(cacheKey)
       if (cachedSvg) {
         node.innerHTML = cachedSvg
         node.classList.add('is-rendered')
@@ -6442,23 +6871,34 @@ function App() {
       }
 
       try {
-        const svg = await renderPlantUMLSvg(code)
+        const svg = await renderPlantUMLSvg(code, plantumlThemeKey, plantumlBackgroundColor, plantumlContrastThreshold)
         node.innerHTML = svg
         node.classList.add('is-rendered')
         node.setAttribute('data-rendered-code', code)
-        renderedPlantUMLCacheRef.current.set(code, svg)
+        renderedPlantUMLCacheRef.current.set(cacheKey, svg)
       } catch (err) {
         console.warn('[导出] PlantUML 渲染失败，保留原节点:', err)
       }
     }))
 
     return container.innerHTML
-  }, [])
+  }, [editorTheme, exportConfig])
 
   const ensurePlantUMLRenderedInPreview = useCallback(async () => {
     if (!previewRef.current) return
     const nodes = Array.from(previewRef.current.querySelectorAll('.plantuml'))
     if (!nodes.length) return
+
+    const plantumlThemeKey = editorTheme === 'dark' ? 'dark' : 'light'
+    const plantumlContrastThresholdRaw = Number(exportConfig?.infographicContrastThreshold)
+    const plantumlContrastThreshold = Number.isFinite(plantumlContrastThresholdRaw)
+      ? Math.min(0.9, Math.max(0.1, plantumlContrastThresholdRaw))
+      : 0.5
+    const plantumlFallbackBg = exportConfig.theme === 'morandi'
+      ? '#f9f7f5'
+      : (editorTheme === 'dark' ? '#0d1117' : '#ffffff')
+    const plantumlBackgroundColor = exportConfig.bgColor || plantumlFallbackBg
+    const plantumlBgKey = String(plantumlBackgroundColor || '').trim() || 'auto'
 
     await Promise.all(nodes.map(async (node) => {
       if (node.classList.contains('is-rendered')) return
@@ -6466,7 +6906,8 @@ function App() {
       const code = encodedCode ? decodeURIComponent(encodedCode) : (node.textContent || '')
       if (!code) return
 
-      const cachedSvg = renderedPlantUMLCacheRef.current.get(code)
+      const cacheKey = `v2::${plantumlThemeKey}::${plantumlBgKey}::${plantumlContrastThreshold}::${code}`
+      const cachedSvg = renderedPlantUMLCacheRef.current.get(cacheKey)
       if (cachedSvg) {
         node.innerHTML = cachedSvg
         node.classList.add('is-rendered')
@@ -6475,16 +6916,16 @@ function App() {
       }
 
       try {
-        const svg = await renderPlantUMLSvg(code)
+        const svg = await renderPlantUMLSvg(code, plantumlThemeKey, plantumlBackgroundColor, plantumlContrastThreshold)
         node.innerHTML = svg
         node.classList.add('is-rendered')
         node.setAttribute('data-rendered-code', code)
-        renderedPlantUMLCacheRef.current.set(code, svg)
+        renderedPlantUMLCacheRef.current.set(cacheKey, svg)
       } catch (err) {
         console.warn('[预览/导出] PlantUML 渲染失败，保留原节点:', err)
       }
     }))
-  }, [])
+  }, [editorTheme, exportConfig])
 
   const handleExport = useCallback(async (format) => {
     await ensurePlantUMLRenderedInPreview()
@@ -7232,13 +7673,25 @@ function App() {
             plantumlNodes = previewRef.current.querySelectorAll('.plantuml')
           }
 
+          const plantumlThemeKey = editorTheme === 'dark' ? 'dark' : 'light'
+          const plantumlContrastThresholdRaw = Number(exportConfig?.infographicContrastThreshold)
+          const plantumlContrastThreshold = Number.isFinite(plantumlContrastThresholdRaw)
+            ? Math.min(0.9, Math.max(0.1, plantumlContrastThresholdRaw))
+            : 0.5
+          const plantumlFallbackBg = exportConfig.theme === 'morandi'
+            ? '#f9f7f5'
+            : (editorTheme === 'dark' ? '#0d1117' : '#ffffff')
+          const plantumlBackgroundColor = exportConfig.bgColor || plantumlFallbackBg
+          const plantumlBgKey = String(plantumlBackgroundColor || '').trim() || 'auto'
+
           for (let i = 0; i < plantumlNodes.length; i++) {
             const node = plantumlNodes[i]
             const encodedCode = node.getAttribute('data-code')
             const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
 
             try {
-              const cachedSvg = renderedPlantUMLCacheRef.current.get(code)
+              const cacheKey = `v2::${plantumlThemeKey}::${plantumlBgKey}::${plantumlContrastThreshold}::${code}`
+              const cachedSvg = renderedPlantUMLCacheRef.current.get(cacheKey)
               if (cachedSvg) {
                 node.innerHTML = cachedSvg
                 node.classList.add('is-rendered')
@@ -7246,11 +7699,11 @@ function App() {
                 continue
               }
 
-              const svg = await renderPlantUMLSvg(code)
+              const svg = await renderPlantUMLSvg(code, plantumlThemeKey, plantumlBackgroundColor, plantumlContrastThreshold)
               node.innerHTML = svg
               node.classList.add('is-rendered')
               node.setAttribute('data-rendered-code', code)
-              renderedPlantUMLCacheRef.current.set(code, svg)
+              renderedPlantUMLCacheRef.current.set(cacheKey, svg)
 
               if (renderedPlantUMLCacheRef.current.size > 200) {
                 const firstKey = renderedPlantUMLCacheRef.current.keys().next().value
@@ -7298,7 +7751,18 @@ function App() {
             const code = encodedCode ? decodeURIComponent(encodedCode) : node.textContent
 
             try {
-              const cachedSvg = renderedInfographicCacheRef.current.get(code)
+              const infographicThemeKey = editorTheme === 'dark' ? 'dark' : 'light'
+              const infographicContrastThreshold = Number(exportConfig?.infographicContrastThreshold)
+              const contrastThreshold = Number.isFinite(infographicContrastThreshold)
+                ? Math.min(0.9, Math.max(0.1, infographicContrastThreshold))
+                : 0.5
+              const fallbackBg = exportConfig.theme === 'morandi'
+                ? '#f9f7f5'
+                : (editorTheme === 'dark' ? '#0d1117' : '#ffffff')
+              const backgroundColor = exportConfig.bgColor || fallbackBg
+              const backgroundColorKey = String(backgroundColor || '').trim() || 'auto'
+              const cacheKey = `v4::${infographicThemeKey}::${exportConfig.theme || 'default'}::${backgroundColorKey}::${contrastThreshold}::${code}`
+              const cachedSvg = renderedInfographicCacheRef.current.get(cacheKey)
               if (cachedSvg) {
                 node.innerHTML = cachedSvg
                 node.classList.add('is-rendered')
@@ -7306,11 +7770,11 @@ function App() {
                 continue
               }
 
-              const svg = await renderInfographicSvg(code)
+              const svg = await renderInfographicSvg(code, infographicThemeKey, backgroundColor, contrastThreshold)
               node.innerHTML = svg
               node.classList.add('is-rendered')
               node.setAttribute('data-rendered-code', code)
-              renderedInfographicCacheRef.current.set(code, svg)
+              renderedInfographicCacheRef.current.set(cacheKey, svg)
 
               if (renderedInfographicCacheRef.current.size > 200) {
                 const firstKey = renderedInfographicCacheRef.current.keys().next().value
@@ -7349,7 +7813,7 @@ function App() {
         console.warn(`⚠️ 渲染时间较长 (${renderTime.toFixed(2)}ms)，建议优化文档内容`)
       }
     }
-  }, [mermaidLoaded, markdownProcessor, postProcessHtml, exportConfig.captionFormat, updateFigureCaptionsInPreview, updatePreviewDOM])
+  }, [mermaidLoaded, markdownProcessor, postProcessHtml, exportConfig.captionFormat, exportConfig.bgColor, exportConfig.bgCSS, exportConfig.theme, exportConfig.infographicContrastThreshold, editorTheme, updateFigureCaptionsInPreview, updatePreviewDOM])
 
   // 使用 debounce 优化 Markdown 渲染性能
   const debouncedContent = useDebounce(content, 300) // 300ms 防抖，平衡实时性与稳定性
@@ -7383,7 +7847,7 @@ function App() {
         isRenderingRef.current = false
       })
     }
-  }, [debouncedContent, currentFileFormat])
+  }, [debouncedContent, currentFileFormat, editorTheme, exportConfig.bgColor, exportConfig.bgCSS, exportConfig.infographicContrastThreshold])
 
   // 初始化时应用导出配置样式
   // useEffect(() => {
@@ -7764,7 +8228,7 @@ function App() {
 
   const applyMonacoTheme = useCallback((monacoInstance = window.monaco) => {
     if (!monacoInstance?.editor) return
-    const monacoTheme = editorThemeRef.current === 'dark' ? 'vs-dark' : 'vs'
+    const monacoTheme = editorThemeRef.current === 'dark' ? 'custom-dark' : 'custom-light'
     monacoInstance.editor.setTheme(monacoTheme)
   }, [])
 
@@ -7772,17 +8236,47 @@ function App() {
     editorRef.current = editor
     setEditorInstance(editor)
 
-    // 定义自定义主题 - 修改标题颜色
-    monacoInstance.editor.defineTheme('light', {
+    const editorDisposables = []
+    editorDisposables.push(
+      editor.onDidBlurEditorText(() => {
+        setSlashMenu((prev) => (prev.visible ? { ...prev, visible: false } : prev))
+      })
+    )
+
+    // 定义自定义主题 - 修改标题与粗体颜色
+    monacoInstance.editor.defineTheme('custom-light', {
       base: 'vs',
       inherit: true,
       rules: [
+        // 标题颜色
         { token: 'keyword.md', foreground: '0165FF', fontStyle: 'bold' },
         { token: 'string.md', foreground: '0165FF', fontStyle: 'bold' },
+        // 粗体文本颜色（与标题一致）
+        { token: 'strong.md', foreground: '0165FF', fontStyle: 'bold' },
+        { token: 'strong', foreground: '0165FF', fontStyle: 'bold' },
+        { token: 'emphasis.md', foreground: '0165FF', fontStyle: 'bold' },
       ],
       colors: {
         'editor.foreground': '#24292f',
         'editor.background': '#FFFFFF',
+      }
+    })
+
+    monacoInstance.editor.defineTheme('custom-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        // 标题颜色
+        { token: 'keyword.md', foreground: '0165FF', fontStyle: 'bold' },
+        { token: 'string.md', foreground: '0165FF', fontStyle: 'bold' },
+        // 粗体文本颜色（与标题一致）
+        { token: 'strong.md', foreground: '0165FF', fontStyle: 'bold' },
+        { token: 'strong', foreground: '0165FF', fontStyle: 'bold' },
+        { token: 'emphasis.md', foreground: '0165FF', fontStyle: 'bold' },
+      ],
+      colors: {
+        'editor.foreground': '#d4d4d4',
+        'editor.background': '#1e1e1e',
       }
     })
     
@@ -8098,7 +8592,14 @@ function App() {
       editor.trigger('keyboard', 'editor.action.startFindReplaceAction')
     })
 
-    return pasteCleanup
+    return () => {
+      pasteCleanup()
+      editorDisposables.forEach((disposable) => {
+        try {
+          disposable?.dispose?.()
+        } catch (_) {}
+      })
+    }
   }, [applyMonacoTheme])
 
   // MenuBar 处理函数
@@ -9074,6 +9575,7 @@ function App() {
           wordWrap={editorWordWrap}
           syncPreviewWithEditor={syncPreviewWithEditor}
           enableSlashMenuReorder={enableSlashMenuReorder}
+          appLogoConfig={appLogoConfig}
           fontDownloadState={fontDownloadState}
           remoteFontFamilies={Object.keys(DYNAMIC_FONT_SOURCES)}
           onRequestFontDownload={handleRequestFontDownload}
@@ -9107,6 +9609,11 @@ function App() {
             if (typeof s.enableSlashMenuReorder === 'boolean') {
               setEnableSlashMenuReorder(s.enableSlashMenuReorder)
               persistSetting('enableSlashMenuReorder', s.enableSlashMenuReorder)
+            }
+            if (s.appLogoConfig) {
+              const nextLogoConfig = normalizeLogoConfig(s.appLogoConfig)
+              setAppLogoConfig(nextLogoConfig)
+              persistSetting('appLogoConfig', nextLogoConfig)
             }
           }}
         />
@@ -9166,7 +9673,7 @@ function App() {
           </button>
           {!isAdaptiveSinglePaneViewport && (
             <>
-              <img src={markdownLogo} alt="Markdown" className="app-logo" />
+              <DynamicAppLogo config={appLogoConfig} variant="toolbar" />
               <MenuBar {...menuBarProps} />
             </>
           )}
@@ -9486,6 +9993,10 @@ function App() {
                     fontDownloadState={fontDownloadState}
                     remoteFontFamilies={Object.keys(DYNAMIC_FONT_SOURCES)}
                     onRequestFontDownload={handleRequestFontDownload}
+                    onOpenAIWriteTheme={() => {
+                      setAiAutoQuickCommandRequest('write-theme')
+                      setAiDialogOpen(true)
+                    }}
                   />
                 </div>
               </div>
@@ -9597,6 +10108,10 @@ function App() {
                 fontDownloadState={fontDownloadState}
                 remoteFontFamilies={Object.keys(DYNAMIC_FONT_SOURCES)}
                 onRequestFontDownload={handleRequestFontDownload}
+                onOpenAIWriteTheme={() => {
+                  setAiAutoQuickCommandRequest('write-theme')
+                  setAiDialogOpen(true)
+                }}
               />
             </div>
           )}
@@ -9731,7 +10246,12 @@ function App() {
       {/* AI 对话（由工具栏按钮打开） */}
       <AISidebar
         isOpen={aiDialogOpen}
-        onClose={() => setAiDialogOpen(false)}
+        onClose={() => {
+          setAiDialogOpen(false)
+          setAiAutoQuickCommandRequest(null)
+        }}
+        autoQuickCommandId={aiAutoQuickCommandRequest}
+        onConsumeAutoQuickCommand={() => setAiAutoQuickCommandRequest(null)}
         getEditorContent={getEditorContent}
         getSelectedText={getSelectedText}
         onInsertImage={handleImageInsert}

@@ -45,6 +45,16 @@
   margin-top: 2px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .ai-dialog-overlay,
+  .ai-dialog,
+  .ai-dialog-overlay.closing,
+  .ai-dialog-overlay.closing .ai-dialog {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* 移动端适配 */
 @media (max-width: 767px) {
   .ai-toggle-btn {
@@ -53,6 +63,14 @@
     width: 48px;
     height: 48px;
   }
+}
+
+:root {
+  --dialog-overlay-duration: 220ms;
+  --dialog-panel-duration: 260ms;
+  --dialog-ease: cubic-bezier(0.22, 0.8, 0.22, 1);
+  --dialog-enter-y: 14px;
+  --dialog-enter-scale: 0.985;
 }
 
 /* AI 对话窗口遮罩 */
@@ -67,17 +85,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: fadeIn 0.2s ease;
+  animation: dialogOverlayEnter var(--dialog-overlay-duration) var(--dialog-ease);
   backdrop-filter: blur(4px);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+@keyframes dialogOverlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialogOverlayExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 /* AI 对话窗口 - 使用系统对话框样式 */
@@ -92,7 +111,8 @@
   border: 1px solid #30363d;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.3s ease;
+  transform-origin: center center;
+  animation: dialogPanelEnter var(--dialog-panel-duration) var(--dialog-ease);
   overflow: hidden;
 }
 
@@ -102,15 +122,35 @@
   border: none;
 }
 
-@keyframes slideUp {
+@keyframes dialogPanelEnter {
   from {
-    transform: translateY(20px);
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
+}
+
+@keyframes dialogPanelExit {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
+    opacity: 0;
+  }
+}
+
+.ai-dialog-overlay.closing {
+  pointer-events: none;
+  animation: dialogOverlayExit 180ms ease-in forwards;
+}
+
+.ai-dialog-overlay.closing .ai-dialog {
+  animation: dialogPanelExit 180ms ease-in forwards;
 }
 
 /* 移动端适配 */
@@ -4562,4 +4602,17 @@
 
 .app.theme-dark .ai-toggle-btn:hover {
   box-shadow: 0 6px 16px rgba(88, 166, 255, 0.4);
+}
+
+/* 用户消息气泡自适应宽度：避免短文本占据过长横向空间 */
+.app .chat-message.user .message-content {
+  flex: 0 1 auto;
+  max-width: 70%;
+  align-items: flex-end;
+}
+
+.app .chat-message.user .message-text {
+  width: fit-content;
+  max-width: 100%;
+  display: inline-block;
 }

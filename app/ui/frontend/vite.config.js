@@ -16,15 +16,15 @@ export default defineConfig({
         changeOrigin: true
       },
       '/health': {
-        target: 'http://127.0.0.1:18080',
+        target: 'http://127.0.0.1:18008',
         changeOrigin: true
       },
       '/images': {
-        target: 'http://127.0.0.1:18080',
+        target: 'http://127.0.0.1:18008',
         changeOrigin: true
       },
       '/math-svg': {
-        target: 'http://127.0.0.1:18080',
+        target: 'http://127.0.0.1:18008',
         changeOrigin: true
       }
     }

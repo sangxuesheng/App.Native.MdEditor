@@ -1,24 +1,34 @@
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import './Dialog.css'
 import './MarkdownHelpDialog.css'
 
 function MarkdownHelpDialog({ onClose, theme }) {
+  const [isClosing, setIsClosing] = useState(false)
+
   const getThemeClass = () => {
     if (theme === 'light') return 'theme-light'
     if (theme === 'md3') return 'theme-md3'
     return 'theme-dark'
   }
 
+  const requestClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    window.setTimeout(() => {
+      onClose()
+    }, 180)
+  }, [isClosing, onClose])
+
   const handleOverlayClick = () => {
-    onClose()
+    requestClose()
   }
 
   const handleCloseClick = () => {
-    onClose()
+    requestClose()
   }
 
   return (
-    <div className="dialog-overlay compact-panel-overlay" onClick={handleOverlayClick}>
+    <div className={`dialog-overlay compact-panel-overlay ${isClosing ? 'closing' : ''}`} onClick={handleOverlayClick}>
       <div className={`dialog-container compact-panel-dialog markdown-help-dialog ${getThemeClass()}`} onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>Markdown 语法帮助</h2>

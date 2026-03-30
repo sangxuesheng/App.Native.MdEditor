@@ -493,9 +493,9 @@ function MenuBar({
                             disabled={subItem.disabled}
                             title={subItem.description}
                           >
-                            {subItem.checked && <span className="menu-check">✓</span>}
                             {subItem.icon && <MenuItemIcon type={subItem.icon} />}
                             <span className="menu-label">{subItem.label}</span>
+                            {subItem.checked && <span className="menu-check">✓</span>}
                             {subItem.shortcut && (
                               <span className="menu-shortcut">{subItem.shortcut}</span>
                             )}
@@ -639,11 +639,11 @@ function MenuBar({
                               disabled={subItem.disabled}
                               title={subItem.description}
                             >
-                              {subItem.checked && <span className="menu-check">✓</span>}
                               <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                                 {subItem.icon && <MenuItemIcon type={subItem.icon} />}
                                 <span className="menu-label">{subItem.label}</span>
                               </span>
+                              {subItem.checked && <span className="menu-check">✓</span>}
                               {subItem.shortcut && (
                                 <span className="menu-shortcut">{subItem.shortcut}</span>
                               )}

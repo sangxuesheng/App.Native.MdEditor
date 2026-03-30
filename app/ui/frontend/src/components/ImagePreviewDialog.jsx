@@ -1,14 +1,47 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { X, Download } from 'lucide-react'
 import './ImagePreviewDialog.css'
 
 function ImagePreviewDialog({ image, onClose, theme }) {
-  if (!image) return null
+  const [renderedImage, setRenderedImage] = useState(image)
+  const [isClosing, setIsClosing] = useState(false)
+  const closeTimerRef = useRef(null)
+
+  useEffect(() => {
+    if (image) {
+      setRenderedImage(image)
+      setIsClosing(false)
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = null
+      }
+      return
+    }
+
+    if (!renderedImage || isClosing) return
+    setIsClosing(true)
+    closeTimerRef.current = setTimeout(() => {
+      setRenderedImage(null)
+      setIsClosing(false)
+      closeTimerRef.current = null
+    }, 180)
+  }, [image, renderedImage, isClosing])
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = null
+      }
+    }
+  }, [])
+
+  if (!renderedImage) return null
 
   const doDownloadImage = () => {
     const link = document.createElement('a')
-    link.href = image.url
-    link.download = image.filename || 'image'
+    link.href = renderedImage.url
+    link.download = renderedImage.filename || 'image'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -49,15 +82,15 @@ function ImagePreviewDialog({ image, onClose, theme }) {
           <div className="info-details">
             <div className="info-row">
               <span className="info-label">文件名：</span>
-              <span className="info-value">{image.filename || '未知'}</span>
+              <span className="info-value">{renderedImage.filename || '未知'}</span>
             </div>
             <div className="info-row">
               <span className="info-label">文件大小：</span>
-              <span className="info-value">{formatFileSize(image.size || 0)}</span>
+              <span className="info-value">{formatFileSize(renderedImage.size || 0)}</span>
             </div>
             <div className="info-row">
               <span className="info-label">修改时间：</span>
-              <span className="info-value">{formatDate(image.mtime || image.uploadTime)}</span>
+              <span className="info-value">{formatDate(renderedImage.mtime || renderedImage.uploadTime)}</span>
             </div>
             <div className="info-row actions-row">
               <span className="info-label">操作：</span>
@@ -85,7 +118,7 @@ function ImagePreviewDialog({ image, onClose, theme }) {
 
         {/* 图片预览主体 */}
         <div className="img-preview-body">
-          <img src={image.url} alt={image.filename || '图片'} />
+          <img src={renderedImage.url} alt={renderedImage.filename || '图片'} />
         </div>
       </div>
     </div>

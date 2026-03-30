@@ -1,3 +1,11 @@
+:root {
+  --dialog-overlay-duration: 220ms;
+  --dialog-panel-duration: 260ms;
+  --dialog-ease: cubic-bezier(0.22, 0.8, 0.22, 1);
+  --dialog-enter-y: 14px;
+  --dialog-enter-scale: 0.985;
+}
+
 .custom-dialog-overlay {
   position: fixed;
   top: 0;
@@ -9,16 +17,12 @@
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  animation: fadeIn 0.2s ease-out;
+  animation: dialogOverlayEnter var(--dialog-overlay-duration) var(--dialog-ease);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+@keyframes dialogOverlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .custom-dialog {
@@ -29,16 +33,17 @@
   max-width: 400px;
   max-height: 80vh;
   overflow: hidden;
-  animation: slideUp 0.3s ease-out;
+  transform-origin: center center;
+  animation: dialogPanelEnter var(--dialog-panel-duration) var(--dialog-ease);
 }
 
-@keyframes slideUp {
+@keyframes dialogPanelEnter {
   from {
-    transform: translateY(20px);
+    transform: translateY(var(--dialog-enter-y)) scale(var(--dialog-enter-scale));
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
@@ -360,4 +365,12 @@
   --button-secondary-bg: #ffffff;
   --button-secondary-border: #d0d7de;
   --button-secondary-hover: #f6f8fa;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-dialog-overlay,
+  .custom-dialog {
+    animation: none !important;
+    transform: none !important;
+  }
 }

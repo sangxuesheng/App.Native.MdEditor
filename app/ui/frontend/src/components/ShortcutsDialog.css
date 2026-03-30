@@ -1,3 +1,7 @@
+.shortcuts-dialog .dialog-footer {
+  justify-content: flex-end;
+}
+
 .shortcuts-content {
   /* 让内容居中显示 */
   max-width: 500px;
