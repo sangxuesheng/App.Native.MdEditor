@@ -120,6 +120,24 @@ cd <项目根目录>
 fnpack build
 ```
 
+### 多架构打包（amd64/arm64）
+
+使用根目录脚本 `build-fpk-multi-arch.sh` 可分别构建不同架构的 FPK 包：
+
+```bash
+# 交互模式（选择目标架构）
+bash build-fpk-multi-arch.sh
+
+# 指定架构构建
+bash build-fpk-multi-arch.sh amd64
+bash build-fpk-multi-arch.sh arm64
+
+# 同时构建两个架构
+bash build-fpk-multi-arch.sh amd64 arm64
+```
+
+产物会按架构命名，例如：`App.Native.MdEditor2-<version>-amd64.fpk`、`App.Native.MdEditor2-<version>-arm64.fpk`。
+
 ### Docker（可选）
 
 ```bash

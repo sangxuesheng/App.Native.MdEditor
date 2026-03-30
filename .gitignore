@@ -1,40 +1,29 @@
-# Node modules
-node_modules/
-node_modules.bak/
+# 默认忽略所有文件/目录
+*
 
-# Build output
-dist/
-*.fpk
+# 允许推送的目录
+!app/
+!app/**
+!cmd/
+!cmd/**
+!config/
+!config/**
+!data/
+!data/**
+!wizard/
+!wizard/**
 
-# Logs
-*.log
-npm-debug.log*
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Temporary files
-*.tmp
-*.temp
-.cache/
-
-# Package lock (optional, 可以根据需要调整)
-# package-lock.json
-
-
-#
-# Docs / Cursor / Local helper files (do not upload)
-#
-docs/
-docs-site/
-根目录/
-.lingma/
-.cursor/
-scripts/
+# 允许推送的根目录文件
+!.dockerignore
+!.fpkignore
+!.gitignore
+!.npmrc
+!CHANGELOG.md
+!Dockerfile
+!ICON.PNG
+!ICON_256.PNG
+!README.md
+!docker-compose.yml
+!manifest
+!markdown.svg
+!build-fpk-multi-arch.sh
