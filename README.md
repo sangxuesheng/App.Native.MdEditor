@@ -20,7 +20,7 @@
 
 
 <details>
-<summary><strong>点击查看编辑器预览图</strong></summary>
+<summary><img src="https://img.shields.io/badge/-%E7%82%B9%E5%87%BB%E6%9F%A5%E7%9C%8B%E7%BC%96%E8%BE%91%E5%99%A8%E9%A2%84%E8%A7%88%E5%9B%BE-0969da?style=flat-square" alt="点击查看编辑器预览图" height="22"></summary>
 <img src="https://pic1.imgdb.cn/item/69c65e5bebec5f1015549e1f.png" alt="飞牛NAS编辑器预览">
 <p align="center"><sub>飞牛NAS编辑器预览</sub></p><br>
 <img src="https://pic1.imgdb.cn/item/69c92d6f3833931b653e7493.png" alt="桌面端暗黑模式预览">
@@ -47,6 +47,7 @@
 <p align="center"><sub>PDF文件预览</sub></p><br>
 <img src="https://pic1.imgdb.cn/item/69c92eef3833931b653e7501.png" alt="Word文档转换预览（试验性）"><br>
 <p align="center"><sub>Word文档转换预览（试验性）</sub></p><br>
+<div align="center">
 <table>
   <tr>
     <td align="center" valign="top">
@@ -63,6 +64,7 @@
     </td>
   </tr>
 </table>
+</div>
 
 </details>
 
