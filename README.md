@@ -20,7 +20,7 @@
 
 
 <details>
-<summary><strong><a href="#">点击查看编辑器预览图</a></strong></summary>
+<summary><strong>点击查看编辑器预览图</strong></summary>
 <img src="https://pic1.imgdb.cn/item/69c65e5bebec5f1015549e1f.png" alt="飞牛NAS编辑器预览">
 <p align="center"><sub>飞牛NAS编辑器预览</sub></p><br>
 <img src="https://pic1.imgdb.cn/item/69c92d6f3833931b653e7493.png" alt="桌面端暗黑模式预览">
