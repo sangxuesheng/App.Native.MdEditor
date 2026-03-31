@@ -12,6 +12,17 @@
 !data/**
 !wizard/
 !wizard/**
+!scripts/
+!scripts/**
+
+# Runtime/generated artifacts (do not commit)
+app/server/node_modules/
+app/ui/frontend/node_modules/
+app/var/app.db
+app/var/app.db-shm
+app/var/app.db-wal
+app/var/thumbnails/
+*.fpk
 
 # 允许推送的根目录文件
 !.dockerignore

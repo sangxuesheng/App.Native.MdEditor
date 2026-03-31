@@ -348,7 +348,7 @@ export default function AIConfigPanel({
     setFetchingModels(true)
     setFetchModelsError(null)
     try {
-      const res = await fetch('/api/ai/models/fetch', {
+      const res = await fetch('api/ai/models/fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

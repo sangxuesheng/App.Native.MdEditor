@@ -43,7 +43,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
   // 递归加载目录及其子目录
   const loadDirectoryRecursive = async (dirPath) => {
     try {
-      const response = await fetch(`/api/files?path=${encodeURIComponent(dirPath)}`);
+      const response = await fetch(`api/files?path=${encodeURIComponent(dirPath)}`);
       const data = await response.json();
       
       if (data.ok && data.items) {
@@ -66,7 +66,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
   // 加载子目录
   const loadSubDirectory = async (dirPath) => {
     try {
-      const response = await fetch(`/api/files?path=${encodeURIComponent(dirPath)}`);
+      const response = await fetch(`api/files?path=${encodeURIComponent(dirPath)}`);
       const data = await response.json();
       
       if (data.ok && data.items) {
@@ -158,7 +158,7 @@ const FileBrowser = ({ rootDirs, theme, onPathSelect, selectedPath }) => {
     try {
       const folderPath = `${newFolderParent}/${newFolderName.trim()}`;
       
-      const response = await fetch('/api/folder/create', {
+      const response = await fetch('api/folder/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: folderPath })

@@ -12,7 +12,7 @@ const MAX_FAVORITES = 50
  */
 export async function getFavorites() {
   try {
-    const res = await fetch('/api/favorites')
+    const res = await fetch('api/favorites')
     const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return []
     return Array.isArray(data.items) ? data.items.slice(0, MAX_FAVORITES) : []
@@ -31,7 +31,7 @@ export async function getFavorites() {
 export async function addFavorite(path, type = 'file') {
   if (!path) return false
   try {
-    const res = await fetch('/api/favorites/toggle', {
+    const res = await fetch('api/favorites/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, name: getFileName(path), type }),
@@ -53,7 +53,7 @@ export async function addFavorite(path, type = 'file') {
 export async function removeFavorite(path) {
   // 直接调用 toggle 接口，后端会根据是否存在决定删除
   try {
-    const res = await fetch('/api/favorites/toggle', {
+    const res = await fetch('api/favorites/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path }),
@@ -85,7 +85,7 @@ export async function isFavorite(path) {
  */
 export async function toggleFavorite(path, type = 'file') {
   try {
-    const res = await fetch('/api/favorites/toggle', {
+    const res = await fetch('api/favorites/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, name: getFileName(path), type }),
@@ -114,7 +114,7 @@ export async function updateFavoritesOrder(favorites) {
       id: item.id,
       order_index: index,
     }))
-    const res = await fetch('/api/favorites/reorder', {
+    const res = await fetch('api/favorites/reorder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items }),
@@ -133,7 +133,7 @@ export async function updateFavoritesOrder(favorites) {
  */
 export async function clearFavorites() {
   try {
-    const res = await fetch('/api/favorites/clear', { method: 'POST' })
+    const res = await fetch('api/favorites/clear', { method: 'POST' })
     const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return false
     return true

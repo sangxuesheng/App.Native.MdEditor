@@ -281,7 +281,7 @@ async function processImages(container) {
         fetchUrl = src
       } else {
         // 本地局域网绝对地址：通过后端代理转发（绕过浏览器 CORS 限制）
-        fetchUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`
+        fetchUrl = `api/proxy-image?url=${encodeURIComponent(src)}`
       }
       const resp = await fetch(fetchUrl)
       if (!resp.ok) {
@@ -518,7 +518,7 @@ async function processMathFormulas(container) {
       }
 
       // 方案B：降级调用后端 /api/math/svg，base64 内联 data URI
-      const response = await fetch('/api/math/svg', {
+      const response = await fetch('api/math/svg', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ latex, display: isDisplay })

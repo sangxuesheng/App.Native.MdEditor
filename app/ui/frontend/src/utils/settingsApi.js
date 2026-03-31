@@ -1,7 +1,7 @@
 import { safeParseJsonResponse } from './fetchUtils'
 
-const SETTINGS_ENDPOINT = '/api/settings'
-const APP_STATE_ENDPOINT = '/api/app-state'
+const SETTINGS_ENDPOINT = 'api/settings'
+const APP_STATE_ENDPOINT = 'api/app-state'
 
 export const DEFAULT_APP_STATE = {
   content: '',

@@ -12,7 +12,7 @@ const MAX_RECENT_FILES = 20
  */
 export async function getRecentFiles() {
   try {
-    const res = await fetch('/api/recent-files')
+    const res = await fetch('api/recent-files')
     const data = await safeParseJsonResponse(res, { ok: false })
     if (!res.ok || !data.ok) return []
     return Array.isArray(data.items) ? data.items.slice(0, MAX_RECENT_FILES) : []
@@ -29,7 +29,7 @@ export async function getRecentFiles() {
 export async function addRecentFile(filePath) {
   if (!filePath) return
   try {
-    await fetch('/api/recent-files/open', {
+    await fetch('api/recent-files/open', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: filePath, name: getFileName(filePath) }),
@@ -53,7 +53,7 @@ export function removeRecentFile(filePath) {
  */
 export async function clearRecentFiles() {
   try {
-    await fetch('/api/recent-files/clear', { method: 'POST' })
+    await fetch('api/recent-files/clear', { method: 'POST' })
   } catch (error) {
     console.error('Failed to clear recent files:', error)
   }

@@ -229,7 +229,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
           if (isRelative || isSameOrigin) {
             fetchUrl = src;
           } else {
-            fetchUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`;
+            fetchUrl = `api/proxy-image?url=${encodeURIComponent(src)}`;
           }
 
           const resp = await fetch(fetchUrl);
@@ -573,7 +573,7 @@ const ExportDialog = ({ onClose, content, currentPath, theme, previewHtml, expor
           const src = img.getAttribute('src');
           if (!src || src.startsWith('data:') || src.startsWith('/') || src.startsWith(window.location.origin)) return;
           try {
-            const resp = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}`);
+            const resp = await fetch(`api/proxy-image?url=${encodeURIComponent(src)}`);
             if (resp.ok) {
               const blob = await resp.blob();
               const base64 = await new Promise((res) => {

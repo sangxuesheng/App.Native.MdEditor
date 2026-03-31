@@ -16,7 +16,7 @@ export function useAIImage() {
 
   // 从数据库加载文生图历史
   useEffect(() => {
-    fetch('/api/ai/image/history')
+    fetch('api/ai/image/history')
       .then((r) => safeParseJsonResponse(r, { ok: false }))
       .then((data) => {
         if (data?.ok && Array.isArray(data?.items)) {
@@ -76,7 +76,7 @@ export function useAIImage() {
     }
 
     try {
-      const res = await fetch('/api/ai/image/generate', {
+      const res = await fetch('api/ai/image/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -109,7 +109,7 @@ export function useAIImage() {
         try {
           const saved = await Promise.all(
             urls.map((url) =>
-              fetch('/api/image/fetch-url', {
+              fetch('api/image/fetch-url', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url, alt: 'AI生成' }),
@@ -124,7 +124,7 @@ export function useAIImage() {
       const newItem = { prompt: text, url: displayUrls[0], urls: displayUrls, time: Date.now() }
       setHistory((h) => [newItem, ...h.slice(0, 49)])
       // 保存到数据库（多图时保存第一张）
-      fetch('/api/ai/image/history', {
+      fetch('api/ai/image/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: text, url: displayUrls[0] }),
@@ -189,7 +189,7 @@ export function useAIImage() {
           console.warn('[AI 图片连通性测试] 提示：格式应为 SecretId:SecretKey（英文冒号连接，前后无空格）')
         }
       }
-      const res = await fetch('/api/ai/image/generate', {
+      const res = await fetch('api/ai/image/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reqBody),
@@ -231,7 +231,7 @@ export function useAIImage() {
     setHistory((h) => h.filter((it) => !match(it)))
     if (id != null) {
       try {
-        await fetch(`/api/ai/image/history/${id}`, { method: 'DELETE' })
+        await fetch(`api/ai/image/history/${id}`, { method: 'DELETE' })
       } catch (_) {}
     }
   }, [])

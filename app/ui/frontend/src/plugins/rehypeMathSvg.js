@@ -63,7 +63,7 @@ function isMathNode(node) {
  */
 async function renderMathToSvg(latex, display) {
   try {
-    const response = await fetch('/api/math/svg', {
+    const response = await fetch('api/math/svg', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ latex, display })

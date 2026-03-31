@@ -24,7 +24,7 @@ const ImageManager = ({ onInsert, onClose }) => {
   const loadImages = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/images?page=${page}&limit=${limit}&search=${search}`);
+      const response = await fetch(`api/images?page=${page}&limit=${limit}&search=${search}`);
       const result = await response.json();
       
       if (result.ok) {
@@ -66,7 +66,7 @@ const ImageManager = ({ onInsert, onClose }) => {
     }
 
     try {
-      const response = await fetch(`/api/image?url=${encodeURIComponent(image.url)}`, {
+      const response = await fetch(`api/image?url=${encodeURIComponent(image.url)}`, {
         method: 'DELETE'
       });
       

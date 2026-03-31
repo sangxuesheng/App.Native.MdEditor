@@ -63,8 +63,8 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
   const loadDefaultImagebed = useCallback(async () => {
     try {
       const [defaultRes, listRes] = await Promise.all([
-        fetch('/api/imagebed/default'),
-        fetch('/api/imagebed/list'),
+        fetch('api/imagebed/default'),
+        fetch('api/imagebed/list'),
       ])
       const defaultResult = await defaultRes.json()
       const listResult = await listRes.json()
@@ -130,17 +130,17 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
       let images = []
 
       if (!bedId) {
-        const response = await fetch('/api/image/list')
+        const response = await fetch('api/image/list')
         const result = await response.json()
         if (result.ok) images = result.images || []
       } else {
         const bed = imagebedConfigs.find(c => c.id === bedId)
         if (bed && bed.type === 'local') {
-          const response = await fetch('/api/image/list')
+          const response = await fetch('api/image/list')
           const result = await response.json()
           if (result.ok) images = result.images || []
         } else {
-          const url = `/api/imagebed/${bedId}/images${force ? '?force=true' : ''}`
+          const url = `api/imagebed/${bedId}/images${force ? '?force=true' : ''}`
           const response = await fetch(url)
           const result = await response.json()
           if (result.ok) images = result.images || []
@@ -289,7 +289,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
 
     try {
       console.log('开始上传图片...')
-      const response = await fetch('/api/image/upload', {
+      const response = await fetch('api/image/upload', {
         method: 'POST',
         body: formData
       })
@@ -463,7 +463,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
 
     // 同时保存到本地
     try {
-      const proxyResponse = await fetch(`/api/image/fetch-url`, {
+      const proxyResponse = await fetch(`api/image/fetch-url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: imageUrl, alt })
@@ -492,7 +492,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
       const isExternal = bed && bed.type !== 'local'
       setDeleteNotification(isExternal ? '正在删除，云端同步中' : '正在删除')
 
-      const response = await fetch('/api/image/delete-batch', {
+      const response = await fetch('api/image/delete-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -534,7 +534,7 @@ function ImageManagerDialog({ isOpen, onClose, onInsertImage, theme, onNotify, i
 
       setDeleteNotification(isExternal ? '正在删除，云端同步中' : '正在删除')
 
-      const response = await fetch('/api/image/delete-batch', {
+      const response = await fetch('api/image/delete-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

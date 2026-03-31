@@ -223,7 +223,7 @@ const handleContextMenuAction = useCallback(async (action, data) => {
           try {
             const image = contextMenu.selectedImage
             // 调用删除 API
-            const response = await fetch(`/api/image/delete`, {
+            const response = await fetch(`api/image/delete`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: image.src })

@@ -473,6 +473,11 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (parsed.pathname === '/api/service-port' && req.method === 'GET') {
+    sendJson(res, 200, { ok: true, port: String(PORT) });
+    return;
+  }
+
   // 图床 API 路由
   if (parsed.pathname.startsWith('/api/imagebed')) {
     console.log('[DEBUG] Imagebed API request:', parsed.pathname, req.method);

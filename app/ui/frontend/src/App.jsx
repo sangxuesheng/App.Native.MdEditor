@@ -260,11 +260,29 @@ const getSystemTheme = () => {
   return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'
 }
 
+const getFnosThemeMode = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem('DesktopConfig-1000')
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const theme = parsed?.userPreference?.theme
+    if (theme === 10) return 'light'
+    if (theme === 20) return 'dark'
+    if (theme === 30) return 'system'
+  } catch (error) {
+    // Ignore parse failures and fallback to app preferences.
+  }
+  return null
+}
+
 // themeMode:
 // - 'system'：实时跟随系统
 // - 'light'/'dark'：覆盖系统（用户手动选择）
 const getInitialThemeMode = () => {
   if (typeof window === 'undefined') return 'system'
+  const fnosThemeMode = getFnosThemeMode()
+  if (fnosThemeMode) return fnosThemeMode
   const isMobile = window.matchMedia?.(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)?.matches
   if (isMobile) return 'system'
 
@@ -275,6 +293,8 @@ const getInitialThemeMode = () => {
 
 const getInitialTheme = () => {
   if (typeof window === 'undefined') return 'light'
+  const fnosThemeMode = getFnosThemeMode()
+  if (fnosThemeMode) return fnosThemeMode === 'system' ? getSystemTheme() : fnosThemeMode
   const isMobile = window.matchMedia?.(MOBILE_SINGLE_COLUMN_MEDIA_QUERY)?.matches
   if (isMobile) return getSystemTheme()
 
@@ -1038,18 +1058,19 @@ function App() {
       }
       
       // 根据主题名称加载对应的 CSS（本地构建产物，避免 CDN 延迟）
+      const base = import.meta.env.BASE_URL || './'
       const themeMap = {
-        'github': '/code-themes/github.min.css',
-        'github-dark': '/code-themes/github-dark.min.css',
-        'vs': '/code-themes/vs.min.css',
-        'vs2015': '/code-themes/vs2015.min.css',
-        'dracula': '/code-themes/base16/dracula.min.css',
-        'atom-one-dark': '/code-themes/atom-one-dark.min.css',
-        'solarized-light': '/code-themes/base16/solarized-light.min.css',
-        'solarized-dark': '/code-themes/base16/solarized-dark.min.css',
-        'nord': '/code-themes/nord.min.css',
-        'monokai': '/code-themes/monokai.min.css',
-        'material': '/code-themes/base16/material.min.css'
+        'github': `${base}code-themes/github.min.css`,
+        'github-dark': `${base}code-themes/github-dark.min.css`,
+        'vs': `${base}code-themes/vs.min.css`,
+        'vs2015': `${base}code-themes/vs2015.min.css`,
+        'dracula': `${base}code-themes/base16/dracula.min.css`,
+        'atom-one-dark': `${base}code-themes/atom-one-dark.min.css`,
+        'solarized-light': `${base}code-themes/base16/solarized-light.min.css`,
+        'solarized-dark': `${base}code-themes/base16/solarized-dark.min.css`,
+        'nord': `${base}code-themes/nord.min.css`,
+        'monokai': `${base}code-themes/monokai.min.css`,
+        'material': `${base}code-themes/base16/material.min.css`
       }
       
       themeLink.href = themeMap[theme] || themeMap['github']
@@ -3699,6 +3720,62 @@ function App() {
 
     return undefined
   }, [themeMode, mermaidLoaded])
+
+  // Sync with fnOS desktop theme config in proxy mode.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const proxyBase = window.__APP_PROXY_BASE_PATH__ || '/'
+    if (proxyBase === '/') return undefined
+
+    let lastMode = getFnosThemeMode()
+    if (lastMode) {
+      setThemeMode(lastMode)
+      setEditorTheme(lastMode === 'system' ? getSystemTheme() : lastMode)
+    }
+
+    const syncTheme = () => {
+      const next = getFnosThemeMode()
+      if (!next || next === lastMode) return
+      lastMode = next
+      setThemeMode(next)
+      setEditorTheme(next === 'system' ? getSystemTheme() : next)
+    }
+
+    const onStorage = (event) => {
+      if (event.key === 'DesktopConfig-1000') syncTheme()
+    }
+
+    window.addEventListener('storage', onStorage)
+    const timer = window.setInterval(syncTheme, 600)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const proxyBase = window.__APP_PROXY_BASE_PATH__ || '/'
+    if (proxyBase === '/') return undefined
+
+    let cancelled = false
+    const loadServicePort = async () => {
+      try {
+        const response = await fetch('/api/service-port')
+        const data = await response.json().catch(() => ({}))
+        const port = String(data?.port || '').trim()
+        if (!cancelled && /^[0-9]{2,5}$/.test(port)) {
+          window.__APP_SERVICE_PORT__ = port
+          localStorage.setItem('md-editor-service-port', port)
+        }
+      } catch {
+        // Keep fallback behavior when request fails.
+      }
+    }
+
+    loadServicePort()
+    return () => { cancelled = true }
+  }, [])
 
   // 动态加载 github-markdown CSS
   useEffect(() => {
@@ -8785,6 +8862,26 @@ function App() {
   }
 
   // 发布：飞牛桌面下先提醒保存、开新窗口并打开文件，再检测扩展；非飞牛桌面直接检测扩展
+  const getStandaloneAppOrigin = useCallback(() => {
+    if (typeof window === 'undefined') return ''
+    const proxyBase = window.__APP_PROXY_BASE_PATH__ || '/'
+    if (proxyBase === '/') return window.location.origin
+
+    const queryPort = new URLSearchParams(window.location.search).get('service_port')
+    const storedPort =
+      localStorage.getItem('md-editor-service-port') ||
+      localStorage.getItem('md-editor-app-port')
+    const runtimePort = window.__APP_SERVICE_PORT__
+    const fallbackPort = '18080'
+    const directPort = [queryPort, storedPort, runtimePort, fallbackPort]
+      .map(v => String(v || '').trim())
+      .find(v => /^[0-9]{2,5}$/.test(v)) || fallbackPort
+    const protocol = window.location.protocol || 'http:'
+    const host = window.location.hostname
+    return `${protocol}//${host}:${directPort}`
+  }, [])
+
+  // 发布：飞牛桌面下先提醒保存、开新窗口并打开文件，再检测扩展；非飞牛桌面直接检测扩展
   const handlePublish = useCallback(async () => {
     if (isOfficeReadOnly) {
       showToast('Office 只读预览：发布已禁用', 'warning', 3000)
@@ -8811,22 +8908,22 @@ function App() {
         // 保存后再次检查（用户可能取消另存为）
         if (hasUnsavedChanges()) return
       }
-      const url = `${window.location.origin}/?path=${encodeURIComponent(currentPath)}&open=sync`
+      const url = `${getStandaloneAppOrigin()}/?path=${encodeURIComponent(currentPath)}&open=sync`
       window.open(url, '_blank', 'noopener,noreferrer')
       return
     }
 
     // 非飞牛桌面：直接打开发布弹窗，由 SyncDialog 内部检测扩展并显示（检测中/未安装引导/平台选择）
     setShowSyncDialog(true)
-  }, [showToast, currentPath, hasUnsavedChanges, requestConfirm, handleSaveClick])
+  }, [showToast, currentPath, hasUnsavedChanges, requestConfirm, handleSaveClick, getStandaloneAppOrigin])
 
   // 新窗口打开：在新标签页打开当前应用，若有当前文件则带上 path 参数
   const handleOpenInNewWindow = useCallback(() => {
     const params = new URLSearchParams()
     if (currentPath) params.set('path', currentPath)
-    const url = `${window.location.origin}/?${params.toString()}`
+    const url = `${getStandaloneAppOrigin()}/?${params.toString()}`
     window.open(url, '_blank', 'noopener,noreferrer')
-  }, [currentPath])
+  }, [currentPath, getStandaloneAppOrigin])
 
   // 文件历史处理函数
   const handleShowHistory = async () => {

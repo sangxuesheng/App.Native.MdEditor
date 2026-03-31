@@ -6,6 +6,8 @@ import './AboutDialog.css'
 
 function AboutDialog({ onClose, theme }) {
   const [isClosing, setIsClosing] = useState(false)
+  const appVersion = import.meta.env.VITE_APP_VERSION
+  const versionLabel = appVersion ? `版本 v${appVersion}` : '版本'
 
   const getThemeClass = () => {
     if (theme === 'light') return 'theme-light'
@@ -46,7 +48,7 @@ function AboutDialog({ onClose, theme }) {
 
           <div className="about-info">
             <h3 className="app-name">Markdown 编辑器</h3>
-            <p className="app-version">版本 v1.29.61</p>
+            <p className="app-version">{versionLabel}</p>
             <p className="app-description">
               专为飞牛 NAS 设计的专业 Markdown 编辑器
             </p>

@@ -23,7 +23,7 @@ function ImagebedSettingsPanel({ onNotify, theme = 'light', onDefaultChanged, on
   const loadConfigs = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/imagebed/list')
+      const response = await fetch('api/imagebed/list')
       const result = await response.json()
       
       if (result.ok) {
@@ -53,7 +53,7 @@ function ImagebedSettingsPanel({ onNotify, theme = 'light', onDefaultChanged, on
   const handleConfirmDelete = async () => {
     if (!pendingDeleteConfig) return
     try {
-      const response = await fetch(`/api/imagebed/${pendingDeleteConfig.id}`, {
+      const response = await fetch(`api/imagebed/${pendingDeleteConfig.id}`, {
         method: 'DELETE',
       })
       const result = await response.json()
@@ -82,7 +82,7 @@ function ImagebedSettingsPanel({ onNotify, theme = 'light', onDefaultChanged, on
   const handleTest = async (id) => {
     setTestingId(id)
     try {
-      const response = await fetch(`/api/imagebed/${id}/test`, {
+      const response = await fetch(`api/imagebed/${id}/test`, {
         method: 'POST',
       })
       const result = await response.json()
@@ -103,7 +103,7 @@ function ImagebedSettingsPanel({ onNotify, theme = 'light', onDefaultChanged, on
   // 设置默认图床
   const handleSetDefault = async (id) => {
     try {
-      const response = await fetch(`/api/imagebed/${id}/default`, {
+      const response = await fetch(`api/imagebed/${id}/default`, {
         method: 'PUT',
       })
       const result = await response.json()
@@ -130,7 +130,7 @@ function ImagebedSettingsPanel({ onNotify, theme = 'light', onDefaultChanged, on
   const handleEdit = async (config) => {
     setEditingLoading(true)
     try {
-      const response = await fetch(`/api/imagebed/${config.id}?secrets=true`)
+      const response = await fetch(`api/imagebed/${config.id}?secrets=true`)
       const result = await response.json()
 
       if (result.ok && result.config) {
@@ -152,7 +152,7 @@ function ImagebedSettingsPanel({ onNotify, theme = 'light', onDefaultChanged, on
   // 保存编辑
   const handleSaveEdit = async (name, config) => {
     try {
-      const response = await fetch(`/api/imagebed/${editingConfig.id}`, {
+      const response = await fetch(`api/imagebed/${editingConfig.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, config }),

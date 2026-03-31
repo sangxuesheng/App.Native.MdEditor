@@ -1,12 +1,12 @@
 {
   ".url": {
-    "App.Native.MdEditor2.Application": {
+    "App.Native.MdEditor2.Proxy.Application": {
       "title": "Markdown 编辑器",
       "icon": "images/icon-{0}.png",
       "type": "iframe",
       "protocol": "http",
-      "port": "${wizard_port}",
-      "url": "/",
+      "port": "",
+      "url": "/cgi/ThirdParty/App.Native.MdEditor2/proxy.cgi/",
       "allUsers": true
     }
   }

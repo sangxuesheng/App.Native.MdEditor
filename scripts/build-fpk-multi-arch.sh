@@ -320,7 +320,7 @@ interactive_select_targets() {
 
   echo "请选择可选裁剪模式："
   echo "  1) 安全裁剪（默认，推荐）"
-  echo "  2) 激进裁剪（删除 mathjax/@mathjax，）"
+  echo "  2) 激进裁剪（删除 mathjax/@mathjax，体积更小但可能影响公式能力）"
   read -r -p "输入选项 [1-2] (默认 1): " trim_choice
   trim_choice="${trim_choice:-1}"
 

@@ -268,7 +268,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
         }
       }
       // 先添加临时配置进行测试
-      const response = await fetch('/api/imagebed/add', {
+      const response = await fetch('api/imagebed/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: `${name} (测试)`, type, config: finalConfig }),
@@ -277,13 +277,13 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
 
       if (result.ok) {
         // 测试连接
-        const testResponse = await fetch(`/api/imagebed/${result.id}/test`, {
+        const testResponse = await fetch(`api/imagebed/${result.id}/test`, {
           method: 'POST',
         })
         const testResult = await testResponse.json()
 
         // 删除临时配置
-        await fetch(`/api/imagebed/${result.id}`, { method: 'DELETE' })
+        await fetch(`api/imagebed/${result.id}`, { method: 'DELETE' })
 
         if (testResult.success) {
           setTestResult({ success: true, message: '✓ 连接成功' })
@@ -339,7 +339,7 @@ function AddImagebedDialog({ onClose, onSuccess, onNotify, theme = 'light', edit
         onSaveEdit?.(name, finalConfig)
       } else {
         // 添加模式
-        const response = await fetch('/api/imagebed/add', {
+        const response = await fetch('api/imagebed/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, type, config: finalConfig }),

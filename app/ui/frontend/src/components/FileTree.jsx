@@ -324,7 +324,7 @@ const FileTree = forwardRef(({
         // 获取当前合法的根目录列表
         let validRoots = [];
         try {
-          const resp = await fetch('/api/files?path=/');
+          const resp = await fetch('api/files?path=/');
           const data = await resp.json();
           if (data.ok) validRoots = data.items.map(item => item.path);
         } catch (e) {}
@@ -388,7 +388,7 @@ const FileTree = forwardRef(({
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`/api/files?path=${encodeURIComponent(dirPath)}`);
+      const response = await fetch(`api/files?path=${encodeURIComponent(dirPath)}`);
       const data = await response.json();
       
       if (!data.ok) {
@@ -752,7 +752,7 @@ const FileTree = forwardRef(({
       pathParts[pathParts.length - 1] = newName;
       const newPath = pathParts.join('/');
       
-      const response = await fetch('/api/file/rename', {
+      const response = await fetch('api/file/rename', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ oldPath, newPath })
@@ -795,7 +795,7 @@ const FileTree = forwardRef(({
     try {
       const newPath = `${newFolderParent.path}/${folderName}`;
       
-      const response = await fetch('/api/folder/create', {
+      const response = await fetch('api/folder/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: newPath })
@@ -837,7 +837,7 @@ const FileTree = forwardRef(({
     }
     
     try {
-      const response = await fetch('/api/file/delete', {
+      const response = await fetch('api/file/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: node.path })
@@ -932,7 +932,7 @@ const FileTree = forwardRef(({
         return;
       }
       
-      const apiEndpoint = action === 'cut' ? '/api/file/move' : '/api/file/copy';
+      const apiEndpoint = action === 'cut' ? 'api/file/move' : 'api/file/copy';
       
       const response = await fetch(apiEndpoint, {
         method: 'POST',

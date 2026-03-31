@@ -10,6 +10,54 @@ import App from './App.jsx'
 import './index.css'
 import { initPerformanceOptimizations } from './utils/performanceOptimization.jsx'
 
+const getProxyBasePath = () => {
+  if (typeof window === 'undefined') return '/'
+  const marker = '/proxy.cgi/'
+  const pathname = window.location.pathname || '/'
+  const idx = pathname.indexOf(marker)
+  if (idx === -1) return '/'
+  return pathname.slice(0, idx + marker.length)
+}
+
+const joinBasePath = (basePath, absolutePath) => {
+  if (!absolutePath.startsWith('/')) return absolutePath
+  if (!basePath || basePath === '/') return absolutePath
+  return `${basePath}${absolutePath.slice(1)}`
+}
+
+if (typeof window !== 'undefined') {
+  const proxyBasePath = getProxyBasePath()
+  window.__APP_PROXY_BASE_PATH__ = proxyBasePath
+
+  // In proxy.cgi mode, rewrite root-relative API requests to same-origin proxy path.
+  if (proxyBasePath !== '/' && typeof window.fetch === 'function') {
+    const originalFetch = window.fetch.bind(window)
+    const shouldRewrite = (url) =>
+      url.startsWith('/api') ||
+      url.startsWith('/health') ||
+      url.startsWith('/images') ||
+      url.startsWith('/math-svg')
+
+    window.fetch = (input, init) => {
+      if (typeof input === 'string') {
+        const next = shouldRewrite(input) ? joinBasePath(proxyBasePath, input) : input
+        return originalFetch(next, init)
+      }
+      if (input instanceof Request) {
+        const rawUrl = input.url || ''
+        if (rawUrl.startsWith(window.location.origin + '/')) {
+          const path = rawUrl.slice(window.location.origin.length)
+          if (shouldRewrite(path)) {
+            const nextUrl = window.location.origin + joinBasePath(proxyBasePath, path)
+            return originalFetch(new Request(nextUrl, input), init)
+          }
+        }
+      }
+      return originalFetch(input, init)
+    }
+  }
+}
+
 // 初始化性能优化
 initPerformanceOptimizations()
 

@@ -39,7 +39,7 @@ export class AIService {
       }
 
       // 发送请求
-      const response = await fetch('/api/ai/chat/proxy', {
+      const response = await fetch('api/ai/chat/proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -129,7 +129,7 @@ export class AIService {
     }
 
     try {
-      const response = await fetch('/api/ai/chat/proxy', {
+      const response = await fetch('api/ai/chat/proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

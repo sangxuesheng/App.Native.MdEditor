@@ -36,7 +36,7 @@ export const aiStorage = {
   // 保存当前会话到数据库
   async saveCurrentConversation(messages) {
     try {
-      const data = await fetchJson('/api/ai/current-conversation', {
+      const data = await fetchJson('api/ai/current-conversation', {
         method: 'POST',
         body: JSON.stringify({ messages: Array.isArray(messages) ? messages : [] }),
       })
@@ -50,7 +50,7 @@ export const aiStorage = {
   // 从数据库加载当前会话
   async loadCurrentConversation() {
     try {
-      const data = await fetchJson('/api/ai/current-conversation')
+      const data = await fetchJson('api/ai/current-conversation')
       return Array.isArray(data?.messages) ? data.messages : []
     } catch (error) {
       console.error('加载当前会话失败:', error)
@@ -68,7 +68,7 @@ export const aiStorage = {
         title: title || messages[0]?.content?.slice(0, 30) || '新对话',
         timestamp: Date.now(),
       }
-      await fetchJson('/api/ai/conversations', {
+      await fetchJson('api/ai/conversations', {
         method: 'POST',
         body: JSON.stringify({ conversations }),
       })
@@ -82,7 +82,7 @@ export const aiStorage = {
   // 从数据库加载所有会话
   async loadAllConversations() {
     try {
-      const data = await fetchJson('/api/ai/conversations')
+      const data = await fetchJson('api/ai/conversations')
       return data?.conversations && typeof data.conversations === 'object' ? data.conversations : {}
     } catch (error) {
       console.error('加载会话列表失败:', error)
@@ -106,7 +106,7 @@ export const aiStorage = {
     try {
       const conversations = await this.loadAllConversations()
       delete conversations[id]
-      await fetchJson('/api/ai/conversations', {
+      await fetchJson('api/ai/conversations', {
         method: 'POST',
         body: JSON.stringify({ conversations }),
       })
@@ -120,11 +120,11 @@ export const aiStorage = {
   // 清空所有会话
   async clearAllConversations() {
     try {
-      await fetchJson('/api/ai/conversations', {
+      await fetchJson('api/ai/conversations', {
         method: 'POST',
         body: JSON.stringify({ conversations: {} }),
       })
-      await fetchJson('/api/ai/current-conversation', {
+      await fetchJson('api/ai/current-conversation', {
         method: 'POST',
         body: JSON.stringify({ messages: [] }),
       })

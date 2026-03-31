@@ -13,7 +13,7 @@
  */
 export async function saveFileHistory(filePath, content, label = '', autoSaved = true) {
   try {
-    const response = await fetch('/api/file/history/save', {
+    const response = await fetch('api/file/history/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath, content, label, autoSaved })
@@ -39,7 +39,7 @@ export async function saveFileHistory(filePath, content, label = '', autoSaved =
  */
 export async function getFileHistory(filePath) {
   try {
-    const response = await fetch(`/api/file/history/list?path=${encodeURIComponent(filePath)}`)
+    const response = await fetch(`api/file/history/list?path=${encodeURIComponent(filePath)}`)
     const data = await response.json()
     
     if (!response.ok) {
@@ -62,7 +62,7 @@ export async function getFileHistory(filePath) {
 export async function getVersionContent(filePath, versionNumber) {
   try {
     const response = await fetch(
-      `/api/file/history/version?path=${encodeURIComponent(filePath)}&version=${versionNumber}`
+      `api/file/history/version?path=${encodeURIComponent(filePath)}&version=${versionNumber}`
     )
     const data = await response.json()
     
@@ -85,7 +85,7 @@ export async function getVersionContent(filePath, versionNumber) {
  */
 export async function deleteVersion(filePath, versionNumber) {
   try {
-    const response = await fetch('/api/file/history/delete', {
+    const response = await fetch('api/file/history/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath, versionNumber })
@@ -111,7 +111,7 @@ export async function deleteVersion(filePath, versionNumber) {
  */
 export async function clearAllVersions(filePath) {
   try {
-    const response = await fetch('/api/file/history/clear', {
+    const response = await fetch('api/file/history/clear', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath })

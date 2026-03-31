@@ -148,7 +148,7 @@ export const loadKatexFonts = (() => {
     if (!hasMath) return Promise.resolve()
     
     loaded = true
-    return loadCSS('/katex/katex.min.css')
+    return loadCSS(`${import.meta.env.BASE_URL}katex/katex.min.css`)
   }
 })()
 
@@ -197,7 +197,7 @@ export const reportPerformance = () => {
       
       // 如果需要上报，取消下面的注释并确保后端有对应的接口
       /*
-      fetch('/api/metrics', {
+      fetch('api/metrics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(metrics)
@@ -324,11 +324,7 @@ export const initPerformanceOptimizations = () => {
   // 启动性能监控
   reportPerformance()
   
-  // 预加载关键资源
-  if (!isMobile()) {
-    preloadResource('/assets/react-vendor.js', 'script')
-    preloadResource('/assets/markdown-vendor.js', 'script')
-  }
+  // Hashed asset names are unknown at runtime; avoid stale preload URLs.
 }
 
 export default {

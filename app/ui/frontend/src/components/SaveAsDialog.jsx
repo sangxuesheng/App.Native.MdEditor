@@ -61,7 +61,7 @@ const SaveAsDialog = ({ onClose, onConfirm, rootDirs, currentPath, theme, isSave
 
   const checkFileExists = async (path) => {
     try {
-      const response = await fetch(`/api/file?path=${encodeURIComponent(path)}`);
+      const response = await fetch(`api/file?path=${encodeURIComponent(path)}`);
       const data = await response.json();
       return data.ok; // 如果文件存在，返回 true
     } catch (err) {

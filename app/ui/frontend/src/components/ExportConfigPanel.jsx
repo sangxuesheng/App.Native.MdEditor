@@ -866,7 +866,7 @@ const ExportConfigPanel = ({
   useEffect(() => {
     const loadThemes = async () => {
       try {
-        const res = await fetch('/api/export-themes')
+        const res = await fetch('api/export-themes')
         if (!res.ok) return
         const data = await res.json()
         if (!data || !data.ok || !data.themes) return
@@ -1376,7 +1376,7 @@ const ExportConfigPanel = ({
         
         const saveTheme = async () => {
           try {
-            const res = await fetch('/api/export-themes/save', {
+            const res = await fetch('api/export-themes/save', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name, css: config.customCSS || '' }),
@@ -1466,7 +1466,7 @@ const ExportConfigPanel = ({
           onConfirm: () => {
             const deleteTheme = async () => {
               try {
-                const res = await fetch('/api/export-themes/delete', {
+                const res = await fetch('api/export-themes/delete', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ name }),
@@ -1864,7 +1864,7 @@ code_pre {
                             message: `确定要删除主题 "${themeName}" 吗？`,
                             onConfirm: async () => {
                               try {
-                                const res = await fetch('/api/export-themes/delete', {
+                                const res = await fetch('api/export-themes/delete', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ name: themeName }),
@@ -1926,7 +1926,7 @@ code_pre {
                             }
                             
                             try {
-                              const saveRes = await fetch('/api/export-themes/save', {
+                              const saveRes = await fetch('api/export-themes/save', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ name: newThemeName, css: newCSS }),
@@ -1936,7 +1936,7 @@ code_pre {
                                 throw new Error(saveData?.message || '保存主题失败')
                               }
 
-                              const deleteRes = await fetch('/api/export-themes/delete', {
+                              const deleteRes = await fetch('api/export-themes/delete', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ name: oldThemeName }),
@@ -1975,7 +1975,7 @@ code_pre {
                             }
                           } else {
                             try {
-                              const res = await fetch('/api/export-themes/save', {
+                              const res = await fetch('api/export-themes/save', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ name: oldThemeName, css: newCSS }),
