@@ -6,7 +6,7 @@ import '@fontsource/jetbrains-mono/500.css'
 import '@fontsource/jetbrains-mono/600.css'
 import '@fontsource/fira-code/400.css'
 import '@fontsource/fira-code/500.css'
-import App from './App.jsx'
+import AuthBootstrap from './components/auth/AuthBootstrap.jsx'
 import './index.css'
 import { initPerformanceOptimizations } from './utils/performanceOptimization.jsx'
 
@@ -162,6 +162,6 @@ if (typeof navigator !== 'undefined' && typeof document !== 'undefined') {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <App />,
+  <AuthBootstrap />,
 )
 

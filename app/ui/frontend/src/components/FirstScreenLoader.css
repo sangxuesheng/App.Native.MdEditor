@@ -31,17 +31,25 @@
 }
 
 /* 暗色主题支持 */
-.dark .first-screen-loader {
+.first-screen-loader.theme-dark {
   background-color: #0f172a;
 }
 
-/* 系统级暗色模式自动检测 */
+.first-screen-loader.theme-dark svg {
+  --skeleton-gray: #334155;
+  --dark-sky-blue: #94A3B8;
+  --shimmer-silver: #1E293B;
+  --accent-glow: rgba(56, 189, 248, 0.5);
+  --text-color: #CBD5E1;
+}
+
+/* 系统级暗色模式自动检测（仅在未显式指定 theme 时兜底） */
 @media (prefers-color-scheme: dark) {
-  .first-screen-loader {
+  .first-screen-loader:not(.theme-light):not(.theme-dark) {
     background-color: #0f172a;
   }
   
-  .first-screen-loader svg {
+  .first-screen-loader:not(.theme-light):not(.theme-dark) svg {
     --skeleton-gray: #334155;
     --dark-sky-blue: #94A3B8;
     --shimmer-silver: #1E293B;
@@ -232,13 +240,6 @@
 }
 
 /* 暗色主题下的颜色调整 */
-.dark .first-screen-loader svg {
-  --skeleton-gray: #334155;
-  --dark-sky-blue: #94A3B8;
-  --shimmer-silver: #1E293B;
-  --accent-glow: rgba(56, 189, 248, 0.5);
-  --text-color: #CBD5E1;
-}
 
 /* 核心优化：媒体查询，针对小屏手机精细调整 */
 @media (max-width: 480px) {

@@ -43,7 +43,8 @@ import {
   Settings,
   File,
   FileJson,
-  ExternalLink
+  ExternalLink,
+  LogOut
 } from 'lucide-react'
 
 /**
@@ -109,6 +110,7 @@ const MenuItemIcon = ({ type }) => {
     'clear': <X style={iconStyle} />,
     'settings': <Settings style={iconStyle} />,
     'external': <ExternalLink style={iconStyle} />,
+    'logout': <LogOut style={iconStyle} />,
   };
   
   return icons[type] || null;
@@ -171,7 +173,10 @@ function MenuBar({
   onImageCaptionFormatChange,
   disabled,
   theme,
-  compact = false
+  compact = false,
+  authEnabled = false,
+  authUser = null,
+  onLogout,
 }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const menuRef = useRef(null)
@@ -261,6 +266,7 @@ function MenuBar({
 
   // Docker 构建时隐藏「新窗口」按钮
   const hideNewWindowButton = import.meta.env.VITE_RUN_IN_DOCKER === 'true' || showNewWindowButton === false
+  const logoutLabel = authUser?.username ? `${authUser.username} 退出` : '退出'
 
   const menuConfig = [
     {
@@ -361,7 +367,11 @@ function MenuBar({
         { label: '缩小', icon: 'zoom-out', shortcut: 'Ctrl+-', action: onZoomOut, keepMenuOpen: true },
         { label: '重置缩放', icon: 'zoom-reset', shortcut: 'Ctrl+0', action: onZoomReset },
         { divider: true },
-        { label: '设置', icon: 'settings', action: onSettings }
+        { label: '设置', icon: 'settings', action: onSettings },
+        ...(authEnabled && authUser && !compact ? [
+          { divider: true },
+          { label: logoutLabel, icon: 'logout', action: onLogout, disabled: !onLogout }
+        ] : [])
       ]
     },
     {
@@ -524,6 +534,19 @@ function MenuBar({
             </div>}
           </div>
         ))}
+        {authEnabled && authUser && (
+          <div className="compact-menu-section compact-auth-section">
+            <div className="menu-divider compact-menu-divider" />
+            <button
+              className="menu-dropdown-item compact-menu-item"
+              onClick={() => handleMenuItemClick(onLogout)}
+              disabled={!onLogout}
+            >
+              <MenuItemIcon type="logout" />
+              <span className="menu-label">{logoutLabel}</span>
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -575,7 +598,7 @@ function MenuBar({
                 if (item.divider) {
                   return <div key={`divider-${index}`} className="menu-divider" />
                 }
-                
+
                 // 最近文件特殊处理
                 if (item.type === 'recent-files') {
                   return (
@@ -588,7 +611,7 @@ function MenuBar({
                       <div className="menu-submenu recent-files-submenu">
                         {recentFiles && recentFiles.length > 0 ? (
                           <>
-                            {recentFiles.map((file, idx) => (
+                            {recentFiles.map((file) => (
                               <button
                                 key={file.path}
                                 className="menu-dropdown-item recent-file-item"
@@ -617,7 +640,7 @@ function MenuBar({
                     </div>
                   )
                 }
-                
+
                 if (item.submenu) {
                   return (
                     <div key={item.label} className="menu-dropdown-item has-submenu">
@@ -654,7 +677,7 @@ function MenuBar({
                     </div>
                   )
                 }
-                
+
                 return (
                   <button
                     key={item.label}
@@ -676,6 +699,7 @@ function MenuBar({
           )}
         </div>
       ))}
+
     </div>
   )
 }

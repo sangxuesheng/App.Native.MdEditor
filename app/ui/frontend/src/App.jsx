@@ -78,6 +78,16 @@ const SystemThemeIcon = ({ size = 16 }) => (
 
 /** 明暗模式：支持“随系统”实时跟随；手动选择 light/dark 作为覆盖 */
 const THEME_STORAGE_KEY = 'md-editor-theme'
+const FIRST_SCREEN_LOADER_STORAGE_KEY = 'md-editor-enable-first-screen-loader'
+
+const getInitialFirstScreenLoaderEnabled = () => {
+  if (typeof window === 'undefined') return false
+  const stored = localStorage.getItem(FIRST_SCREEN_LOADER_STORAGE_KEY)
+  if (stored === 'true') return true
+  if (stored === 'false') return false
+  // 未命中本地缓存时默认关闭，避免刷新时先闪现再关闭
+  return false
+}
 
 // 编辑器字体动态下载（优先加载常用代码字体，失败时回退系统等宽字体）
 const DYNAMIC_FONT_SOURCES = {
@@ -927,10 +937,8 @@ const renderPlantUMLSvg = async (code, theme = 'light', backgroundColor = '', co
   return svg
 }
 
-function App() {
-  // 首屏加载动画 - 立即显示，避免白屏
-  const { isLoading, loadingMessage } = useMobileFirstScreenLoader()
-  
+function App({ authUser = null, authEnabled = false, onLogout = null }) {
+  const [enableFirstScreenLoader, setEnableFirstScreenLoader] = useState(getInitialFirstScreenLoaderEnabled)
   const [content, setContent] = useState(() => getInitialEditorState().content)
   // 给“系统主题变化事件”提供最新的文档内容，避免闭包拿到旧值
   const latestContentRef = useRef(content)
@@ -967,6 +975,24 @@ function App() {
   const [aiDialogOpen, setAiDialogOpen] = useState(false)
   const [aiAutoQuickCommandRequest, setAiAutoQuickCommandRequest] = useState(null)
   const [initialStateLoaded, setInitialStateLoaded] = useState(false)
+  // 首屏阶段标记：仅应用启动阶段允许显示过渡页
+  const [isBootPhase, setIsBootPhase] = useState(true)
+  // 启动阶段 + 已开启开关 时显示过渡页；运行中切换开关不补播，避免遮罩闪动
+  const shouldRenderFirstScreenLoader = enableFirstScreenLoader && isBootPhase
+  const { isLoading, loadingMessage } = useMobileFirstScreenLoader(shouldRenderFirstScreenLoader)
+
+  // 仅在过渡页自然结束后再退出启动阶段，避免“动画还没播完就被关掉”
+  useEffect(() => {
+    if (!isBootPhase) return
+    if (!enableFirstScreenLoader) {
+      setIsBootPhase(false)
+      return
+    }
+    if (!isLoading) {
+      setIsBootPhase(false)
+    }
+  }, [isBootPhase, enableFirstScreenLoader, isLoading])
+
   const [editorFontSize, setEditorFontSize] = useState(14)
   const [editorLineHeight, setEditorLineHeight] = useState(24)
   const [editorFontFamily, setEditorFontFamily] = useState('JetBrains Mono')
@@ -2966,6 +2992,14 @@ function App() {
         if (typeof s.editorWordWrap === 'boolean') setEditorWordWrap(s.editorWordWrap)
         if (typeof s.syncPreviewWithEditor === 'boolean') setSyncPreviewWithEditor(s.syncPreviewWithEditor)
         if (typeof s.enableSlashMenuReorder === 'boolean') setEnableSlashMenuReorder(s.enableSlashMenuReorder)
+        if (typeof s.enableFirstScreenLoader === 'boolean') {
+          setEnableFirstScreenLoader(s.enableFirstScreenLoader)
+          try {
+            localStorage.setItem(FIRST_SCREEN_LOADER_STORAGE_KEY, String(s.enableFirstScreenLoader))
+          } catch (e) {
+            console.error('[App] 同步首屏加载动画设置到 localStorage 失败:', e)
+          }
+        }
         if (Array.isArray(s.slashCommandOrder)) setSlashCommandOrder(s.slashCommandOrder)
         if (typeof s.layout === 'string') setLayout(s.layout)
         if (typeof s.showFileTree === 'boolean') setShowFileTree(s.showFileTree)
@@ -9478,6 +9512,9 @@ function App() {
     onClearRecentFiles: handleClearRecentFiles,
     disabled: !currentPath || isOfficeReadOnly,
     theme: editorTheme,
+    authEnabled,
+    authUser,
+    onLogout,
   }
 
   const renderPreviewPane = () => (
@@ -9541,7 +9578,7 @@ function App() {
   return (
     <>
       {/* 首屏加载动画 - 覆盖在主应用上方 */}
-      {isLoading && <FirstScreenLoader message={loadingMessage} />}
+      {isLoading && <FirstScreenLoader message={loadingMessage} theme={editorTheme} />}
       
       {/* 主应用内容 - 始终渲染，加载时隐藏 */}
       <AppUiProvider value={appUi}>
@@ -9672,6 +9709,7 @@ function App() {
           wordWrap={editorWordWrap}
           syncPreviewWithEditor={syncPreviewWithEditor}
           enableSlashMenuReorder={enableSlashMenuReorder}
+          enableFirstScreenLoader={enableFirstScreenLoader}
           appLogoConfig={appLogoConfig}
           fontDownloadState={fontDownloadState}
           remoteFontFamilies={Object.keys(DYNAMIC_FONT_SOURCES)}
@@ -9706,6 +9744,15 @@ function App() {
             if (typeof s.enableSlashMenuReorder === 'boolean') {
               setEnableSlashMenuReorder(s.enableSlashMenuReorder)
               persistSetting('enableSlashMenuReorder', s.enableSlashMenuReorder)
+            }
+            if (typeof s.enableFirstScreenLoader === 'boolean') {
+              setEnableFirstScreenLoader(s.enableFirstScreenLoader)
+              try {
+                localStorage.setItem(FIRST_SCREEN_LOADER_STORAGE_KEY, String(s.enableFirstScreenLoader))
+              } catch (e) {
+                console.error('[App] 保存首屏加载动画设置到 localStorage 失败:', e)
+              }
+              persistSetting('enableFirstScreenLoader', s.enableFirstScreenLoader)
             }
             if (s.appLogoConfig) {
               const nextLogoConfig = normalizeLogoConfig(s.appLogoConfig)
@@ -9768,7 +9815,7 @@ function App() {
           >
             <ListCollapse size={20} />
           </button>
-          {!isAdaptiveSinglePaneViewport && (
+          {!isCompactViewport && (
             <>
               <DynamicAppLogo config={appLogoConfig} variant="toolbar" />
               <MenuBar {...menuBarProps} />

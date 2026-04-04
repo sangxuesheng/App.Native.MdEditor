@@ -1,9 +1,133 @@
 #!/bin/bash
 
 # 卸载回调脚本（uninstall_callback）
-# - 根据后续 wizard/uninstall 结果决定是否清理数据
+# - 根据 wizard/uninstall 的选择决定是否清理数据
+# - wizard_data_action: keep(默认) | delete
+
+set -u
 
 echo "App.Native.MdEditor uninstall_callback running..."
+
+action="${wizard_data_action:-keep}"
+
+log_runtime_context() {
+  echo "[uninstall] ===== runtime context begin ====="
+  echo "[uninstall] wizard_data_action=${action}"
+  echo "[uninstall] TRIM_APPNAME=${TRIM_APPNAME:-}"
+  echo "[uninstall] TRIM_PKGVAR=${TRIM_PKGVAR:-}"
+  echo "[uninstall] TRIM_APPDEST_VOL=${TRIM_APPDEST_VOL:-}"
+  echo "[uninstall] TRIM_USERNAME=${TRIM_USERNAME:-}"
+  echo "[uninstall] TRIM_GROUPNAME=${TRIM_GROUPNAME:-}"
+  echo "[uninstall] resolved APP_NAME=${APP_NAME}"
+  echo "[uninstall] resolved PKG_VAR=${PKG_VAR}"
+  echo "[uninstall] resolved SHARES_BASE=${SHARES_BASE}"
+  echo "[uninstall] resolved APP_SHARE_DIR=${APP_SHARE_DIR}"
+  echo "[uninstall] resolved VOL_APPDATA_DIR=${VOL_APPDATA_DIR}"
+  echo "[uninstall] resolved VOL_APPSHARE_MDEDITOR_DIR=${VOL_APPSHARE_MDEDITOR_DIR}"
+  echo "[uninstall] pwd=$(pwd)"
+  echo "[uninstall] uid_gid=$(id 2>/dev/null || true)"
+  echo "[uninstall] ===== runtime context end ====="
+}
+
+log_dir_state() {
+  target="$1"
+  if [ -d "${target}" ]; then
+    echo "[uninstall] dir exists: ${target}"
+    ls -ld "${target}" 2>/dev/null || true
+  else
+    echo "[uninstall] dir missing: ${target}"
+  fi
+}
+APP_NAME="${TRIM_APPNAME:-App.Native.MdEditor2}"
+PKG_VAR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+SHARES_BASE="/var/apps/${APP_NAME}/shares"
+APPDEST_VOL="${TRIM_APPDEST_VOL:-}"
+APP_SHARE_DIR="${APPDEST_VOL}/@appshare/${APP_NAME}"
+VOL_APPDATA_DIR="${APPDEST_VOL}/@appdata/${APP_NAME}"
+VOL_APPSHARE_MDEDITOR_DIR="${APPDEST_VOL}/@appshare/mdeditor"
+VOL_APPSHARE_MDEDITOR_IMAGES_DIR="${APPDEST_VOL}/@appshare/mdeditor/images"
+VOL_APPSHARE_MDEDITOR_HISTORY_DIR="${APPDEST_VOL}/@appshare/mdeditor/history"
+VOL_APPSHARE_MDEDITOR_FOLDER_DIR="${APPDEST_VOL}/@appshare/mdeditor/Folder"
+
+log_runtime_context
+
+safe_remove_dir() {
+  target="$1"
+
+  if [ -z "${target}" ] || [ "${target}" = "/" ]; then
+    echo "[uninstall] skip dangerous target: '${target}'"
+    return 1
+  fi
+
+  case "${target}" in
+    /var/apps/*|*/@appshare/*|*/@appdata/*)
+      ;;
+    *)
+      echo "[uninstall] skip non-whitelisted path: '${target}'"
+      return 1
+      ;;
+  esac
+
+  if [ -d "${target}" ]; then
+    rm -rf "${target}" 2>/dev/null || true
+    echo "[uninstall] removed: ${target}"
+  else
+    echo "[uninstall] not found, skip: ${target}"
+  fi
+
+  return 0
+}
+
+case "${action}" in
+  delete)
+    echo "[uninstall] wizard_data_action=delete, cleaning app data..."
+
+    echo "[uninstall] ----- pre-delete dir state -----"
+    log_dir_state "${PKG_VAR}"
+    if [ -n "${APPDEST_VOL}" ]; then
+      log_dir_state "${APP_SHARE_DIR}"
+      log_dir_state "${VOL_APPDATA_DIR}"
+      log_dir_state "${VOL_APPSHARE_MDEDITOR_DIR}"
+    fi
+    log_dir_state "${SHARES_BASE}/mdeditor"
+
+    # 删除应用 var 数据目录（日志、数据库等）
+    safe_remove_dir "${PKG_VAR}"
+
+    if [ -n "${APPDEST_VOL}" ]; then
+      # 明确删除 @appdata（系统保留目录，delete 时需要业务侧手动清理）
+      safe_remove_dir "${VOL_APPDATA_DIR}"
+
+      # 删除应用专属 appshare 目录（实测可删路径）
+      safe_remove_dir "${APP_SHARE_DIR}"
+
+      # 删除 data-share 对应真实目录（兼容 shares 软链已失效/未创建场景）
+      safe_remove_dir "${VOL_APPSHARE_MDEDITOR_DIR}"
+      safe_remove_dir "${VOL_APPSHARE_MDEDITOR_IMAGES_DIR}"
+      safe_remove_dir "${VOL_APPSHARE_MDEDITOR_HISTORY_DIR}"
+      safe_remove_dir "${VOL_APPSHARE_MDEDITOR_FOLDER_DIR}"
+    else
+      echo "[uninstall] TRIM_APPDEST_VOL is empty, skip @appdata/@appshare cleanup"
+    fi
+
+    # 删除数据共享目录（对应 config/resource 的 data-share 软链路径）
+    # 只删除父目录，子目录会被一并递归删除
+    safe_remove_dir "${SHARES_BASE}/mdeditor"
+
+    echo "[uninstall] ----- post-delete dir state -----"
+    log_dir_state "${PKG_VAR}"
+    if [ -n "${APPDEST_VOL}" ]; then
+      log_dir_state "${APP_SHARE_DIR}"
+      log_dir_state "${VOL_APPDATA_DIR}"
+      log_dir_state "${VOL_APPSHARE_MDEDITOR_DIR}"
+    fi
+    log_dir_state "${SHARES_BASE}/mdeditor"
+    ;;
+  keep|*)
+    echo "[uninstall] wizard_data_action=${action}, keep app data."
+    ;;
+esac
+
 exit 0
 
 

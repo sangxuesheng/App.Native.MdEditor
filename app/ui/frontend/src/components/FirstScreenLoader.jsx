@@ -3,11 +3,10 @@
 
 import React from 'react'
 import './FirstScreenLoader.css'
-import './FirstScreenLoader.css'
 
-const FirstScreenLoader = ({ message = '正在初始化编辑环境' }) => {
+const FirstScreenLoader = ({ message = '正在初始化编辑环境', theme = 'light' }) => {
   return (
-    <div className="first-screen-loader">
+    <div className={`first-screen-loader theme-${theme}`}>
       <div className="canvas-container">
         <svg viewBox="0 0 1200 700" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
           <defs>

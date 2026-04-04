@@ -163,6 +163,77 @@ function initSchema(db) {
       FOREIGN KEY(imagebed_id) REFERENCES imagebed_configs(id)
     )
   `).run()
+
+  // 多用户：用户账号表
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS users (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      username      TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role          TEXT NOT NULL DEFAULT 'user',
+      is_active     INTEGER NOT NULL DEFAULT 1,
+      created_at    INTEGER NOT NULL,
+      updated_at    INTEGER NOT NULL
+    )
+  `).run()
+
+  // 多用户：会话表（仅保存 token 哈希）
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id      INTEGER NOT NULL,
+      token_hash   TEXT NOT NULL UNIQUE,
+      expires_at   INTEGER NOT NULL,
+      last_seen_at INTEGER,
+      ip           TEXT,
+      ua           TEXT,
+      created_at   INTEGER NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+  `).run()
+
+  // 多用户：认证审计日志
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS auth_audit_logs (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER,
+      username   TEXT,
+      action     TEXT NOT NULL,
+      ip         TEXT,
+      ua         TEXT,
+      created_at INTEGER NOT NULL
+    )
+  `).run()
+
+  // 多用户：用户授权根目录
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS user_roots (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL,
+      root_path  TEXT NOT NULL,
+      can_read   INTEGER NOT NULL DEFAULT 1,
+      can_write  INTEGER NOT NULL DEFAULT 1,
+      can_delete INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      UNIQUE (user_id, root_path),
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+  `).run()
+
+  // 多用户：用户级设置（用于 AI 配置/语言等）
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL,
+      key        TEXT NOT NULL,
+      value      TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      UNIQUE (user_id, key),
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+  `).run()
 }
 
 module.exports = {

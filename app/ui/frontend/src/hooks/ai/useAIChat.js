@@ -153,13 +153,10 @@ export function useAIChat() {
               /帮我写主题|主题\s*css|自定义\s*css/i.test(prevUser.content)
 
             const rawAssistantContent = lastAssistant?.content || ''
-            const looksLikeThemeCss =
-              /```css/i.test(rawAssistantContent) ||
-              /(\.|#)?container\s*\{/i.test(rawAssistantContent) ||
-              /(\.|#)?h1\s*[,\{]/i.test(rawAssistantContent) ||
-              /(\.|#)?blockquote\s*\{/i.test(rawAssistantContent)
 
-            const shouldNormalizeThemeCss = userAskedTheme || looksLikeThemeCss
+            // 仅在“明确是主题 CSS 生成请求”时做规范化。
+            // 之前基于回复内容形态（如出现 container {）自动触发，会误伤“翻译代码”等普通对话场景。
+            const shouldNormalizeThemeCss = userAskedTheme
 
             const normalizedContent = shouldNormalizeThemeCss
               ? normalizeThemeCssOutput(rawAssistantContent) || rawAssistantContent

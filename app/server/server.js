@@ -22,8 +22,10 @@ const { getDb } = require('./db');
 const { ImageBedManager } = require('./imagebed');
 const { handleImagebedApi } = require('./imagebedApi');
 const { extractOfficePreview } = require('./officeHandler');
+const { handleAuthRoutes } = require('./authRoutes');
+const { isAuthEnabled, requireAuth, optionalAuth } = require('./authMiddleware');
 
-const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18080;
+const PORT = process.env.PORT || process.env.TRIM_SERVICE_PORT || 18089;
 
 // 模型拉取过滤：仅保留对话 + 图片模型，排除音频/ASR/embedding/TTS 等
 const IMAGE_MODEL_PATTERNS = [/flux/i, /kolors/i, /dall-e/i, /wanx/i, /cogview/i, /black-forest/i, /schnell/i, /qwen-image/i, /stable-diffusion/i, /seedream/i, /flux\.1/i, /flux-1/i, /image-edit/i, /wan2\.6|wan2\.5|wan2\.2|z-image/i];
@@ -351,7 +353,7 @@ function isUnderRoot(target, root) {
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
-function resolveSafePath(requestedPath) {
+function resolveSafePathBase(requestedPath) {
   if (!requestedPath || typeof requestedPath !== 'string') {
     throw new Error('INVALID_PATH');
   }
@@ -369,6 +371,18 @@ function resolveSafePath(requestedPath) {
     }
   }
   throw new Error('PATH_NOT_ALLOWED');
+}
+
+function resolveSafePathForRequest(req, requestedPath) {
+  const safePath = resolveSafePathBase(requestedPath);
+  if (!isAuthEnabled()) return safePath;
+
+  const currentUser = req.currentUser || optionalAuth(req);
+  if (!currentUser || currentUser.username !== 'admin' || currentUser.role !== 'admin') {
+    throw new Error('UNAUTHORIZED');
+  }
+
+  return safePath;
 }
 
 // CORS 允许头（飞牛 NAS 等环境下应用可能被嵌入或反向代理，需支持跨域）
@@ -476,6 +490,28 @@ const server = http.createServer(async (req, res) => {
   if (parsed.pathname === '/api/service-port' && req.method === 'GET') {
     sendJson(res, 200, { ok: true, port: String(PORT) });
     return;
+  }
+
+  if (handleAuthRoutes(req, res, parsed, sendJson, readJsonBody)) {
+    return;
+  }
+
+  const authEnabled = isAuthEnabled();
+  if (parsed.pathname.startsWith('/api/')) {
+    const authWhitelist = [
+      '/api/auth/login',
+      '/api/auth/logout',
+      '/api/auth/me',
+      '/api/service-port',
+    ];
+    const skipAuth = authWhitelist.includes(parsed.pathname);
+    if (authEnabled && !skipAuth) {
+      if (!requireAuth(req, res, sendJson)) {
+        return;
+      }
+    } else {
+      optionalAuth(req);
+    }
   }
 
   // 图床 API 路由
@@ -1852,7 +1888,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const safePath = resolveSafePath(requestedPath);
+      const safePath = resolveSafePathForRequest(req, requestedPath);
       const ext = path.extname(safePath).toLowerCase();
       const mimeTypes = {
         '.png': 'image/png',
@@ -1901,7 +1937,7 @@ const server = http.createServer(async (req, res) => {
     const requestedPath = parsed.query.path;
     const mode = (parsed.query.mode || 'text').toLowerCase();
     try {
-      const safePath = resolveSafePath(requestedPath);
+      const safePath = resolveSafePathForRequest(req, requestedPath);
       const isPdf = safePath.toLowerCase().endsWith('.pdf');
       if (mode === 'text' && isPdf && pdfParse) {
         fs.readFile(safePath, (err, buf) => {
@@ -1990,7 +2026,7 @@ const server = http.createServer(async (req, res) => {
         return
       }
 
-      const safePath = resolveSafePath(requestedPath)
+      const safePath = resolveSafePathForRequest(req, requestedPath)
       const sheetIndex = sheetIndexParam !== undefined ? parseInt(String(sheetIndexParam), 10) : 0
       const rowOffset = rowOffsetParam !== undefined ? parseInt(String(rowOffsetParam), 10) : 0
       const rowLimit = rowLimitParam !== undefined ? parseInt(String(rowLimitParam), 10) : undefined
@@ -2022,7 +2058,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const safePath = resolveSafePath(requestedPath);
+      const safePath = resolveSafePathForRequest(req, requestedPath);
       const ext = path.extname(safePath).toLowerCase();
       const mimeTypes = {
         '.png': 'image/png',
@@ -2069,7 +2105,7 @@ const server = http.createServer(async (req, res) => {
   if (parsed.pathname === '/api/files' && req.method === 'GET') {
     const requestedPath = parsed.query.path || '/';
     try {
-      const safePath = requestedPath === '/' ? null : resolveSafePath(requestedPath);
+      const safePath = requestedPath === '/' ? null : resolveSafePathForRequest(req, requestedPath);
       const roots = getAllowedRoots();
       
       // 如果请求根目录：用户授权路径 + mdeditor 子目录（Folder、新建文件夹等），不显示 mdeditor 本身
@@ -2197,8 +2233,8 @@ const server = http.createServer(async (req, res) => {
       const oldPath = body && body.oldPath;
       const newPath = body && body.newPath;
       try {
-        const safeOldPath = resolveSafePath(oldPath);
-        const safeNewPath = resolveSafePath(newPath);
+        const safeOldPath = resolveSafePathForRequest(req, oldPath);
+        const safeNewPath = resolveSafePathForRequest(req, newPath);
         
         if (!fs.existsSync(safeOldPath)) {
           sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '源文件不存在' });
@@ -2263,7 +2299,7 @@ const server = http.createServer(async (req, res) => {
       }
       const requestedPath = body && body.path;
       try {
-        const safePath = resolveSafePath(requestedPath);
+        const safePath = resolveSafePathForRequest(req, requestedPath);
         
         if (!fs.existsSync(safePath)) {
           sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '文件不存在' });
@@ -2333,8 +2369,8 @@ const server = http.createServer(async (req, res) => {
       const sourcePath = body && body.sourcePath;
       const targetPath = body && body.targetPath;
       try {
-        const safeSourcePath = resolveSafePath(sourcePath);
-        const safeTargetPath = resolveSafePath(targetPath);
+        const safeSourcePath = resolveSafePathForRequest(req, sourcePath);
+        const safeTargetPath = resolveSafePathForRequest(req, targetPath);
         
         if (!fs.existsSync(safeSourcePath)) {
           sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '源文件不存在' });
@@ -2428,8 +2464,8 @@ const server = http.createServer(async (req, res) => {
       const sourcePath = body && body.sourcePath;
       const targetPath = body && body.targetPath;
       try {
-        const safeSourcePath = resolveSafePath(sourcePath);
-        const safeTargetPath = resolveSafePath(targetPath);
+        const safeSourcePath = resolveSafePathForRequest(req, sourcePath);
+        const safeTargetPath = resolveSafePathForRequest(req, targetPath);
         
         if (!fs.existsSync(safeSourcePath)) {
           sendJson(res, 404, { ok: false, code: 'NOT_FOUND', message: '源文件不存在' });
@@ -2496,7 +2532,7 @@ const server = http.createServer(async (req, res) => {
       }
       const requestedPath = body && body.path;
       try {
-        const safePath = resolveSafePath(requestedPath);
+        const safePath = resolveSafePathForRequest(req, requestedPath);
         
         if (fs.existsSync(safePath)) {
           sendJson(res, 409, { ok: false, code: 'ALREADY_EXISTS', message: '文件夹已存在' });
@@ -3438,7 +3474,7 @@ const server = http.createServer(async (req, res) => {
       const content = typeof body.content === 'string' ? body.content : '';
       const encoding = body.encoding || 'utf8'; // utf8 | base64
       try {
-        const safePath = resolveSafePath(requestedPath);
+        const safePath = resolveSafePathForRequest(req, requestedPath);
         fs.mkdir(path.dirname(safePath), { recursive: true }, (mkErr) => {
           if (mkErr) {
             sendJson(res, 500, { ok: false, code: 'MKDIR_FAILED', message: '创建目录失败' });
@@ -3495,7 +3531,7 @@ const server = http.createServer(async (req, res) => {
         
         // 验证文件路径
         try {
-          resolveSafePath(filePath);
+          resolveSafePathForRequest(req, filePath);
         } catch (error) {
           sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
           return;
@@ -3523,7 +3559,7 @@ const server = http.createServer(async (req, res) => {
       
       // 验证文件路径
       try {
-        resolveSafePath(filePath);
+        resolveSafePathForRequest(req, filePath);
       } catch (error) {
         sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
         return;
@@ -3551,7 +3587,7 @@ const server = http.createServer(async (req, res) => {
       
       // 验证文件路径
       try {
-        resolveSafePath(filePath);
+        resolveSafePathForRequest(req, filePath);
       } catch (error) {
         sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
         return;
@@ -3586,7 +3622,7 @@ const server = http.createServer(async (req, res) => {
         
         // 验证文件路径
         try {
-          resolveSafePath(filePath);
+          resolveSafePathForRequest(req, filePath);
         } catch (error) {
           sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
           return;
@@ -3617,7 +3653,7 @@ const server = http.createServer(async (req, res) => {
         
         // 验证文件路径
         try {
-          resolveSafePath(filePath);
+          resolveSafePathForRequest(req, filePath);
         } catch (error) {
           sendJson(res, 403, { ok: false, code: 'PATH_NOT_ALLOWED', message: '无权访问此文件' });
           return;
@@ -3671,7 +3707,7 @@ const server = http.createServer(async (req, res) => {
       // 验证目标目录
       let safeTargetDir;
       try {
-        safeTargetDir = resolveSafePath(targetDir);
+        safeTargetDir = resolveSafePathForRequest(req, targetDir);
       } catch (e) {
         const code = e && e.message;
         sendJson(res, 403, { ok: false, code: code || 'INVALID_PATH', message: '目标目录无效或不在授权范围内' });

@@ -16,6 +16,7 @@ const SettingsDialog = ({
   wordWrap = true,
   syncPreviewWithEditor = true,
   enableSlashMenuReorder = false,
+  enableFirstScreenLoader = true,
   appLogoConfig = DEFAULT_LOGO_CONFIG,
   showNewWindowButton = true,
   showExportConfigButton = true,
@@ -39,6 +40,7 @@ const SettingsDialog = ({
     // 编辑与预览联动（编辑滚动时预览是否跟随）
     syncPreviewWithEditor,
     enableSlashMenuReorder,
+    enableFirstScreenLoader,
     appLogoConfig: normalizeLogoConfig(appLogoConfig),
     showNewWindowButton,
     showExportConfigButton,
@@ -60,6 +62,7 @@ const SettingsDialog = ({
       wordWrap,
       syncPreviewWithEditor,
       enableSlashMenuReorder,
+      enableFirstScreenLoader,
       appLogoConfig: normalizeLogoConfig(appLogoConfig),
       showNewWindowButton,
       showExportConfigButton,
@@ -75,6 +78,7 @@ const SettingsDialog = ({
     wordWrap,
     syncPreviewWithEditor,
     enableSlashMenuReorder,
+    enableFirstScreenLoader,
     appLogoConfig,
     showNewWindowButton,
     showExportConfigButton,
@@ -150,6 +154,7 @@ const SettingsDialog = ({
       fontFamily: 'JetBrains Mono',
       syncPreviewWithEditor: true,
       enableSlashMenuReorder: false,
+      enableFirstScreenLoader: true,
       appLogoConfig: { ...DEFAULT_LOGO_CONFIG },
       showNewWindowButton: true,
       showExportConfigButton: true,
@@ -493,6 +498,21 @@ const SettingsDialog = ({
                     type="checkbox"
                     checked={settings.enableSlashMenuReorder}
                     onChange={(e) => handleChange('enableSlashMenuReorder', e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div className="setting-item">
+                <div className="setting-label">
+                  <label>启动时显示过渡页</label>
+                  <p className="setting-description">开启后，应用启动时会显示“准备就绪”过渡页</p>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.enableFirstScreenLoader}
+                    onChange={(e) => handleChange('enableFirstScreenLoader', e.target.checked)}
                   />
                   <span className="toggle-slider"></span>
                 </label>

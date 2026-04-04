@@ -4,10 +4,23 @@
     "items": [
       {
         "type": "text",
-        "field": "SETTINGS_SECRET_ALLOWED_CIDRS",
-        "label": "Settings 明文接口允许网段",
-        "initValue": "127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10",
-        "placeholder": "CIDR 列表，逗号或空格分隔",
+        "field": "AUTH_ADMIN_USERNAME",
+        "label": "管理员账号",
+        "initValue": "",
+        "placeholder": "例如：admin",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入管理员账号"
+          }
+        ]
+      },
+      {
+        "type": "password",
+        "field": "AUTH_ADMIN_PASSWORD",
+        "label": "管理员密码",
+        "initValue": "",
+        "placeholder": "留空表示不修改当前密码",
         "rules": [
           {
             "required": false
@@ -16,9 +29,8 @@
       },
       {
         "type": "tips",
-        "helpText": "支持逗号或空格分隔，示例：127.0.0.1/32,::1/128,10.0.0.0/8\n如需多行输入，请用空格或逗号分隔后粘贴即可。留空则默认仅允许本机与内网。"
+        "helpText": "忘记账号密码时，可通过配置向导修改并应用配置，应用重启后立即生效。"
       }
     ]
   }
 ]
-

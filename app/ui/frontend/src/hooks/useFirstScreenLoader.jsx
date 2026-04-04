@@ -115,7 +115,7 @@ export const useSmartFirstScreenLoader = () => {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [enabled])
   
   return { isLoading, loadingMessage }
 }
@@ -124,18 +124,26 @@ export const useSmartFirstScreenLoader = () => {
  * 移动端优化的首屏加载 Hook
  * 等待主应用完全准备好后再隐藏加载动画
  */
-export const useMobileFirstScreenLoader = () => {
+export const useMobileFirstScreenLoader = (enabled = true) => {
   // 立即设置为 true，确保首次渲染就显示加载动画
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(() => !!enabled)
   const [loadingMessage, setLoadingMessage] = useState('正在初始化编辑环境')
   
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false)
+      return undefined
+    }
+
     let mounted = true
     
     const init = async () => {
       try {
         const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-        const minTime = isMobile ? 1200 : 2500 // 桌面端增加到 2.5 秒，确保能看到动画
+        const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+        // 对齐动画时长：描边约 2.5s + 文案淡入延迟 3s（持续 1.5s）
+        // 给缓冲后，确保完整看到主要动画再退出
+        const minTime = prefersReducedMotion ? 1600 : (isMobile ? 4800 : 5600)
         const startTime = Date.now()
         
         // 阶段 1：快速显示加载动画
@@ -189,8 +197,8 @@ export const useMobileFirstScreenLoader = () => {
         
         if (!mounted) return
         
-        // 最后延迟 200ms，让用户看到"准备就绪"
-        await new Promise(resolve => setTimeout(resolve, 200))
+        // 额外缓冲，避免动画刚到尾帧就切走
+        await new Promise(resolve => setTimeout(resolve, 350))
         
         if (!mounted) return
         
@@ -209,7 +217,7 @@ export const useMobileFirstScreenLoader = () => {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [enabled])
   
   return { isLoading, loadingMessage }
 }
