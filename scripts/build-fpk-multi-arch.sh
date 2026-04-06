@@ -44,6 +44,14 @@ map_uname_to_arch() {
   esac
 }
 
+map_arch_to_manifest_platform() {
+  case "${1:-}" in
+    amd64) echo "x86" ;;
+    arm64) echo "arm" ;;
+    *) echo "" ;;
+  esac
+}
+
 has_docker() {
   command -v docker >/dev/null 2>&1
 }
@@ -270,12 +278,16 @@ stage_common_files() {
 build_one_arch() {
   local target_arch="$1"
   local host_arch="$2"
+  local target_platform="$3"
 
   local stage_dir
   stage_dir="$(mktemp -d "/tmp/md2-multi-pack-${target_arch}.XXXXXX")"
 
   log "staging for ${target_arch} in ${stage_dir}"
   stage_common_files "$stage_dir"
+
+  log "setting stage manifest platform=${target_platform} for ${target_arch}"
+  sed -i "s/^platform=.*/platform=${target_platform}/" "$stage_dir/manifest"
 
   install_server_runtime_deps_for_arch "$stage_dir/app/server" "$target_arch" "$host_arch"
 
@@ -390,7 +402,10 @@ main() {
   build_frontend_dist_once
 
   for t in "${TARGETS[@]}"; do
-    build_one_arch "$t" "$host_arch"
+    local target_platform
+    target_platform="$(map_arch_to_manifest_platform "$t")"
+    [ -n "$target_platform" ] || { err "unsupported target arch: $t"; exit 1; }
+    build_one_arch "$t" "$host_arch" "$target_platform"
   done
 
   log "all done"

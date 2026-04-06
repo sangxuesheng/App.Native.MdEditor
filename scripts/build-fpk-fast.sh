@@ -80,6 +80,9 @@ mkdir -p "$STAGE_DIR/app/ui/frontend" "$STAGE_DIR/app/ui" "$STAGE_DIR/app"
 cp -a "$ROOT_DIR/manifest" "$ROOT_DIR/ICON.PNG" "$ROOT_DIR/ICON_256.PNG" "$STAGE_DIR/"
 cp -a "$ROOT_DIR/cmd" "$ROOT_DIR/config" "$ROOT_DIR/wizard" "$STAGE_DIR/"
 
+# Fast pack is for amd64, force manifest platform to x86
+sed -i 's/^platform=.*/platform=x86/' "$STAGE_DIR/manifest"
+
 # Runtime app directories
 [ -d "$ROOT_DIR/app/shares" ] && cp -a "$ROOT_DIR/app/shares" "$STAGE_DIR/app/"
 [ -d "$ROOT_DIR/app/var" ] && cp -a "$ROOT_DIR/app/var" "$STAGE_DIR/app/"
