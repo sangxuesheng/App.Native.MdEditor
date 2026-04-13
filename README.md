@@ -124,6 +124,47 @@
 - npm
 - fnOS 开发环境（或 Docker）
 
+### 关键架构（文档速览）
+
+#### 1) 运行入口与端口来源
+
+- 应用启动入口：`cmd/main`，实际启动后端为 `node app/server/server.js`
+- 运行端口优先级（部署时）：
+  1. `wizard_port`
+  2. `TRIM_SERVICE_PORT`
+  3. `18080`（默认）
+- 运行端口会写入：`$TRIM_PKGVAR/service_port`（`cmd/install_callback`）
+- 后端提供 `GET /api/service-port` 返回当前监听端口（供前端“新窗口打开/发布”场景使用）
+
+#### 2) 同源访问（proxy.cgi）机制
+
+- 代理入口：`app/ui/proxy.cgi`
+- 在 fnOS 桌面 iframe 场景中，请求路径形如：
+  `/cgi/ThirdParty/<app>/proxy.cgi/<path>?<query>`
+- `proxy.cgi` 会把请求转发到：
+  `http://127.0.0.1:<resolved_port>/<path>?<query>`
+- 端口解析优先级：
+  1. query 参数 `service_port`
+  2. `TRIM_SERVICE_PORT`
+  3. `PORT`
+  4. `/var/apps/<app>/var/service_port`
+  5. `/var/apps/<app>/config` 中 `service_port`
+  6. `18080`
+- 前端在 `proxy.cgi` 模式下会自动重写 `/api`、`/health`、`/images`、`/math-svg` 到同源代理路径（见 `app/ui/frontend/src/main.jsx`）
+
+#### 3) 登录鉴权（Auth）链路
+
+- 认证接口（后端）：
+  - `POST /api/auth/login`
+  - `POST /api/auth/logout`
+  - `GET /api/auth/me`
+- 会话 Cookie：`md_editor_session`（`HttpOnly` + `SameSite=Lax`，默认 7 天）
+- 默认管理员账号来自：
+  - 用户名：`AUTH_ADMIN_USERNAME`（默认 `admin`）
+  - 密码：`AUTH_ADMIN_PASSWORD`（未设置时回退 `AUTH_DEFAULT_ADMIN_PASSWORD`，再回退 `admin123456`）
+- 首次启动或配置变更会自动确保管理员账号存在（见 `app/server/authService.js` 的 `ensureDefaultAdmin`）
+- 鉴权中间件开关：`ENABLE_AUTH=true` 时，除白名单接口外所有 `/api/*` 需要登录态
+
 ### 前端开发
 
 ```bash
@@ -132,6 +173,21 @@ cd app/ui/frontend
 npm install
 npm run dev
 ```
+
+默认开发地址：`http://localhost:3000`
+
+> 注意：Vite 已固定 `strictPort=true`，端口 3000 被占用会直接失败（不会自动切换）。
+
+### 后端本地开发（与前端联调）
+
+`vite.config.js` 默认将 `/api` 代理到 `http://127.0.0.1:18080`，建议联调时显式使用 18080 启动后端：
+
+```bash
+export PATH=/var/apps/nodejs_v22/target/bin:$PATH
+PORT=18080 node app/server/server.js
+```
+
+若直接 `node app/server/server.js` 且未设置 `PORT`，后端默认端口是 `18089`，会导致前端代理请求失败。
 
 ### 构建打包
 
@@ -161,6 +217,13 @@ bash build-fpk-multi-arch.sh amd64 arm64
 
 产物会按架构命名，例如：`App.Native.MdEditor2-<version>-amd64.fpk`、`App.Native.MdEditor2-<version>-arm64.fpk`。
 
+脚本行为说明（与实现一致）：
+
+- 会为目标架构重建 `better-sqlite3` 原生模块（必要，否则跨架构安装后后端可能无法启动）
+- 交叉构建依赖 Docker + binfmt（脚本会自动尝试准备）
+- 会将 `manifest` 的 `platform` 按目标架构改写（`amd64 -> x86`、`arm64 -> arm`）
+- 默认“安全裁剪”；`--aggressive` 会删除 `mathjax/@mathjax`，可能影响公式渲染能力
+
 ### Docker（可选）
 
 ```bash
@@ -186,6 +249,40 @@ docker run -d --rm --name mdeditor2 -p 18080:18080 \
 - [CHANGELOG.md](./CHANGELOG.md) - 版本更新历史
 - [manifest](./manifest) - 应用元信息（版本、端口、依赖）
 
+## 接口与运维速查
+
+### 常用后端接口（节选）
+
+- 健康检查：`GET /health`
+- 运行端口：`GET /api/service-port`
+- 鉴权：
+  - `POST /api/auth/login`
+  - `POST /api/auth/logout`
+  - `GET /api/auth/me`
+- 文件：
+  - `GET /api/files?path=/abs/path/or/`
+  - `GET /api/file?path=/abs/path&mode=text|binary|hex`
+  - `POST /api/file`（保存）
+  - `GET /api/file/office/extract?path=...&format=docx|xlsx`
+
+### 常见问题与排障
+
+1. **前端能打开但接口全是 502/连接失败**
+   - 先确认后端端口是否与 Vite 代理一致（默认 18080）
+   - 检查：`GET /api/service-port` 与实际启动端口是否一致
+
+2. **fnOS 桌面内打开正常，点击“新窗口打开”端口错误**
+   - 确认 `cmd/install_callback` 已写入 `${TRIM_PKGVAR}/service_port`
+   - 确认 `proxy.cgi` 可读到正确端口（query / 环境变量 / var 文件）
+
+3. **安装后提示未授权目录或无权限读取**
+   - 检查授权根目录配置（`TRIM_DATA_ACCESSIBLE_PATHS` / `TRIM_DATA_SHARE_PATHS`）
+   - 检查安装回调对 `shares` 的权限修复是否成功（`cmd/install_callback`）
+
+4. **忘记管理员账号或密码**
+   - 在应用配置向导中修改 `AUTH_ADMIN_USERNAME` / `AUTH_ADMIN_PASSWORD`
+   - 应用重启后生效（登录页也有同样提示）
+
 ## 反馈与贡献
 
 欢迎提交 Pull Request 和 Issue。
@@ -199,6 +296,6 @@ MIT License
 
 ---
 
-最后更新：`2026-04-04`（v1.30.0）  
+最后更新：`2026-04-13`（文档更新）  
 维护者：听闻  
 项目地址：[GitHub](https://github.com/sangxuesheng/App.Native.MdEditor)
