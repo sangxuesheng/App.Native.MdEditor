@@ -27,7 +27,30 @@ npm install
 npm run dev
 ```
 
-访问 http://localhost:3000
+访问 `http://localhost:3000`（`vite.config.js` 开启了 `strictPort: true`，3000 被占用会直接报错而不是自动换端口）。
+
+## 开发代理与同源行为
+
+本地开发时，Vite 默认代理：
+
+- `/api` -> `http://127.0.0.1:18080`
+- `/health`、`/images`、`/math-svg` -> `http://127.0.0.1:18008`
+
+生产/安装环境中，应用桌面入口走 `proxy.cgi` 同源路径（`/cgi/ThirdParty/<app>/proxy.cgi/`）。  
+前端在该路径下会自动改写根路径请求，避免跨域与端口漂移导致的问题。会被改写的前缀：
+
+- `/api`
+- `/health`
+- `/images`
+- `/math-svg`
+
+调试时可在浏览器 Console 查看：
+
+```js
+window.__APP_PROXY_BASE_PATH__
+```
+
+若返回值不是 `'/'`，说明当前处于 `proxy.cgi` 模式。
 
 ## 构建生产版本
 
@@ -84,6 +107,40 @@ Content-Type: application/json
   "content": "markdown content"
 }
 ```
+
+### 鉴权接口（前端启动阶段会调用）
+
+```
+GET  /api/auth/me
+POST /api/auth/login
+POST /api/auth/logout
+```
+
+前端启动流程由 `src/components/auth/AuthBootstrap.jsx` 驱动：
+
+1. 先请求 `/api/auth/me`
+2. 若返回 401，显示登录页
+3. 登录成功后进入主应用
+4. 若返回 404，按“未启用认证”兼容处理，直接进入主应用
+
+## 联调与排障
+
+### 1) 启动后页面空白 / 接口 404
+
+- 确认后端服务是否启动并监听 `18080`
+- 确认 Vite 代理目标与后端端口一致
+- 在 `proxy.cgi` 场景下，检查地址是否包含 `/proxy.cgi/`
+
+### 2) 登录页循环出现（已登录仍回到登录页）
+
+- 检查浏览器是否接受并回传 Cookie（`md_editor_session`）
+- 检查后端是否开启了 `ENABLE_AUTH=true`
+- 使用 `scripts/test-auth-flow.sh` 验证登录/登出链路是否正常
+
+### 3) “新窗口打开”端口不正确
+
+- 前端会请求 `/api/service-port` 并缓存到 `localStorage.md-editor-service-port`
+- 清理该键后重试，可验证是否是历史缓存导致的跳转异常
 
 ## 部署说明
 

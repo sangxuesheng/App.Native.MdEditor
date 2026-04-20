@@ -4,8 +4,8 @@
 
 ## 项目状态
 
-- 当前版本：`v1.30.0`
-- 发布日期：`2026-04-04`
+- 当前 manifest 版本：`v1.30.1`
+- 最近发布版本：`v1.30.0`（2026-04-04）
 - 开发阶段：稳定版本（桌面端/移动端可用）
 
 ## 核心能力
@@ -161,6 +161,75 @@ bash build-fpk-multi-arch.sh amd64 arm64
 
 产物会按架构命名，例如：`App.Native.MdEditor2-<version>-amd64.fpk`、`App.Native.MdEditor2-<version>-arm64.fpk`。
 
+#### 多架构打包约束与检查
+
+- 脚本会在临时 staging 目录内按目标架构改写 `manifest` 的 `platform`（`amd64 -> x86`，`arm64 -> arm`）
+- 服务端依赖（含 `better-sqlite3`）会按目标架构重建，避免安装后出现 native 模块不匹配
+- 默认使用“安全裁剪（safe）”，仅清理非运行时目录；`--aggressive` 会额外移除 `mathjax/@mathjax`，可能影响公式能力
+- 可用以下命令快速验证产物命名与架构是否齐全：
+
+```bash
+ls -lh App.Native.MdEditor2-*.fpk
+```
+
+## 鉴权与同源访问（运维/联调）
+
+### 认证模型（Auth）
+
+- 认证接口：
+  - `POST /api/auth/login`
+  - `POST /api/auth/logout`
+  - `GET /api/auth/me`
+- 会话 Cookie：`md_editor_session`（`HttpOnly`、`SameSite=Lax`、默认有效期 7 天）
+- 默认管理员：`admin / admin123456`（可在安装向导中修改，字段为 `AUTH_ADMIN_USERNAME`、`AUTH_ADMIN_PASSWORD`）
+- 后端 API 强制鉴权开关：`ENABLE_AUTH=true`
+  - 开启后，`/api/*`（白名单除外）会走后端 `requireAuth`
+  - 白名单：`/api/auth/login`、`/api/auth/logout`、`/api/auth/me`、`/api/service-port`
+
+快速自检（以本机 18080 为例）：
+
+```bash
+# 未登录应返回 401
+curl -i http://127.0.0.1:18080/api/auth/me
+
+# 登录（成功后响应头包含 Set-Cookie）
+curl -i -X POST http://127.0.0.1:18080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123456"}'
+```
+
+完整联调脚本：`scripts/test-auth-flow.sh`
+
+### 同源代理（proxy.cgi）
+
+- 飞牛桌面入口默认走：`/cgi/ThirdParty/App.Native.MdEditor2/proxy.cgi/`
+- `proxy.cgi` 会将请求转发到 `127.0.0.1:<service_port>`
+- 端口解析优先级（从高到低）：
+  1. URL 参数 `service_port`
+  2. 环境变量 `TRIM_SERVICE_PORT`
+  3. 环境变量 `PORT`
+  4. `/var/apps/<app_id>/var/service_port`
+  5. `/var/apps/<app_id>/config` 中的 `service_port`
+  6. 默认 `18080`
+- 前端在 `proxy.cgi` 路径下会自动改写以下根路径请求到同源代理基路径：
+  - `/api`
+  - `/health`
+  - `/images`
+  - `/math-svg`
+- 前端会通过 `GET /api/service-port` 读取运行端口，并缓存到 `localStorage.md-editor-service-port` 供“新窗口打开”链路使用
+
+### 常见问题排查
+
+- **登录接口 401/“用户名或密码错误”**
+  - 检查安装向导配置项 `AUTH_ADMIN_USERNAME` / `AUTH_ADMIN_PASSWORD`
+  - 重新应用配置后观察后端日志（`app/var/md-editor.log` 或安装环境对应日志）
+- **`proxy.cgi` 返回 502**
+  - 检查实际监听端口与 `service_port` 是否一致
+  - 确认 `cmd/install_callback` 已写入 `${TRIM_PKGVAR}/service_port`
+- **代理路径下静态资源 404**
+  - 确认使用最新构建产物（`app/ui/frontend/dist`）
+  - 确认打包脚本已将 `app/ui/proxy.cgi` 入包（`build-fpk-fast.sh` / `build-fpk-multi-arch.sh`）
+
 ### Docker（可选）
 
 ```bash
@@ -199,6 +268,6 @@ MIT License
 
 ---
 
-最后更新：`2026-04-04`（v1.30.0）  
+最后更新：`2026-04-20`（文档同步）  
 维护者：听闻  
 项目地址：[GitHub](https://github.com/sangxuesheng/App.Native.MdEditor)
