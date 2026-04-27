@@ -4,8 +4,8 @@
 
 ## 项目状态
 
-- 当前版本：`v1.30.0`
-- 发布日期：`2026-04-04`
+- 当前版本：`v1.30.1`
+- 发布日期：`2026-04-06`
 - 开发阶段：稳定版本（桌面端/移动端可用）
 
 ## 核心能力
@@ -72,6 +72,10 @@
 
 完整条目见 [CHANGELOG.md](./CHANGELOG.md)（开发日志）。
 
+### v1.30.1 (2026-04-06)
+
+- 多架构打包时按目标架构写入 `manifest` 的 `platform` 字段，避免 amd64/arm64 产物元信息混用
+
 ### v1.30.0 (2026-04-04)
 
 - 修复 AI 对话在“翻译成英文 + 引用全文”场景下，回复完成后被主题 CSS 规范化逻辑误覆盖的问题
@@ -108,6 +112,33 @@
 1. 下载 `App.Native.MdEditor2.fpk`
 2. 在飞牛 NAS 应用中心上传安装
 3. 启动应用并访问
+
+### 登录与 API 鉴权
+
+- 默认管理员账号来自 `manifest`：用户名 `admin`，密码 `admin123456`
+- 后端认证接口位于 `/api/auth/*`，会话 Cookie 名称为 `md_editor_session`，有效期 7 天
+- 可通过环境变量覆盖管理员账号：`AUTH_ADMIN_USERNAME`、`AUTH_ADMIN_PASSWORD`；兼容默认密码变量 `AUTH_DEFAULT_ADMIN_PASSWORD`
+- 登录页启动探测会调用 `/api/auth/me`；当 `ENABLE_AUTH=true` 时，除 `/api/auth/login`、`/api/auth/logout`、`/api/auth/me`、`/api/service-port` 外的 `/api/*` 请求都需要登录会话
+- 可运行 `scripts/test-auth-flow.sh` 验证登录、读写文件与退出流程；脚本支持通过 `BASE_URL`、`USERNAME`、`PASSWORD`、`TEST_FILE_PATH` 覆盖测试参数
+
+### 同源访问入口（proxy.cgi）
+
+飞牛桌面 iframe 场景下推荐使用同源入口，避免跨域、Cookie 与主题适配问题：
+
+```text
+/cgi/ThirdParty/App.Native.MdEditor2/proxy.cgi/
+```
+
+`app/ui/proxy.cgi` 会把该路径后的请求转发到 `http://127.0.0.1:<port>/`。端口解析顺序为：
+
+1. 查询参数 `service_port`
+2. 环境变量 `TRIM_SERVICE_PORT`
+3. 环境变量 `PORT`
+4. `/var/apps/<app_id>/var/service_port`
+5. `/var/apps/<app_id>/config` 中的 `service_port`
+6. 默认 `18080`
+
+前端在 `proxy.cgi` 路径下会自动把 `/api`、`/health`、`/images`、`/math-svg` 请求改写到同源代理路径；如果静态资源或接口 404，优先检查代理路径是否保留了 `proxy.cgi/` 后缀以及实际监听端口是否写入上述位置。
 
 ### 快速开始
 
@@ -184,6 +215,7 @@ docker run -d --rm --name mdeditor2 -p 18080:18080 \
 ## 文档
 
 - [CHANGELOG.md](./CHANGELOG.md) - 版本更新历史
+- [app/ui/frontend/README.md](./app/ui/frontend/README.md) - 前端开发、API 概览与本地调试说明
 - [manifest](./manifest) - 应用元信息（版本、端口、依赖）
 
 ## 反馈与贡献
@@ -199,6 +231,6 @@ MIT License
 
 ---
 
-最后更新：`2026-04-04`（v1.30.0）  
+最后更新：`2026-04-27`（v1.30.1）
 维护者：听闻  
 项目地址：[GitHub](https://github.com/sangxuesheng/App.Native.MdEditor)
